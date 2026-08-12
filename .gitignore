@@ -1,0 +1,70 @@
+# SPDX-FileCopyrightText: 2026 pypsa-meets-brazil contributors
+# SPDX-License-Identifier: MIT
+
+# --- workflow artifacts -------------------------------------------------
+# Intermediate data is regenerable and often multi-GB. Provenance records are
+# NOT — they are how we know which upstream vintage produced a result.
+resources/*
+!resources/_provenance/
+
+results/
+logs/
+cutouts/
+benchmarks/
+.snakemake/
+
+# Raw downloads land under data/ only when small + static; caches do not.
+data/cache/
+data/raw/
+
+# --- large binary formats (never commit) --------------------------------
+*.nc
+*.nc4
+*.h5
+*.hdf5
+*.grib
+*.tif
+*.tiff
+*.gdb/
+*.zip
+*.7z
+*.gz
+*.tar
+!test/fixtures/**/*.zip
+
+# --- environments -------------------------------------------------------
+.pixi/
+.venv/
+venv/
+env/
+*.egg-info/
+__pycache__/
+*.py[cod]
+
+# --- Julia --------------------------------------------------------------
+julia/Manifest.toml
+julia/**/*.jl.cov
+julia/**/*.jl.mem
+
+# --- tooling ------------------------------------------------------------
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+.ipynb_checkpoints/
+
+# --- secrets ------------------------------------------------------------
+# CDS/Copernicus and any solver licences. Never commit these.
+.cdsapirc
+.env
+*.lic
+gurobi.lic
+
+# --- editors / OS -------------------------------------------------------
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini

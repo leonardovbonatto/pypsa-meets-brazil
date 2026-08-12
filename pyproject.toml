@@ -1,0 +1,49 @@
+# SPDX-FileCopyrightText: 2026 pypsa-meets-brazil contributors
+# SPDX-License-Identifier: MIT
+
+[project]
+name = "pypsa-meets-brazil"
+version = "0.0.0"
+description = "Open nodal model of the Brazilian National Interconnected System (SIN) in PyPSA"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = ["julia", "resources", "results"]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "UP",   # pyupgrade
+    "B",    # flake8-bugbear
+    "C4",   # comprehensions
+    "PTH",  # use pathlib
+    "RUF",  # ruff-specific
+]
+ignore = [
+    "E501",  # line length handled by the formatter
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Snakemake injects `snakemake` into script globals; scripts legitimately use it undefined.
+"scripts/*.py" = ["F821"]
+"test/*.py" = ["B011"]
+
+[tool.pytest.ini_options]
+testpaths = ["test"]
+addopts = "-ra --strict-markers"
+markers = [
+    "slow: takes more than a few seconds",
+    "needs_network: requires internet access (never run in CI)",
+]
+
+[tool.mypy]
+python_version = "3.12"
+ignore_missing_imports = true
+warn_unused_ignores = true
