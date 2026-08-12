@@ -28,5 +28,15 @@ code without touching this file, unless it carries the `no-changelog` label.
 - `docs/PRIMER.md` — technical primer covering power system fundamentals, the
   Brazilian sector, optimization and SDDP, the software stack, engineering practice,
   and how to review agent-authored work.
+- `pixi.toml` environment pinned to Python 3.12, with `default` and `dev`
+  environments and workflow tasks (`dry`, `smoke`, `test`, `lint`) (PR-02).
+- Snakemake workflow skeleton: `Snakefile`, `rules/common.smk` and the
+  `write_run_manifest` rule emitting the ADR-0001 §4 run manifest (PR-02).
+- Default and smoke configurations under `config/` (PR-02).
+- GitHub Actions `lint` and `test` workflows; `test` runs unit tests, resolves the
+  DAG, executes the smoke workflow and validates the manifest (PR-02).
+- `REUSE.toml` covering generated and format-constrained files (PR-02).
+- `docs/handoffs/PR-02-workflow-skeleton.md` recording seven environment gotchas
+  found while getting the workflow to run (PR-02).
 
 [Unreleased]: https://github.com/leonardovbonatto/pypsa-meets-brazil/commits/main

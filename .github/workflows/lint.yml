@@ -1,0 +1,49 @@
+# SPDX-FileCopyrightText: 2026 pypsa-meets-brazil contributors
+# SPDX-License-Identifier: MIT
+
+name: lint
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# A newer push supersedes an in-flight run; do not burn minutes on stale commits.
+concurrency:
+  group: lint-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pre-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # commitizen needs history to inspect the commits in the range.
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: pre-commit/action@v3.0.1
+
+  commit-messages:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: pip install commitizen
+
+      # Conventional Commits across the PR range only — the hook covers local
+      # commits, this catches anything pushed without hooks installed.
+      - name: Check commit messages
+        run: |
+          cz check --rev-range ${{ github.event.pull_request.base.sha }}..HEAD

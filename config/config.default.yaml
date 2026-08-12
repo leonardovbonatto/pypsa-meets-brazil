@@ -1,0 +1,43 @@
+# SPDX-FileCopyrightText: 2026 pypsa-meets-brazil contributors
+# SPDX-License-Identifier: MIT
+#
+# Default configuration. Tier-specific files (config.t0.yaml … config.t3.yaml)
+# override selectively; nothing is duplicated wholesale.
+#
+# Every key here feeds the config hash in the run manifest, so a change to any
+# value produces a distinguishable run. Keep it meaningful — do not park
+# scratch values in this file.
+
+# Spatial resolution. t0 = 4 subsystems, t1 = 27 states,
+# t2 = clustered nodal, t3 = full nodal >=230 kV.
+tier: t0
+
+# Optional human label for a run. When unset, results land in
+# results/<tier>-<config-hash-prefix>/.
+run_name: null
+
+snapshots:
+  start: "2024-01-01"
+  end: "2024-12-31"
+  # Pandas offset alias. Hourly matches ONS published resolution for most series.
+  resolution: "1h"
+
+# Brazilian subsystems. Names follow ONS conventions; these boundaries are
+# preserved as hard constraints during clustering (see the roadmap, Epic 6).
+subsystems:
+  - SE_CO
+  - S
+  - NE
+  - N
+
+solver:
+  # HiGHS is open source and adequate through t2. Nodal unit commitment will
+  # realistically need Gurobi or COPT — a switch here, not a rewrite.
+  name: highs
+  options:
+    threads: 4
+
+paths:
+  resources: resources
+  results: results
+  provenance: resources/_provenance

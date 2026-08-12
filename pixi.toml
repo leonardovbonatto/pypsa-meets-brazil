@@ -1,0 +1,41 @@
+# SPDX-FileCopyrightText: 2026 pypsa-meets-brazil contributors
+# SPDX-License-Identifier: MIT
+#
+# Environment definition. `pixi install` reproduces it exactly from pixi.lock.
+# Domain libraries (pypsa, atlite, geopandas, …) are added in the PR that first
+# needs them — keeping this lean keeps CI and fresh clones fast.
+
+[workspace]
+name = "pypsa-meets-brazil"
+version = "0.0.0"
+description = "Open nodal model of the Brazilian National Interconnected System (SIN) in PyPSA"
+authors = ["pypsa-meets-brazil contributors"]
+# bioconda is required: snakemake is published there, not on conda-forge.
+# conda-forge stays first so it wins for everything else.
+channels = ["conda-forge", "bioconda"]
+platforms = ["linux-64"]
+
+[dependencies]
+python = "3.12.*"
+snakemake-minimal = ">=8.20"
+pyyaml = ">=6.0"
+pandas = ">=2.2"
+numpy = ">=1.26"
+
+[feature.dev.dependencies]
+pytest = ">=8.0"
+ruff = ">=0.9"
+pre-commit = ">=4.0"
+
+[environments]
+default = { features = [], solve-group = "main" }
+dev = { features = ["dev"], solve-group = "main" }
+
+[tasks]
+# Resolve the DAG without executing anything — the cheapest sanity check we have.
+dry = "snakemake -n"
+smoke = "snakemake -j4 --configfile config/test/config.smoke.yaml"
+
+[feature.dev.tasks]
+test = "pytest"
+lint = "pre-commit run --all-files"

@@ -12,7 +12,9 @@ license = { text = "MIT" }
 [tool.ruff]
 line-length = 100
 target-version = "py312"
-extend-exclude = ["julia", "resources", "results"]
+# Recent ruff formats Python code blocks embedded in Markdown. Documentation
+# examples are written to be read, not to satisfy a formatter — keep it out.
+extend-exclude = ["julia", "resources", "results", "*.md"]
 
 [tool.ruff.lint]
 select = [

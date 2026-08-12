@@ -1,0 +1,51 @@
+# SPDX-FileCopyrightText: 2026 pypsa-meets-brazil contributors
+# SPDX-License-Identifier: MIT
+
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: prefix-dev/setup-pixi@v0.8.3
+        with:
+          environments: dev
+          cache: true
+
+      # Unit tests run against committed fixtures only. CI never downloads real
+      # ONS/ANEEL/EPE data: no credentials, no flakiness, no multi-GB pulls.
+      - name: Unit tests
+        run: pixi run -e dev pytest -ra
+
+      # Resolving the DAG catches malformed rules and broken wildcards without
+      # executing anything — the cheapest meaningful check in the pipeline.
+      - name: Workflow DAG resolves
+        run: pixi run -e dev snakemake -n
+
+      - name: Smoke workflow
+        run: pixi run -e dev snakemake -j2 --configfile config/test/config.smoke.yaml
+
+      - name: Manifest is well formed
+        run: |
+          python - <<'PY'
+          import json, pathlib, sys
+          p = pathlib.Path("results/smoke/manifest.json")
+          if not p.exists():
+              sys.exit("smoke run produced no manifest")
+          m = json.loads(p.read_text())
+          missing = {"run_id", "config_hash", "git", "environment", "inputs"} - set(m)
+          if missing:
+              sys.exit(f"manifest missing keys: {sorted(missing)}")
+          print(f"manifest ok: run_id={m['run_id']} config_hash={m['config_hash'][:8]}")
+          PY

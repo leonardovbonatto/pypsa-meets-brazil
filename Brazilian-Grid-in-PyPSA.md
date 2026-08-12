@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: 2026 pypsa-meets-brazil contributors
+SPDX-License-Identifier: CC-BY-4.0
+-->
+
 # Mapping the Brazilian Grid in PyPSA — Feasibility Assessment & Roadmap
 
 *Assessment date: 12 Aug 2026. Scope: nodal + reduced PyPSA models of the SIN, open data inventory, stochastic hydro optimization, distribution/DG coupling.*

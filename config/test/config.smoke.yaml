@@ -1,0 +1,35 @@
+# SPDX-FileCopyrightText: 2026 pypsa-meets-brazil contributors
+# SPDX-License-Identifier: MIT
+#
+# Smoke configuration: the whole workflow over 72 hours on committed fixtures.
+#
+# This is the canary. It proves the pipeline runs end to end; it proves nothing
+# about whether the model is *correct* — that is what validation against
+# observed ONS series is for (see PRIMER §6.3). If this breaks, fix it before
+# anything else.
+#
+# It must never require network access or credentials: CI runs it on every PR.
+
+tier: t0
+run_name: smoke
+
+snapshots:
+  start: "2024-01-01"
+  end: "2024-01-03"
+  resolution: "1h"
+
+subsystems:
+  - SE_CO
+  - S
+  - NE
+  - N
+
+solver:
+  name: highs
+  options:
+    threads: 1
+
+paths:
+  resources: resources
+  results: results
+  provenance: resources/_provenance
