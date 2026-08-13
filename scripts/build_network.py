@@ -6,14 +6,15 @@ demand series (PR-05) attached as time-varying loads, the aggregated
 generator capacity (PR-08) attached as one Generator per (subsystem,
 technology), a `marginal_cost` on every generator (PR-10) - CVU-derived for
 thermal, an explicit documented default for everything else - inter-
-subsystem transfer `Link`s per ADR-0006 (PR-13), and a load-shedding slack
-generator per bus (PR-11) as the last-resort backstop for whatever the
-transfer links still can't cover.
+subsystem transfer `Link`s per ADR-0006 (PR-13), a real hourly wind/solar
+`p_max_pu` availability profile (PR-15), and a load-shedding slack generator
+per bus (PR-11) as the last-resort backstop for whatever the transfer links
+still can't cover.
 
 Still no real transmission physics (Links are a transport model, not DC-OPF,
-per ADR-0006) and no availability profile: see docs/handoffs/PR-13-*.md for
-exactly what is and isn't here yet, and why the marginal costs and the
-load-shedding usage are both a real simplification worth reading before
+per ADR-0006): see docs/handoffs/PR-15-*.md for exactly what is and isn't
+here yet, and why the marginal costs, the availability gaps and the
+load-shedding usage are all a real simplification worth reading before
 trusting a dispatch result.
 """
 
@@ -137,6 +138,37 @@ def attach_links(n: pypsa.Network, links: pd.DataFrame) -> pypsa.Network:
     return n
 
 
+def load_availability(path: Path) -> pd.DataFrame:
+    return pd.read_csv(path, parse_dates=["snapshot"])
+
+
+def attach_availability(n: pypsa.Network, availability: pd.DataFrame) -> pypsa.Network:
+    """
+    Set `p_max_pu` on whichever (subsystem, technology) generators have real
+    hourly capacity-factor data (PR-14/PR-15).
+
+    Anything absent from `availability` keeps PyPSA's own default of 1.0 -
+    currently only `SE_CO wind` (~0.3% of SE_CO's installed capacity, see
+    docs/handoffs/PR-14-*.md), an explicit documented gap rather than a
+    silent one. Mutates `n` in place and returns it for convenience.
+    """
+    named = availability.assign(name=availability["subsystem"] + " " + availability["carrier"])
+
+    unknown = set(named["name"]) - set(n.generators.index)
+    if unknown:
+        raise ValueError(f"availability row(s) have no matching generator: {sorted(unknown)}")
+
+    wide = named.pivot(index="snapshot", columns="name", values="p_max_pu").sort_index()
+    wide = wide.reindex(n.snapshots)
+    if wide.isna().any().any():
+        raise ValueError("availability series has gaps after aligning to network snapshots")
+
+    for name in wide.columns:
+        n.generators_t.p_max_pu[name] = wide[name]
+
+    return n
+
+
 def load_costs(path: Path) -> pd.DataFrame:
     return pd.read_csv(path)
 
@@ -236,6 +268,9 @@ def main() -> None:
 
     links = load_links(Path(snake.input.links))
     attach_links(n, links)
+
+    availability = load_availability(Path(snake.input.availability))
+    attach_availability(n, availability)
 
     costs = load_costs(Path(snake.input.costs))
     attach_marginal_costs(n, costs)

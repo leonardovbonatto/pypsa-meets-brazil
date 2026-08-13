@@ -3,15 +3,18 @@
 """
 Solve the T0 network and write a dispatch summary.
 
-This is the first script in the project that calls `n.optimize()`. A clean
-"optimal" status is necessary but not sufficient for the result to mean
-anything: the T0 network has no transmission lines and no availability
-profiles (see docs/handoffs/PR-11-*.md), so a technically successful solve
-can still be a physically wrong one. `summarize_dispatch()` computes
-load-shedding per bus specifically because it is the one number in this
-network that directly measures the no-lines gap - see
-`build_network.attach_load_shedding()` - and `KNOWN_LIMITATIONS` is written
-into the summary itself so a result can never be read without it.
+A clean "optimal" status is necessary but not sufficient for the result to
+mean anything - the T0 network still carries real simplifications (see
+`KNOWN_LIMITATIONS`, and docs/handoffs/PR-15-*.md), so a technically
+successful solve can still be a physically wrong one.
+`summarize_dispatch()` computes load-shedding per bus because it is the one
+number that directly measures whether generation and transfer capacity
+actually covered demand - see `build_network.attach_load_shedding()` - and
+`KNOWN_LIMITATIONS` is written into the summary itself so a result can
+never be read without it.
+
+Keep `KNOWN_LIMITATIONS` current as gaps close: a stale caveat that names
+an already-fixed problem is as misleading as a missing one.
 """
 
 # NOTE: no `from __future__ import annotations` - see write_manifest.py.
@@ -25,20 +28,30 @@ import pypsa
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 KNOWN_LIMITATIONS = [
-    "No transmission lines exist yet: each subsystem is solved as an "
-    "electrically isolated bus. This is four independent single-bus "
-    "problems, not a real interconnected dispatch.",
-    "No availability profile (p_max_pu) exists yet for wind, solar or "
-    "hydro: every MW of nameplate capacity is assumed available every "
-    "hour. Real renewable and run-of-river output is materially lower.",
+    "HYDRO IS UNCONSTRAINED AND FREE, and this dominates every result "
+    "below. Hydro has no availability profile (p_max_pu = 1.0 always: "
+    "102,678 MW of nameplate capacity assumed available every hour) and "
+    "marginal_cost = 0. National hydro capacity alone exceeds national "
+    "demand in all 8784 hours of 2024, so the solver covers essentially "
+    "all demand with hydro and dispatches thermal at exactly 0 MW, every "
+    "hour. Real hydro is limited by water availability - an opportunity "
+    "cost that must be computed (PRIMER Sec 4, SDDP.jl), not looked up - "
+    "and until that exists, this model cannot say anything meaningful "
+    "about thermal dispatch, merit order or prices.",
+    "Wind and solar DO have a real hourly availability profile (PR-15, "
+    "from ONS measured capacity factors), so their dispatch is "
+    "physically constrained - but it is economically irrelevant while "
+    "unconstrained free hydro can cover all demand regardless.",
+    "Transmission is a transport model (ADR-0006): Links with a "
+    "transfer-capacity limit derived from historical flows, not real "
+    "DC power flow with impedances. No losses.",
     "Thermal marginal_cost is a single subsystem-wide mean CVU for the "
     "whole year (PR-10), not per-plant or time-varying.",
-    "Hydro, wind, solar and nuclear all carry marginal_cost = 0 "
-    "(NON_THERMAL_MARGINAL_COST) - a stated T0 simplification, not a "
-    "claim that generation is actually free.",
-    "load_shedding generators are an unlimited, high-cost slack added "
-    "only so the network solves despite having no transmission lines - "
-    "their dispatch is diagnostic (see load_shedding_mwh below), not a "
+    "Wind, solar and nuclear carry marginal_cost = 0 "
+    "(NON_THERMAL_MARGINAL_COST). Near-zero is defensible for wind and "
+    "solar; nuclear is a must-run baseload approximation.",
+    "load_shedding generators are an unlimited, high-cost slack whose "
+    "dispatch is diagnostic (see load_shedding_mwh_by_bus below), not a "
     "real unserved-energy estimate.",
 ]
 

@@ -257,6 +257,81 @@ class TestAttachLinks:
         n.consistency_check()  # must not raise
 
 
+@pytest.fixture
+def tidy_availability():
+    # Matches tidy_generators' "S wind" row and tidy_demand's 3 snapshots.
+    snapshots = pd.date_range("2024-01-01", periods=3, freq="1h")
+    return pd.DataFrame(
+        [
+            {"snapshot": snapshots[0], "subsystem": "S", "carrier": "wind", "p_max_pu": 0.1},
+            {"snapshot": snapshots[1], "subsystem": "S", "carrier": "wind", "p_max_pu": 0.5},
+            {"snapshot": snapshots[2], "subsystem": "S", "carrier": "wind", "p_max_pu": 0.9},
+        ]
+    )
+
+
+class TestAttachAvailability:
+    def test_sets_p_max_pu_for_the_covered_generator(
+        self, tidy_demand, tidy_generators, tidy_availability
+    ):
+        n = build_network.build_network(tidy_demand, subsystems=SUBSYSTEMS)
+        build_network.attach_generators(n, tidy_generators)
+        build_network.attach_availability(n, tidy_availability)
+
+        p_max_pu = n.get_switchable_as_dense("Generator", "p_max_pu")["S wind"]
+        assert p_max_pu.tolist() == pytest.approx([0.1, 0.5, 0.9])
+
+    def test_uncovered_generators_keep_the_pypsa_default(
+        self, tidy_demand, tidy_generators, tidy_availability
+    ):
+        """SE_CO hydro has no availability row - must stay at PyPSA's default of 1.0."""
+        n = build_network.build_network(tidy_demand, subsystems=SUBSYSTEMS)
+        build_network.attach_generators(n, tidy_generators)
+        build_network.attach_availability(n, tidy_availability)
+
+        p_max_pu = n.get_switchable_as_dense("Generator", "p_max_pu")["SE_CO hydro"]
+        assert (p_max_pu == 1.0).all()
+
+    def test_raises_when_a_row_has_no_matching_generator(
+        self, tidy_demand, tidy_generators, tidy_availability
+    ):
+        bad = pd.concat(
+            [
+                tidy_availability,
+                pd.DataFrame(
+                    [
+                        {
+                            "snapshot": tidy_demand["snapshot"].iloc[0],
+                            "subsystem": "N",
+                            "carrier": "solar",
+                            "p_max_pu": 0.5,
+                        }
+                    ]
+                ),
+            ],
+            ignore_index=True,
+        )
+        n = build_network.build_network(tidy_demand, subsystems=SUBSYSTEMS)
+        build_network.attach_generators(n, tidy_generators)  # no "N solar" generator
+        with pytest.raises(ValueError, match="no matching generator"):
+            build_network.attach_availability(n, bad)
+
+    def test_raises_on_a_gap_after_aligning_to_snapshots(
+        self, tidy_demand, tidy_generators, tidy_availability
+    ):
+        gappy = tidy_availability.iloc[:-1]  # drop the last snapshot's row
+        n = build_network.build_network(tidy_demand, subsystems=SUBSYSTEMS)
+        build_network.attach_generators(n, tidy_generators)
+        with pytest.raises(ValueError, match="gaps"):
+            build_network.attach_availability(n, gappy)
+
+    def test_passes_consistency_check(self, tidy_demand, tidy_generators, tidy_availability):
+        n = build_network.build_network(tidy_demand, subsystems=SUBSYSTEMS)
+        build_network.attach_generators(n, tidy_generators)
+        build_network.attach_availability(n, tidy_availability)
+        n.consistency_check()  # must not raise
+
+
 class TestAttachLoadShedding:
     def test_adds_one_generator_per_subsystem(self, tidy_demand):
         n = build_network.build_network(tidy_demand, subsystems=SUBSYSTEMS)

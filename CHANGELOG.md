@@ -163,6 +163,17 @@ code without touching this file, unless it carries the `no-changelog` label.
   verified gap: `SE_CO` has zero wind rows in this dataset in every month
   checked, despite having ~261 MW of registered wind capacity (PR-14).
 - `docs/handoffs/PR-14-ons-capacity-factor-connector.md`.
+- `scripts/build_availability.py` and `rules/build.smk::build_availability_t0`:
+  aggregate the real capacity-factor data into an hourly `p_max_pu` per
+  `(subsystem, technology)` — the aggregate fleet capacity factor
+  (sum generation / sum capacity), clipped to `[0, 1]`.
+  `build_network.py::attach_availability()` sets it on the matching
+  generators; anything uncovered (only `SE_CO wind`) keeps PyPSA's 1.0
+  default, explicitly documented rather than silent. Wind's mean dispatch
+  duly falls from 12,655 to 8,855 MW — but thermal dispatch stays at
+  exactly 0 MW, and isolating why produced the more important finding
+  below (PR-15).
+- `docs/handoffs/PR-15-t0-availability-profile.md`.
 
 ### Changed
 
@@ -177,5 +188,17 @@ code without touching this file, unless it carries the `no-changelog` label.
 - `scripts/build_demand.py`'s subsystem mapping moved to the new shared
   `scripts/_ons.py`, since `build_generators.py` needs the identical mapping
   (PR-08).
+- `docs/data-dictionary/ons/fator_capacidade.yaml` regenerated from all 12
+  months of 2024 rather than January alone. A January-only sample had no
+  nulls in `val_latitudesecoletora`, so the derived schema marked it
+  non-nullable and pandera then rejected the real full-year frame (16,848
+  nulls). Generalized lesson recorded in the dictionary's notes: build a
+  dictionary from the same data volume that will be validated against it
+  (PR-15).
+- `scripts/solve_network.py::KNOWN_LIMITATIONS` rewritten: the old entries
+  claimed "no transmission lines" and "no availability profile", both since
+  fixed. It now leads with the real dominant caveat — hydro is unconstrained
+  and free — because a stale caveat naming an already-fixed problem is as
+  misleading as a missing one (PR-15).
 
 [Unreleased]: https://github.com/leonardovbonatto/pypsa-meets-brazil/commits/main

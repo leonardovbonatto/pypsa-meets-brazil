@@ -30,17 +30,19 @@ this document:
 | **PLANNED** | Named in the roadmap. Not yet installed. Does not exist in the repo. |
 
 > **Read this twice.** Some of the famous names in this project — atlite, SDDP.jl,
-> Gurobi — are still **PLANNED**. PyPSA and HiGHS landed (PR-06 through PR-11), and
-> `n.optimize()` genuinely runs and returns `optimal` on the real 2024 T0 network. The
-> four subsystems are now connected (PR-13, transport-model `Link`s, ADR-0006) — but
-> **a clean solve is still not the same claim as a correct dispatch.** There is still
-> no availability profile: every generator assumes 100% uptime, every hour. That gap
-> is not hypothetical — with real transfer capacity between subsystems, national free
-> generation capacity (160 GW) so comfortably exceeds even peak demand (102 GW) that
-> **thermal generation is dispatched at exactly 0 MW, every hour of 2024.** That is a
-> real result of a still-incomplete model, not a claim that Brazil's thermal fleet is
-> unnecessary. `dispatch_summary_t0.json` states the gap explicitly on every run —
-> read it before trusting a number out of it.
+> Gurobi — are still **PLANNED**. PyPSA and HiGHS landed (PR-06 through PR-11),
+> `n.optimize()` genuinely runs and returns `optimal` on the real 2024 T0 network, the
+> four subsystems are connected (PR-13, transport-model `Link`s, ADR-0006), and wind
+> and solar now have real measured hourly availability (PR-15). But **a clean solve is
+> still not the same claim as a correct dispatch**, for one specific, dominant reason:
+> **hydro is still both unconstrained and free.** It has no availability profile
+> (102,678 MW assumed available every hour) and zero marginal cost, and national hydro
+> capacity alone exceeds national demand in **all 8,784 hours of 2024** — so the
+> solver covers essentially everything with hydro and dispatches thermal at exactly
+> 0 MW, every hour. Fixing that is not another data connector; it is the water-value
+> problem (PRIMER §4, SDDP.jl), the hardest part of this project.
+> `dispatch_summary_t0.json` leads with this on every run — read it before trusting a
+> number out of it.
 
 ---
 
@@ -54,10 +56,10 @@ results come out the other. Everything else exists to make that pipeline reprodu
 
 ```mermaid
 flowchart LR
-    A["config.default.yaml"] --> B["fetch rules<br/>curva_carga · capacidade_geracao<br/>cvu_usina_termica · intercambio_nacional"]
+    A["config.default.yaml"] --> B["fetch rules<br/>curva_carga · capacidade_geracao · cvu_usina_termica<br/>intercambio_nacional · fator_capacidade"]
     B --> C["resources/ons/*.csv<br/><i>gitignored</i>"]
     B --> D["resources/_provenance/<br/>*.json<br/><i>committed</i>"]
-    C --> E["build_demand · build_generators<br/>build_costs · build_links"]
+    C --> E["build_demand · build_generators · build_costs<br/>build_links · build_availability"]
     E --> F["resources/*_t0.csv<br/><i>gitignored</i>"]
     F --> J["build_network.py"]
     J --> K["resources/networks/t0.nc<br/><i>gitignored</i>"]
@@ -83,11 +85,11 @@ flowchart LR
         A["Fetch"] --> B["Provenance"]
         B --> C["Data dictionary"]
         C --> D["Tidy tables"]
-        D --> E["PyPSA Network<br/>+ generators + cost + links"]
+        D --> E["PyPSA Network<br/>generators · cost · links<br/>wind/solar availability"]
         E --> S["Solve<br/>HiGHS"]
     end
     subgraph PLANNED["Planned"]
-        F["+ availability profile"] --> G["Validate vs<br/>observed ONS CMO"]
+        F["+ hydro water value<br/>SDDP.jl"] --> G["Validate vs<br/>observed ONS CMO"]
     end
     S --> F
 ```
@@ -377,12 +379,13 @@ them off the solved model. **Not yet meaningful here** — see below.
 
 **What exists today.** `resources/networks/t0.nc` — 4 buses, 8784 hourly snapshots,
 time-varying loads, 15 generators with real capacity and marginal cost, 4
-inter-subsystem `Link`s with a real transfer-capacity proxy (ADR-0006), and a
-load-shedding backstop per bus. `results/<run>/network_t0_solved.nc` is the solved
-result: `n.optimize()` runs and returns `optimal`. Still no availability profile — a
-clean solve is **not** the same claim as a correct dispatch.
-`results/<run>/dispatch_summary_t0.json` carries a `known_limitations` list for
-exactly this reason; read it before trusting a number out of the solve.
+inter-subsystem `Link`s with a real transfer-capacity proxy (ADR-0006), real measured
+hourly `p_max_pu` for wind and solar (PR-15), and a load-shedding backstop per bus.
+`results/<run>/network_t0_solved.nc` is the solved result: `n.optimize()` runs and
+returns `optimal`. **Hydro remains unconstrained and free** — a clean solve is **not**
+the same claim as a correct dispatch. `results/<run>/dispatch_summary_t0.json` carries
+a `known_limitations` list for exactly this reason; read it before trusting a number
+out of the solve.
 
 > A real gotcha: `n.add("Bus", ..., carrier="AC")` does **not** register the carrier
 > itself. `n.consistency_check()` only *warns* about the resulting undefined carrier
@@ -397,17 +400,22 @@ exactly this reason; read it before trusting a number out of the solve.
 > capacity, that made the network genuinely infeasible. Fixed at the time with an
 > always-available, deliberately expensive load-shedding generator per bus.
 
-> A third, after adding real transfer links: national free generation capacity
-> (hydro + wind + solar + nuclear, 160 GW) turns out to comfortably exceed even
-> 2024's peak demand (102 GW) once subsystems can trade power. Result: **thermal
-> generation dispatches at exactly 0 MW, every single hour of the year**, and
-> `objective_rs` in the dispatch summary is exactly `0.0`. Verified directly — not
-> assumed — by checking `n.generators_t.p` for every thermal generator, at every
-> snapshot, including the single peak-demand hour of the whole year (still 0). This
-> is the "no availability profile" limitation actually manifesting as a wrong
-> number, not a hypothetical: real wind/solar/hydro have capacity factors well under
-> 100%, so a model that assumes otherwise will always look artificially
-> renewables-only. This is expected to correct itself once atlite/ERA5 land.
+> A third, found by solving rather than assuming, and refined twice. After adding
+> real transfer links (PR-13): **thermal dispatches at exactly 0 MW, every hour of
+> 2024**, `objective_rs` exactly `0.0`. The obvious hypothesis was "no availability
+> profile" — every generator assumed at 100% uptime. PR-15 added *real measured*
+> hourly availability for wind and solar, which duly cut their dispatch (wind's mean
+> fell from 12,655 to 8,855 MW)… and **thermal stayed at exactly 0.**
+>
+> The real cause, isolated by checking the specific number rather than re-guessing:
+> **national hydro nameplate capacity alone (102,678 MW) exceeds national demand in
+> all 8,784 hours** (peak: 102,086 MW). Hydro has no availability profile — this
+> dataset is wind/solar only — and `marginal_cost = 0`, so free unconstrained hydro
+> covers everything regardless of what wind and solar do. Fixing it is not another
+> connector: hydro's real limit is water availability, an opportunity cost that must
+> be *computed* (PRIMER §4, SDDP.jl). Worth remembering as a case where the first
+> plausible explanation for a wrong number was genuinely wrong, and only a specific
+> capacity-vs-demand comparison settled it.
 
 ### linopy — **BUILT** (used indirectly via PyPSA)
 

@@ -103,19 +103,45 @@ rule build_links_t0:
         "../scripts/build_links.py"
 
 
+rule build_availability_t0:
+    """
+    T0 wind/solar availability profile: one row per (snapshot, subsystem,
+    technology) that has real data, p_max_pu (dimensionless, [0,1]).
+
+    Aggregate fleet capacity factor (sum generation / sum capacity, not a
+    naive mean of the per-plant-group ratio - see build_availability.py) per
+    (subsystem, technology, hour). SE_CO wind has no data in this dataset at
+    all (see docs/handoffs/PR-14-*.md) - deliberately absent here, handled
+    explicitly in build_network.attach_availability().
+    """
+    input:
+        raw=[
+            f"resources/ons/FATOR_CAPACIDADE_2_{year}_{month:02d}.csv"
+            for year, month in snapshot_year_months(config)
+        ],
+        dictionary="docs/data-dictionary/ons/fator_capacidade.yaml",
+    output:
+        "resources/availability_t0.csv",
+    log:
+        "logs/build_availability_t0/run.log",
+    script:
+        "../scripts/build_availability.py"
+
+
 rule build_network_t0:
     """
     T0 network: one bus per subsystem, snapshots from config, the tidy demand
     series attached as time-varying loads, the aggregated generator capacity
     attached as one Generator per (subsystem, technology), a marginal_cost on
-    every generator, inter-subsystem transfer Links (ADR-0006), and a
-    load-shedding backstop generator per bus. No availability profile, no
-    real transmission physics yet - see docs/handoffs/PR-13-*.md.
+    every generator, inter-subsystem transfer Links (ADR-0006), a real hourly
+    wind/solar availability profile, and a load-shedding backstop generator
+    per bus. No real transmission physics yet - see docs/handoffs/PR-15-*.md.
     """
     input:
         demand="resources/demand_t0.csv",
         generators="resources/generators_t0.csv",
         links="resources/links_t0.csv",
+        availability="resources/availability_t0.csv",
         costs="resources/costs_t0.csv",
     output:
         "resources/networks/t0.nc",
@@ -133,5 +159,6 @@ rule build_all:
         "resources/demand_t0.csv",
         "resources/generators_t0.csv",
         "resources/links_t0.csv",
+        "resources/availability_t0.csv",
         "resources/costs_t0.csv",
         "resources/networks/t0.nc",

@@ -1,12 +1,12 @@
 dataset: fator_capacidade
 source: ons
 source_url: https://ons-aws-prod-opendata.s3.amazonaws.com/dataset/fator_capacidade_2_di/FATOR_CAPACIDADE-2_2024_01.csv
-retrieved: '2026-08-13T23:34:00+00:00'
+retrieved: '2026-08-13T23:44:00+00:00'
 format: csv
 encoding: utf-8
 delimiter: ;
 decimal: .
-row_count: 153528
+row_count: 1917720
 schema_hash: sha256:b268ff99db6744fe2540eb9e5b22986c0378832784561b8c0eaafedb2371f143
 columns:
 - name: id_subsistema
@@ -73,7 +73,7 @@ columns:
   dtype: str
   unit: null
   nullable: true
-  null_rate: 0.1354
+  null_rate: 0.1552
   description: Free-text location. ONS documents this as populated only for Northeast
     plants.
   sample:
@@ -83,9 +83,9 @@ columns:
 - name: val_latitudesecoletora
   dtype: float64
   unit: null
-  nullable: false
-  null_rate: 0.0
-  description: Latitude of the plant/group's collector substation.
+  nullable: true
+  null_rate: 0.0088
+  description: Latitude of the plant/group's collector substation. Null for some plant/months.
   sample:
   - -2.727222
   - -14.353933
@@ -93,9 +93,10 @@ columns:
 - name: val_longitudesecoletora
   dtype: float64
   unit: null
-  nullable: false
-  null_rate: 0.0
-  description: Longitude of the plant/group's collector substation.
+  nullable: true
+  null_rate: 0.0088
+  description: Longitude of the plant/group's collector substation. Null for some
+    plant/months.
   sample:
   - -42.596389
   - -42.575842
@@ -104,7 +105,7 @@ columns:
   dtype: float64
   unit: null
   nullable: true
-  null_rate: 0.0145
+  null_rate: 0.016
   description: Latitude of the grid connection point.
   sample:
   - -3.566219
@@ -114,7 +115,7 @@ columns:
   dtype: float64
   unit: null
   nullable: true
-  null_rate: 0.0145
+  null_rate: 0.016
   description: Longitude of the grid connection point.
   sample:
   - -44.535478
@@ -187,7 +188,7 @@ columns:
   dtype: float64
   unit: MWmed
   nullable: true
-  null_rate: 0.0388
+  null_rate: 0.0282
   description: Scheduled generation for the hour.
   sample:
   - 50.0
@@ -196,8 +197,8 @@ columns:
 - name: val_geracaoverificada
   dtype: float64
   unit: MWmed
-  nullable: false
-  null_rate: 0.0
+  nullable: true
+  null_rate: 0.0003
   description: Verified (realized) generation for the hour.
   sample:
   - 2.193
@@ -216,8 +217,8 @@ columns:
 - name: val_fatorcapacidade
   dtype: float64
   unit: dimensionless (fraction of installed capacity)
-  nullable: false
-  null_rate: 0.0
+  nullable: true
+  null_rate: 0.0003
   description: 'Capacity factor: val_geracaoverificada / val_capacidadeinstalada.
     This is exactly what feeds PyPSA''s p_max_pu.'
   sample:
@@ -227,24 +228,34 @@ columns:
 notes:
 - Field meanings are ONS's own, from the dataset's published data dictionary at https://ons-aws-prod-opendata.s3.amazonaws.com/dataset/fator_capacidade_2_di/DicionarioDados_FatorCapacidade.json.
   Unlike capacidade_geracao (PR-07) and intercambio_nacional (PR-12), this dictionary's
-  fields match the real CSV columns exactly - no phantom fields this time.
+  fields match the real CSV columns exactly - no phantom fields.
+- 'Built from ALL TWELVE months of 2024 (not just January) after a real bug: a January-only
+  dictionary marked val_latitudesecoletora as non-nullable (no nulls occurred in January),
+  but the full year has 16,848 null rows in that column across other months - pandera
+  validation of the full-year frame failed against the January-derived schema. Lesson
+  generalized: build a dictionary from the same data volume that will actually be
+  validated against it, not a convenient single-month sample, whenever a dataset is
+  large enough that this could plausibly differ.'
 - 'Large: ~37-40 MB per month, ~150,000+ rows, hourly granularity across 150-200+
-  plant/plant-groups. From 2022 onward files are split by month as well as year (see
-  snapshot_year_months in scripts/_common.py); years 2009-2021 are published one file
-  per year instead.'
+  plant/plant-groups, ~1.8 million rows across all 12 months of 2024. From 2022 onward
+  files are split by month as well as year (see snapshot_year_months in scripts/_common.py);
+  years 2009-2021 are published one file per year instead.'
 - 'val_fatorcapacidade is generation/installed-capacity directly - exactly PyPSA''s
-  p_max_pu definition, no unit conversion needed. But 35 of 153,528 rows in January
-  2024 exceed 1.0 (max observed: ~1.02) - real measurement/rounding noise around the
-  nameplate boundary, not a data error to silently accept. A build step using this
-  for p_max_pu must clip to <= 1.0, since PyPSA''s p_max_pu > 1 would let a generator
+  p_max_pu definition, no unit conversion needed. But a real fraction of rows exceed
+  1.0 (max observed in January alone: ~1.02) - real measurement/rounding noise around
+  the nameplate boundary, not a data error to silently accept. A build step using
+  this for p_max_pu must clip to <= 1.0, since PyPSA''s p_max_pu > 1 would let a generator
   exceed its own p_nom.'
-- No nulls observed in val_geracaoverificada, val_capacidadeinstalada or val_fatorcapacidade.
+- No nulls in val_geracaoverificada, val_capacidadeinstalada or val_fatorcapacidade
+  across the full year - only the geospatial columns (val_latitudesecoletora and its
+  siblings) have real nulls.
 - 'A real, verified gap, not an artifact of one month: the SE subsystem has *zero*
-  EOLICA (wind) rows in both January and July 2024 (checked both directly), even though
-  capacidade_geracao (PR-07) records ~261 MW of wind capacity for SE_CO. That capacity
-  is apparently not tracked by this specific ONS-dispatched-plants dataset. A build
-  step deriving p_max_pu per (subsystem, technology) has no data for SE_CO wind and
-  must document the resulting fallback explicitly rather than silently defaulting.'
+  EOLICA (wind) rows in every month of 2024 checked (January and July both directly
+  verified), even though capacidade_geracao (PR-07) records ~261 MW of wind capacity
+  for SE_CO. That capacity is apparently not tracked by this specific ONS-dispatched-plants
+  dataset. A build step deriving p_max_pu per (subsystem, technology) has no data
+  for SE_CO wind and must document the resulting fallback explicitly rather than silently
+  defaulting.'
 - nom_usina_conjunto / id_ons / ceg use this dataset's own identifiers, which do not
   join cleanly against capacidade_geracao's ANEEL CEG codes or cvu_usina_termica's
   planning-model codes - consistent with the cross-dataset ID mismatch already documented
