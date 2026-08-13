@@ -151,3 +151,60 @@ class TestAttachGenerators:
         n = build_network.build_network(tidy_demand, subsystems=SUBSYSTEMS)
         build_network.attach_generators(n, tidy_generators)
         n.consistency_check()  # must not raise
+
+
+@pytest.fixture
+def tidy_costs():
+    # Must reference generators that actually exist in `tidy_generators`
+    # (SE_CO hydro, SE_CO thermal, S wind) - only SE_CO has a thermal row.
+    return pd.DataFrame(
+        [
+            {"subsystem": "SE_CO", "carrier": "thermal", "marginal_cost": 650.0},
+        ]
+    )
+
+
+class TestAttachMarginalCosts:
+    def test_thermal_generators_get_the_cvu_value(self, tidy_demand, tidy_generators, tidy_costs):
+        n = build_network.build_network(tidy_demand, subsystems=SUBSYSTEMS)
+        build_network.attach_generators(n, tidy_generators)
+        build_network.attach_marginal_costs(n, tidy_costs)
+
+        assert n.generators.loc["SE_CO thermal", "marginal_cost"] == pytest.approx(650.0)
+
+    def test_non_thermal_generators_get_the_explicit_default(
+        self, tidy_demand, tidy_generators, tidy_costs
+    ):
+        n = build_network.build_network(tidy_demand, subsystems=SUBSYSTEMS)
+        build_network.attach_generators(n, tidy_generators)
+        build_network.attach_marginal_costs(n, tidy_costs)
+
+        assert n.generators.loc["SE_CO hydro", "marginal_cost"] == pytest.approx(
+            build_network.NON_THERMAL_MARGINAL_COST
+        )
+        assert n.generators.loc["S wind", "marginal_cost"] == pytest.approx(
+            build_network.NON_THERMAL_MARGINAL_COST
+        )
+
+    def test_raises_when_a_cost_row_has_no_matching_generator(
+        self, tidy_demand, tidy_generators, tidy_costs
+    ):
+        bad = pd.concat(
+            [
+                tidy_costs,
+                pd.DataFrame([{"subsystem": "N", "carrier": "thermal", "marginal_cost": 1.0}]),
+            ],
+            ignore_index=True,
+        )
+        n = build_network.build_network(tidy_demand, subsystems=SUBSYSTEMS)
+        build_network.attach_generators(n, tidy_generators)  # tidy_generators has no N thermal row
+        with pytest.raises(ValueError, match="no matching generator"):
+            build_network.attach_marginal_costs(n, bad)
+
+    def test_passes_consistency_check_after_attaching(
+        self, tidy_demand, tidy_generators, tidy_costs
+    ):
+        n = build_network.build_network(tidy_demand, subsystems=SUBSYSTEMS)
+        build_network.attach_generators(n, tidy_generators)
+        build_network.attach_marginal_costs(n, tidy_costs)
+        n.consistency_check()  # must not raise

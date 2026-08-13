@@ -106,6 +106,15 @@ code without touching this file, unless it carries the `no-changelog` label.
   noise), and that this dataset's plant IDs/names do not join cleanly against
   `capacidade_geracao`'s (PR-09).
 - `docs/handoffs/PR-09-ons-cvu-connector.md`.
+- `scripts/build_costs.py` and `rules/build.smk::build_costs_t0`: reduce
+  weekly per-plant CVU to one R$/MWh value per subsystem (mean across all
+  plants and weeks, real zero-cost plants included).
+  `build_network.py::attach_marginal_costs()` sets this on the T0 network's
+  thermal generators, and an explicit documented `0.0` default (not an
+  accidental one) on hydro/wind/solar/nuclear. Still no lines, no
+  availability profile, no solver — `n.optimize()` still not callable
+  (PR-10).
+- `docs/handoffs/PR-10-t0-marginal-cost.md`.
 
 ### Changed
 

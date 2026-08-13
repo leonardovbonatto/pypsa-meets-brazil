@@ -2,13 +2,15 @@
 # SPDX-License-Identifier: MIT
 """
 Build the T0 network: one bus per subsystem, snapshots from config, the tidy
-demand series (PR-05) attached as time-varying loads, and the aggregated
+demand series (PR-05) attached as time-varying loads, the aggregated
 generator capacity (PR-08) attached as one Generator per (subsystem,
-technology).
+technology), and a `marginal_cost` on every generator (PR-10) - CVU-derived
+for thermal, an explicit documented default for everything else.
 
-Still no lines, no marginal cost, no availability profile, no solver -
-capacity and topology only. `n.optimize()` is still not callable: see
-docs/handoffs/PR-08-*.md for exactly what is and isn't here yet.
+Still no lines, no availability profile, no solver - `n.optimize()` is
+still not callable: see docs/handoffs/PR-10-*.md for exactly what is and
+isn't here yet, and why the marginal costs that do exist are a real
+simplification worth reading before trusting a dispatch result.
 """
 
 # NOTE: no `from __future__ import annotations` - see write_manifest.py.
@@ -94,6 +96,44 @@ def attach_generators(n: pypsa.Network, generators: pd.DataFrame) -> pypsa.Netwo
     return n
 
 
+def load_costs(path: Path) -> pd.DataFrame:
+    return pd.read_csv(path)
+
+
+# Every carrier this T0 network can produce that CVU does not cover, all get
+# the same explicit value rather than PyPSA's implicit 0.0 default. Each is
+# a real simplification, stated here instead of silently:
+#   - hydro: true marginal cost is the water value, an opportunity cost that
+#     has to be *computed* (PRIMER Sec 4), not looked up - unbuilt until
+#     SDDP.jl lands. Treated as free/must-run in the interim, per the PR-08
+#     handoff's own suggestion, now made an explicit decision rather than an
+#     accident of the default.
+#   - wind, solar: true marginal cost is genuinely near-zero (no fuel), so
+#     0.0 is a defensible value here, not just a placeholder.
+#   - nuclear: has a real but small fuel cost; approximated as a must-run
+#     baseload at 0.0, the standard simplification at this level of detail.
+NON_THERMAL_MARGINAL_COST = 0.0
+
+
+def attach_marginal_costs(n: pypsa.Network, costs: pd.DataFrame) -> pypsa.Network:
+    """
+    Set `marginal_cost` (R$/MWh) on every generator: the CVU-derived value
+    from `costs` for thermal, `NON_THERMAL_MARGINAL_COST` for everything
+    else. Mutates `n` in place and returns it for convenience.
+    """
+    names = (costs["subsystem"] + " " + costs["carrier"]).tolist()
+    unknown = set(names) - set(n.generators.index)
+    if unknown:
+        raise ValueError(
+            f"cost row(s) have no matching generator in the network: {sorted(unknown)}"
+        )
+
+    n.generators["marginal_cost"] = NON_THERMAL_MARGINAL_COST
+    n.generators.loc[names, "marginal_cost"] = costs["marginal_cost"].to_numpy()
+
+    return n
+
+
 def write_network(n: pypsa.Network, out_path: Path) -> Path:
     out_path.parent.mkdir(parents=True, exist_ok=True)
     n.export_to_netcdf(str(out_path))
@@ -108,6 +148,9 @@ def main() -> None:
 
     generators = load_generators(Path(snake.input.generators))
     attach_generators(n, generators)
+
+    costs = load_costs(Path(snake.input.costs))
+    attach_marginal_costs(n, costs)
 
     write_network(n, Path(snake.output[0]))
 

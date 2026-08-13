@@ -56,17 +56,43 @@ rule build_generators_t0:
         "../scripts/build_generators.py"
 
 
+rule build_costs_t0:
+    """
+    T0 thermal marginal cost: one row per subsystem, R$/MWh.
+
+    Reduces weekly per-plant CVU to a single mean per subsystem - not a
+    per-plant join against generators_t0.csv, which this dataset's plant
+    identities don't support (see docs/handoffs/PR-09-ons-cvu-connector.md).
+    """
+    input:
+        raw=expand(
+            "resources/ons/CVU_USINA_TERMICA_{year}.csv",
+            year=snapshot_years(config),
+        ),
+        dictionary="docs/data-dictionary/ons/cvu_usina_termica.yaml",
+    output:
+        "resources/costs_t0.csv",
+    params:
+        subsystems=config["subsystems"],
+    log:
+        "logs/build_costs_t0/run.log",
+    script:
+        "../scripts/build_costs.py"
+
+
 rule build_network_t0:
     """
     T0 network: one bus per subsystem, snapshots from config, the tidy demand
-    series attached as time-varying loads, and the aggregated generator
-    capacity attached as one Generator per (subsystem, technology). No lines,
-    no marginal cost, no availability profile, no solver yet - see
-    docs/handoffs/PR-08-*.md.
+    series attached as time-varying loads, the aggregated generator capacity
+    attached as one Generator per (subsystem, technology), and a
+    marginal_cost on every generator - CVU-derived for thermal, an explicit
+    documented default for everything else. No lines, no availability
+    profile, no solver yet - see docs/handoffs/PR-10-*.md.
     """
     input:
         demand="resources/demand_t0.csv",
         generators="resources/generators_t0.csv",
+        costs="resources/costs_t0.csv",
     output:
         "resources/networks/t0.nc",
     params:
@@ -82,4 +108,5 @@ rule build_all:
     input:
         "resources/demand_t0.csv",
         "resources/generators_t0.csv",
+        "resources/costs_t0.csv",
         "resources/networks/t0.nc",
