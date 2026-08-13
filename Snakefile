@@ -15,6 +15,7 @@ configfile: "config/config.default.yaml"
 
 include: "rules/common.smk"
 include: "rules/fetch.smk"
+include: "rules/build.smk"
 
 
 RUN_ID = run_id(config)
@@ -27,7 +28,8 @@ rule all:
 
 rule fetch_all:
     """
-    Acquire every configured upstream dataset.
+    Acquire every configured upstream dataset, for every year the configured
+    snapshot range spans.
 
     Deliberately NOT a dependency of `all`: these rules reach the network, and
     CI must be able to run the whole default workflow on committed fixtures
@@ -36,7 +38,7 @@ rule fetch_all:
     input:
         expand(
             "resources/ons/CURVA_CARGA_{year}.csv",
-            year=config["sources"]["ons"]["curva_carga"]["years"],
+            year=snapshot_years(config),
         ),
 
 

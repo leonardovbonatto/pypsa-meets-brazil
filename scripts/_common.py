@@ -36,3 +36,16 @@ def run_id(cfg: dict) -> str:
     if name := cfg.get("run_name"):
         return str(name)
     return f"{cfg['tier']}-{config_hash(cfg)[:8]}"
+
+
+def snapshot_years(cfg: dict) -> list[int]:
+    """
+    Calendar years spanned by `snapshots.start`..`snapshots.end`, inclusive.
+
+    Fetch and build rules derive which yearly files they need from this
+    instead of carrying a separate `years:` list that could silently drift
+    out of sync with the snapshot range actually being modelled.
+    """
+    start_year = int(cfg["snapshots"]["start"][:4])
+    end_year = int(cfg["snapshots"]["end"][:4])
+    return list(range(start_year, end_year + 1))

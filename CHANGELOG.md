@@ -68,6 +68,15 @@ code without touching this file, unless it carries the `no-changelog` label.
   the domain: every layer from WSL2 up to this project's own conventions, what
   each tool is for, its engineering equivalent, and which parts are built versus
   still planned. 12 mermaid diagrams.
+- `rules/build.smk` and `scripts/build_demand.py`: the T0 tidy demand series,
+  `resources/demand_t0.csv`, one row per `(snapshot, subsystem)` in MW. Ready
+  for a PyPSA `n.loads_t.p_set` build step to pivot directly (PR-05).
+- `scripts/_common.py::snapshot_years()` derives which yearly files to fetch
+  and build from `config.snapshots.start`/`end`, replacing a separate `years:`
+  list that could silently drift out of sync with the modelled range (PR-05).
+- `build_all` Snakemake target, alongside `fetch_all`. Both stay outside `all`
+  since they reach the network or its downstream artifacts (PR-05).
+- `docs/handoffs/PR-05-t0-demand-series.md`.
 
 ### Changed
 
@@ -77,5 +86,7 @@ code without touching this file, unless it carries the `no-changelog` label.
 - Renamed `test/fixtures/ons_carga_sample.csv` to `synthetic_load_sample.csv`:
   it is invented data, and the old name implied otherwise now that real ONS
   fixtures sit beside it (PR-04).
+- `config.default.yaml`: removed `sources.ons.curva_carga.years`, now derived
+  from `snapshots` instead of listed separately (PR-05).
 
 [Unreleased]: https://github.com/leonardovbonatto/pypsa-meets-brazil/commits/main

@@ -44,9 +44,11 @@ sources:
   ons:
     curva_carga:
       # Hourly verified load per subsystem, one file per year, published from
-      # 2000 onward. See docs/data-dictionary/ons/curva_carga.yaml.
+      # 2000 onward. See docs/data-dictionary/ons/curva_carga.yaml. Which years
+      # to fetch is derived from snapshots.start/end (see snapshot_years in
+      # scripts/_common.py), not listed separately here — the two must never
+      # be allowed to say different things.
       url: https://ons-aws-prod-opendata.s3.amazonaws.com/dataset/curva-carga-ho/CURVA_CARGA_{year}.csv
-      years: [2024]
 
 paths:
   resources: resources

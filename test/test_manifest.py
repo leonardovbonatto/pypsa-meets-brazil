@@ -59,6 +59,16 @@ class TestRunId:
         assert common.run_id(BASE_CONFIG) != common.run_id(other)
 
 
+class TestSnapshotYears:
+    def test_single_year(self):
+        cfg = {"snapshots": {"start": "2024-01-01", "end": "2024-12-31"}}
+        assert common.snapshot_years(cfg) == [2024]
+
+    def test_spans_multiple_years_inclusive(self):
+        cfg = {"snapshots": {"start": "2023-06-01", "end": "2025-02-01"}}
+        assert common.snapshot_years(cfg) == [2023, 2024, 2025]
+
+
 class TestManifest:
     def test_records_required_fields(self):
         m = write_manifest.build_manifest("smoke", BASE_CONFIG, "deadbeef")
