@@ -38,5 +38,16 @@ code without touching this file, unless it carries the `no-changelog` label.
 - `REUSE.toml` covering generated and format-constrained files (PR-02).
 - `docs/handoffs/PR-02-workflow-skeleton.md` recording seven environment gotchas
   found while getting the workflow to run (PR-02).
+- `scripts/fetch.py` — the fetch/provenance core: streams a URL to disk and
+  writes the `resources/_provenance/<source>/<dataset>.json` record consumed
+  by `write_manifest.py`, with a small CLI for standalone use (PR-03).
+- `scripts/_inspect.py` — samples a fetched CSV and emits the
+  `docs/data-dictionary/` YAML, plus `to_pandera_schema()` to validate a
+  later fetch of the same dataset against a committed dictionary (PR-03).
+- `scripts/check_meta.py` and `.github/workflows/meta.yml` — CI checks that a
+  code PR touches the changelog, every committed provenance record has the
+  required keys, and ADR numbers are unique (PR-03).
+- `requests` and `pandera` added to `pixi.toml` (PR-03).
+- `docs/handoffs/PR-03-fetch-provenance-schema-core.md`.
 
 [Unreleased]: https://github.com/leonardovbonatto/pypsa-meets-brazil/commits/main

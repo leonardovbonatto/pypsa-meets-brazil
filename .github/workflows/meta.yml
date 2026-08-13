@@ -1,0 +1,31 @@
+# SPDX-FileCopyrightText: 2026 pypsa-meets-brazil contributors
+# SPDX-License-Identifier: MIT
+
+name: meta
+
+on:
+  pull_request:
+
+concurrency:
+  group: meta-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  meta:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # check_meta.py diffs against the PR base to see what changed.
+          fetch-depth: 0
+
+      - uses: prefix-dev/setup-pixi@v0.8.3
+        with:
+          environments: dev
+          cache: true
+
+      - name: Meta checks (changelog, provenance schema, ADR numbering)
+        env:
+          META_BASE_REF: origin/${{ github.event.pull_request.base.ref }}
+          META_SKIP_CHANGELOG: ${{ contains(github.event.pull_request.labels.*.name, 'no-changelog') }}
+        run: pixi run -e dev python scripts/check_meta.py

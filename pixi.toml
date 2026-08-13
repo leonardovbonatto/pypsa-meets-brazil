@@ -21,6 +21,8 @@ snakemake-minimal = ">=8.20"
 pyyaml = ">=6.0"
 pandas = ">=2.2"
 numpy = ">=1.26"
+requests = ">=2.31"
+pandera = ">=0.20"
 
 [feature.dev.dependencies]
 pytest = ">=8.0"
