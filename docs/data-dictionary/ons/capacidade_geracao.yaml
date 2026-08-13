@@ -1,0 +1,224 @@
+dataset: capacidade_geracao
+source: ons
+source_url: https://ons-aws-prod-opendata.s3.amazonaws.com/dataset/capacidade-geracao/CAPACIDADE_GERACAO.csv
+retrieved: '2026-08-13T19:08:00+00:00'
+format: csv
+encoding: utf-8
+delimiter: ;
+decimal: .
+row_count: 5631
+schema_hash: sha256:8645e3885fb75aba508e87088aefdf1f16926b6875b3e55d9c1402b94465afd7
+columns:
+- name: id_subsistema
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: Subsystem code the plant belongs to. Includes PY (see notes) alongside
+    N/NE/S/SE.
+  sample:
+  - NE
+  - NE
+  - NE
+- name: nom_subsistema
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: Subsystem name in Portuguese.
+  sample:
+  - 'NORDESTE       '
+  - 'NORDESTE       '
+  - 'NORDESTE       '
+- name: id_estado
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: Two-letter state code where the plant is located.
+  sample:
+  - AL
+  - AL
+  - AL
+- name: nom_estado
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: State name. Blank/placeholder for the PY (Itaipu 50Hz) rows - see notes.
+  sample:
+  - ALAGOAS
+  - ALAGOAS
+  - ALAGOAS
+- name: nom_modalidadeoperacao
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: 'ONS operating-mode classification: TIPO I, II-A, II-B or II-C.'
+  sample:
+  - TIPO I
+  - TIPO I
+  - TIPO I
+- name: nom_agenteproprietario
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: Owning agent.
+  sample:
+  - AXIA NORDESTE
+  - AXIA NORDESTE
+  - AXIA NORDESTE
+- name: nom_agenteoperador
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: Operating agent.
+  sample:
+  - AXIA NORDESTE
+  - AXIA NORDESTE
+  - AXIA NORDESTE
+- name: nom_tipousina
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: 'Plant technology: EOLIELETRICA (wind), FOTOVOLTAICA (solar), HIDROELETRICA
+    (hydro), NUCLEAR, TERMICA (thermal, any fuel).'
+  sample:
+  - HIDROELÉTRICA
+  - HIDROELÉTRICA
+  - HIDROELÉTRICA
+- name: nom_usina
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: Plant name.
+  sample:
+  - XINGÓ
+  - XINGÓ
+  - XINGÓ
+- name: ceg
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: ANEEL's unique generation-enterprise code (Codigo Unico do Empreendimento
+    de Geracao).
+  sample:
+  - UHE.PH.SE.027053-9.01
+  - UHE.PH.SE.027053-9.01
+  - UHE.PH.SE.027053-9.01
+- name: nom_unidadegeradora
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: Generating-unit name (free text, includes plant name and unit number).
+  sample:
+  - UG  527 MW USINA XINGO               1 AL
+  - UG  527 MW USINA XINGO               5 AL
+  - UG  527 MW USINA XINGO               4 AL
+- name: cod_equipamento
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: Equipment code for the generating unit.
+  sample:
+  - 'ALUXG-0UG1          '
+  - 'ALUXG-0UG5          '
+  - 'ALUXG-0UG4          '
+- name: num_unidadegeradora
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: Operational unit number within the plant.
+  sample:
+  - '1     '
+  - '5     '
+  - '4     '
+- name: nom_combustivel
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: Fuel, finer-grained than nom_tipousina - e.g. thermal splits into GAS,
+    OLEO DIESEL, CARVAO, BIOMASSA, etc. Not used by this project yet; nom_tipousina
+    is the aggregation level build_generators.py uses.
+  sample:
+  - HIDRÁULICA
+  - HIDRÁULICA
+  - HIDRÁULICA
+- name: dat_entradateste
+  dtype: str
+  unit: null
+  nullable: true
+  null_rate: 0.0014
+  description: Date released to enter commissioning testing.
+  sample:
+  - '1997-08-22'
+  - '1995-01-31'
+  - '1995-10-26'
+- name: dat_entradaoperacao
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: Date released to enter commercial operation.
+  sample:
+  - '1997-08-22'
+  - '1995-01-31'
+  - '1995-10-26'
+- name: dat_desativacao
+  dtype: str
+  unit: null
+  nullable: true
+  null_rate: 0.8269
+  description: Deactivation date. NULL/empty means the unit is still active - this
+    is ONS's own documented convention, not inferred, and is exactly the filter build_generators.py.filter_active()
+    applies.
+  sample:
+  - '2005-01-01'
+  - '2005-01-01'
+  - '2005-01-01'
+- name: val_potenciaefetiva
+  dtype: float64
+  unit: MW
+  nullable: false
+  null_rate: 0.0
+  description: Nominal capacity of the generating unit, MW, per ANEEL's normative
+    documents.
+  sample:
+  - 527.0
+  - 527.0
+  - 527.0
+notes:
+- Field meanings are ONS's own, from the dataset's published data dictionary at https://ons-aws-prod-opendata.s3.amazonaws.com/dataset/capacidade-geracao/DicionarioDados_Capacidade_Instalada_Geracao.json.
+  That JSON lists an extra field, id_ons, which is not actually a column in the CSV
+  - the dictionary and the real file disagree; this schema describes the columns that
+  actually exist.
+- Granularity is per generating unit (nom_unidadegeradora), not per plant - a single
+  usina like XINGO has multiple rows, one per turbine. 5631 rows total as of the 2026-08-13
+  fetch, 975 of them decommissioned.
+- 'id_subsistema includes a fifth code, PY, alongside the four SIN subsystems (N/NE/S/SE).
+  Every PY row observed is a single plant, ''ITAIPU 50 HZ'', 7.0 GW total - the Paraguay-frequency
+  (50 Hz) side of the binational Itaipu plant, which feeds Paraguay''s grid, not Brazil''s
+  60 Hz SIN. Confirmed by the naming, not just inferred: Brazil''s own 60 Hz share
+  of Itaipu is a separate set of units already counted under SE. Correctly out of
+  scope for a Brazil SIN model - see build_generators.py''s EXCLUDED_SUBSYSTEM_CODES.'
+- dat_desativacao NULL means active - stated explicitly in ONS's own dictionary, not
+  inferred. 975 of 5631 rows are decommissioned (deactivation date set) as of this
+  fetch; build_generators.py filters them out before aggregating.
+- This dataset only covers ONS-dispatched units (operating modes TIPO I/II-A/II-B/II-C
+  per the dataset's own description) - it excludes MMGD and other distributed generation,
+  which ONS tracks separately (see the MMGD registry in Brazilian-Grid-in-PyPSA.md
+  Sec 2.6).
+- 'Sanity check at fetch time: summed active val_potenciaefetiva nationally (excluding
+  PY) is ~192 GW, in the right order of magnitude for Brazil''s installed capacity.
+  Hydro dominates at ~110 GW, consistent with Sec 2.3 of the primer. Recompute this
+  if a later fetch looks wrong.'

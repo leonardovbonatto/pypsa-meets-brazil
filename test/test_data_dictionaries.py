@@ -21,6 +21,8 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 DICT_DIR = REPO_ROOT / "docs" / "data-dictionary"
 CURVA_CARGA_DICT = DICT_DIR / "ons" / "curva_carga.yaml"
 CURVA_CARGA_FIXTURE = REPO_ROOT / "test" / "fixtures" / "ons" / "curva_carga_2024_sample.csv"
+CAPACIDADE_DICT = DICT_DIR / "ons" / "capacidade_geracao.yaml"
+CAPACIDADE_FIXTURE = REPO_ROOT / "test" / "fixtures" / "ons" / "capacidade_geracao_sample.csv"
 
 
 def _load(name: str, path: Path):
@@ -66,6 +68,35 @@ class TestCurvaCargaDictionary:
 
     def test_documented_subsystem_codes_are_the_ones_present(self, curva_carga_df):
         assert set(curva_carga_df["id_subsistema"]) == {"N", "NE", "S", "SE"}
+
+
+@pytest.fixture
+def capacidade_df():
+    return inspect_mod.inspect_csv(CAPACIDADE_FIXTURE, delimiter=";")
+
+
+class TestCapacidadeGeracaoDictionary:
+    def test_schema_validates_against_real_fixture(self, capacidade_df):
+        dictionary = inspect_mod.load_dictionary(CAPACIDADE_DICT)
+        schema = inspect_mod.to_pandera_schema(dictionary)
+
+        schema.validate(capacidade_df)  # must not raise
+
+    def test_schema_hash_matches_fixture(self, capacidade_df):
+        dictionary = inspect_mod.load_dictionary(CAPACIDADE_DICT)
+        assert inspect_mod.schema_hash(capacidade_df) == dictionary["schema_hash"]
+
+    def test_capacity_column_carries_its_unit(self):
+        dictionary = inspect_mod.load_dictionary(CAPACIDADE_DICT)
+        col = next(c for c in dictionary["columns"] if c["name"] == "val_potenciaefetiva")
+        assert col["unit"] == "MW"
+
+    def test_fixture_includes_the_py_edge_case(self, capacidade_df):
+        """PY (Itaipu 50Hz) must stay in fixtures/docs, not get quietly filtered out upstream."""
+        assert "PY" in set(capacidade_df["id_subsistema"])
+
+    def test_fixture_includes_a_decommissioned_unit(self, capacidade_df):
+        assert capacidade_df["dat_desativacao"].notna().any()
 
 
 @pytest.mark.parametrize("path", COMMITTED_DICTS, ids=lambda p: p.name)

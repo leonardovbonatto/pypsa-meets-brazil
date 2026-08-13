@@ -30,3 +30,22 @@ rule fetch_ons_curva_carga:
         "logs/fetch_ons_curva_carga/{year}.log",
     script:
         "../scripts/fetch_dataset.py"
+
+
+rule fetch_ons_capacidade_geracao:
+    """
+    ONS installed generating capacity, per generating unit. A single current
+    file, not year-split - unlike curva_carga, ONS does not publish this one
+    with historical vintages at a stable per-year URL.
+    """
+    output:
+        raw="resources/ons/CAPACIDADE_GERACAO.csv",
+        provenance="resources/_provenance/ons/capacidade_geracao.json",
+    params:
+        url=config["sources"]["ons"]["capacidade_geracao"]["url"],
+        source="ons",
+        dataset="capacidade_geracao",
+    log:
+        "logs/fetch_ons_capacidade_geracao/run.log",
+    script:
+        "../scripts/fetch_dataset.py"

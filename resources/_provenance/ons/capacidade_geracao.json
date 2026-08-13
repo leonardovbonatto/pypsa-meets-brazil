@@ -1,0 +1,10 @@
+{
+  "byte_size": 1267420,
+  "dataset": "capacidade_geracao",
+  "format": "csv",
+  "retrieved": "2026-08-13T17:14:15+00:00",
+  "row_count": 5631,
+  "sha256": "badd0c5937538b7a1ad015cca2088e448b06822af340691201a776e1686c9681",
+  "source": "ons",
+  "source_url": "https://ons-aws-prod-opendata.s3.amazonaws.com/dataset/capacidade-geracao/CAPACIDADE_GERACAO.csv"
+}

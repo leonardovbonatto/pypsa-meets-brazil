@@ -83,6 +83,14 @@ code without touching this file, unless it carries the `no-changelog` label.
   the T0 demand series attached as time-varying loads. No generators, no
   lines, no solver yet (PR-06).
 - `docs/handoffs/PR-06-bare-t0-network.md`.
+- Second real data connector: `rules/fetch.smk::fetch_ons_capacidade_geracao`
+  fetches ONS installed generating capacity (per generating unit, 5631 rows,
+  current snapshot). `docs/data-dictionary/ons/capacidade_geracao.yaml` — the
+  second real data dictionary, annotated with ONS's own field definitions and
+  a documented finding: the `PY` subsystem code is the Paraguay-frequency
+  (50 Hz) side of the binational Itaipu plant, not part of Brazil's 60 Hz SIN
+  (PR-07).
+- `docs/handoffs/PR-07-ons-capacity-connector.md`.
 
 ### Changed
 

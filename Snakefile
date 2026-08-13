@@ -40,6 +40,7 @@ rule fetch_all:
             "resources/ons/CURVA_CARGA_{year}.csv",
             year=snapshot_years(config),
         ),
+        "resources/ons/CAPACIDADE_GERACAO.csv",
 
 
 rule write_run_manifest:
