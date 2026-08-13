@@ -29,12 +29,14 @@ this document:
 | **BUILT** | Installed, running, and exercised by tests today. |
 | **PLANNED** | Named in the roadmap. Not yet installed. Does not exist in the repo. |
 
-> **Read this twice.** Most of the famous names in this project — atlite, SDDP.jl,
-> HiGHS — are still **PLANNED**. PyPSA itself landed in PR-06, but only as a *bare*
-> network: buses, snapshots, and the T0 load. No generators, no lines, no solver —
-> `n.optimize()` cannot be called yet, because there is nothing to dispatch. What
-> exists is the plumbing plus that one bare network. That is deliberate, and it is
-> the honest state of things. Anyone claiming the model runs today would be wrong.
+> **Read this twice.** Some of the famous names in this project — atlite, SDDP.jl,
+> Gurobi — are still **PLANNED**. PyPSA and HiGHS landed (PR-06 through PR-11), and
+> `n.optimize()` genuinely runs and returns `optimal` on the real 2024 T0 network.
+> **A clean solve is not the same claim as a correct dispatch.** There are still no
+> transmission lines (every subsystem solves as an electrically isolated bus) and no
+> availability profile (every generator assumes 100% uptime, every hour). The solve
+> is real; what it represents physically is still narrow. `dispatch_summary_t0.json`
+> states this explicitly on every run — read it before trusting a number out of it.
 
 ---
 
@@ -48,26 +50,26 @@ results come out the other. Everything else exists to make that pipeline reprodu
 
 ```mermaid
 flowchart LR
-    A["config.default.yaml<br/>URL template + years"] --> B["Snakemake rule<br/>fetch_ons_curva_carga"]
-    B --> C["resources/ons/<br/>CURVA_CARGA_2024.csv<br/><i>gitignored</i>"]
-    B --> D["resources/_provenance/<br/>curva_carga_2024.json<br/><i>committed</i>"]
-    C --> E["scripts/_inspect.py"]
-    E --> F["docs/data-dictionary/<br/>ons/curva_carga.yaml"]
-    C --> H["scripts/build_demand.py"]
-    H --> I["resources/demand_t0.csv<br/><i>gitignored</i>"]
-    I --> J["scripts/build_network.py"]
-    J --> K["resources/networks/t0.nc<br/>buses + loads<br/><i>gitignored</i>"]
-    D --> G["results/run/manifest.json<br/>what produced this"]
+    A["config.default.yaml"] --> B["fetch rules<br/>curva_carga · capacidade_geracao<br/>cvu_usina_termica"]
+    B --> C["resources/ons/*.csv<br/><i>gitignored</i>"]
+    B --> D["resources/_provenance/<br/>*.json<br/><i>committed</i>"]
+    C --> E["build_demand · build_generators<br/>build_costs"]
+    E --> F["resources/*_t0.csv<br/><i>gitignored</i>"]
+    F --> J["build_network.py"]
+    J --> K["resources/networks/t0.nc<br/><i>gitignored</i>"]
+    K --> L["solve_network.py<br/>HiGHS"]
+    L --> M["results/run/network_t0_solved.nc<br/>dispatch_summary_t0.json"]
+    D --> G["results/run/manifest.json"]
 
     style C stroke-dasharray: 4 4
-    style I stroke-dasharray: 4 4
+    style F stroke-dasharray: 4 4
     style K stroke-dasharray: 4 4
 ```
 
-Note what is committed and what is not. The 1.5 MB CSV, the demand series and the
-network file are all **never** committed — they are regenerable. The 354-byte
-provenance record **is** committed, because it is the only thing that can later say
-which vintage of upstream data a result came from.
+Note what is committed and what is not. The raw CSVs, tidy tables and network files
+are all **never** committed — they are regenerable. The provenance records **are**
+committed, because they are the only thing that can later say which vintage of
+upstream data a result came from.
 
 ### What the pipeline becomes
 
@@ -76,14 +78,14 @@ flowchart LR
     subgraph BUILT["Built today"]
         A["Fetch"] --> B["Provenance"]
         B --> C["Data dictionary"]
-        C --> D["Tidy demand"]
-        D --> E["Bare PyPSA<br/>Network"]
+        C --> D["Tidy tables"]
+        D --> E["PyPSA Network<br/>+ generators + cost"]
+        E --> S["Solve<br/>HiGHS"]
     end
     subgraph PLANNED["Planned"]
-        F["+ generators<br/>+ lines"] --> G["linopy → solver"]
-        G --> H["Validate vs<br/>observed ONS data"]
+        F["+ lines<br/>+ availability profile"] --> G["Validate vs<br/>observed ONS CMO"]
     end
-    E --> F
+    S --> F
 ```
 
 The engineering discipline in this repository is aimed almost entirely at that last
@@ -354,7 +356,7 @@ flowchart LR
 Mostly not installed yet. PyPSA landed in PR-06 — everything else in this layer is
 still the destination, where your existing knowledge does most of the work.
 
-### PyPSA 1.2.4 — **BUILT** (bare network only)
+### PyPSA 1.2.4 — **BUILT** (solvable T0 network, no lines yet)
 
 A `Network` object holding `Bus`, `Line`, `Link`, `Generator`, `Load`, `StorageUnit`.
 Static properties sit in DataFrames (`n.generators`); time series sit in parallel
@@ -367,13 +369,15 @@ dynamics, unit commitment — so you are not re-deriving them and getting a sign
 **Where prices come from.** `n.buses_t.marginal_price`. These are the dual variables
 of the nodal energy balance constraints — the locational marginal price, and in
 Brazil's zonal formulation the CMO. You do not compute prices separately; you read
-them off the solved model.
+them off the solved model. **Not yet meaningful here** — see below.
 
-**What exists today.** `resources/networks/t0.nc` — 4 buses (one per subsystem),
-8784 hourly snapshots, and the T0 demand series attached as time-varying loads.
-Nothing else: no generators, no lines, no solver. `n.optimize()` cannot be called
-yet — there is no marginal cost, no capacity, no generation to dispatch. That is the
-next several PRs, not this one.
+**What exists today.** `resources/networks/t0.nc` — 4 buses, 8784 hourly snapshots,
+time-varying loads, 15 generators with real capacity and marginal cost, plus a
+load-shedding slack generator per bus. `results/<run>/network_t0_solved.nc` is the
+solved result: `n.optimize()` runs and returns `optimal`. Still no lines, still no
+availability profile — a clean solve is **not** the same claim as a correct dispatch.
+`results/<run>/dispatch_summary_t0.json` carries a `known_limitations` list for
+exactly this reason; read it before trusting a number out of the solve.
 
 > A real gotcha: `n.add("Bus", ..., carrier="AC")` does **not** register the carrier
 > itself. `n.consistency_check()` only *warns* about the resulting undefined carrier
@@ -381,26 +385,35 @@ next several PRs, not this one.
 > before adding any bus that references it. Caught by actually reading the build
 > log, not by the check passing.
 
-### linopy — **PLANNED**
+> Another one, found by actually trying to solve the real 2024 network rather than
+> assuming it would work: the `S` subsystem's own generator capacity is *less* than
+> `S`'s own peak hourly demand, in 2 of 8784 hours (267 MWh/year). With no
+> transmission lines to import a neighbouring subsystem's spare capacity, that made
+> the network genuinely infeasible. Fixed with an always-available, deliberately
+> expensive load-shedding generator per bus — its dispatch becomes an honest,
+> quantified fingerprint of exactly this gap, not a hack to hide it.
 
-The layer PyPSA uses to construct the LP or MILP and hand it to a solver.
+### linopy — **BUILT** (used indirectly via PyPSA)
 
-Strategically it matters because it is **the seam for customization**. Anything PyPSA
-does not model natively enters through here — the stochastic hydro coupling, and
-head-dependent hydro productivity.
+The layer PyPSA uses to construct the LP or MILP and hand it to a solver. `n.optimize()`
+already calls into it — nothing in this project imports it directly yet.
 
-### Solvers: HiGHS / Gurobi / COPT — **PLANNED**
+Strategically it still matters for later work because it is **the seam for
+customization**. Anything PyPSA does not model natively enters through here — the
+stochastic hydro coupling, and head-dependent hydro productivity.
 
-HiGHS is open source, excellent for LP, adequate for modest MILP — the intended
-default. Gurobi and COPT are commercial, dramatically faster on hard MILP, and free
-for academic use.
+### Solvers: HiGHS — **BUILT** · Gurobi / COPT — **PLANNED**
 
-Full nodal Brazil at 8760 hours with unit commitment is a large MILP; HiGHS will not
-carry it. Budget for an academic licence. The solver is a configuration switch, not an
-architectural commitment, and should stay that way.
+HiGHS is open source, excellent for LP, adequate for modest MILP — the actual solver
+behind every `n.optimize()` call in this repository today, via the `highspy` package.
 
-> `config.default.yaml` already names `highs`, but **no solver is installed yet**.
-> That setting is currently aspirational.
+Gurobi and COPT are commercial, dramatically faster on hard MILP, and free for
+academic use — full nodal Brazil at 8760 hours with unit commitment is a large MILP
+that HiGHS will not carry. Deliberately not installed yet: it needs a persistent
+network connection to the campus network for academic-license activation from WSL2,
+which wasn't available when this was scoped. The solver is a configuration switch
+(`config.solver.name`), not an architectural commitment — swapping in Gurobi later
+needs no rewrite.
 
 ### atlite + ERA5 — **PLANNED**
 

@@ -16,6 +16,7 @@ configfile: "config/config.default.yaml"
 include: "rules/common.smk"
 include: "rules/fetch.smk"
 include: "rules/build.smk"
+include: "rules/solve.smk"
 
 
 RUN_ID = run_id(config)
@@ -24,6 +25,19 @@ RUN_ID = run_id(config)
 rule all:
     input:
         f"results/{RUN_ID}/manifest.json",
+
+
+rule solve_all:
+    """
+    Solve every configured T0 artifact.
+
+    Also network-reaching, transitively, via the fetch -> build chain the
+    solved network depends on; see fetch_all/build_all for why this stays
+    outside `all`.
+    """
+    input:
+        f"results/{RUN_ID}/network_t0_solved.nc",
+        f"results/{RUN_ID}/dispatch_summary_t0.json",
 
 
 rule fetch_all:

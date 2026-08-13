@@ -24,6 +24,7 @@ numpy = ">=1.26"
 requests = ">=2.31"
 pandera = ">=0.20"
 pypsa = ">=0.31"
+highspy = ">=1.7"
 
 [feature.dev.dependencies]
 pytest = ">=8.0"

@@ -4,13 +4,15 @@
 Build the T0 network: one bus per subsystem, snapshots from config, the tidy
 demand series (PR-05) attached as time-varying loads, the aggregated
 generator capacity (PR-08) attached as one Generator per (subsystem,
-technology), and a `marginal_cost` on every generator (PR-10) - CVU-derived
-for thermal, an explicit documented default for everything else.
+technology), a `marginal_cost` on every generator (PR-10) - CVU-derived for
+thermal, an explicit documented default for everything else - and a
+load-shedding slack generator per bus (PR-11) so the network is solvable
+despite having no transmission lines yet.
 
-Still no lines, no availability profile, no solver - `n.optimize()` is
-still not callable: see docs/handoffs/PR-10-*.md for exactly what is and
-isn't here yet, and why the marginal costs that do exist are a real
-simplification worth reading before trusting a dispatch result.
+Still no lines, no availability profile: see docs/handoffs/PR-11-*.md for
+exactly what is and isn't here yet, and why the marginal costs and the
+load-shedding usage are both a real simplification worth reading before
+trusting a dispatch result.
 """
 
 # NOTE: no `from __future__ import annotations` - see write_manifest.py.
@@ -134,6 +136,50 @@ def attach_marginal_costs(n: pypsa.Network, costs: pd.DataFrame) -> pypsa.Networ
     return n
 
 
+# Every bus gets an always-available slack generator so the network is
+# solvable at all despite having no transmission lines: with real 2024 data,
+# S's own generator capacity falls short of S's own peak demand in 2 of
+# 8784 hours (267 MWh/year total, see docs/handoffs/PR-11-*.md) - with no
+# lines to import NE's 41 GW of spare capacity, that makes the network
+# infeasible without a slack. LOAD_SHED_COST is not a researched value-of-
+# lost-load estimate - it is picked only to sit clearly above every real
+# generator's marginal_cost (max observed thermal CVU: 3681.59 R$/MWh, see
+# the cvu_usina_termica data dictionary) so load shedding is always the
+# dispatch of last resort, never competitive in merit order. LOAD_SHED_P_NOM
+# is effectively unlimited so shedding itself is never the binding
+# constraint - the real constraint is every other generator's own p_nom.
+LOAD_SHED_CARRIER = "load_shedding"
+LOAD_SHED_COST = 10_000.0
+LOAD_SHED_P_NOM = 1_000_000.0
+
+
+def attach_load_shedding(n: pypsa.Network, *, subsystems: list[str]) -> pypsa.Network:
+    """
+    Add one always-available load-shedding generator per bus.
+
+    Its dispatch is the honest signal for "no transmission lines yet": any
+    nonzero load-shedding after a solve means that bus's own generators
+    could not cover that bus's own demand at that hour, which real
+    transmission would resolve by importing from a neighbouring subsystem.
+    Mutates `n` in place and returns it for convenience.
+    """
+    if LOAD_SHED_CARRIER not in n.carriers.index:
+        n.add("Carrier", LOAD_SHED_CARRIER)
+
+    names = [f"{subsystem} {LOAD_SHED_CARRIER}" for subsystem in subsystems]
+    n.add(
+        "Generator",
+        names,
+        bus=subsystems,
+        carrier=LOAD_SHED_CARRIER,
+        p_nom=LOAD_SHED_P_NOM,
+        marginal_cost=LOAD_SHED_COST,
+    )
+
+    n.consistency_check()
+    return n
+
+
 def write_network(n: pypsa.Network, out_path: Path) -> Path:
     out_path.parent.mkdir(parents=True, exist_ok=True)
     n.export_to_netcdf(str(out_path))
@@ -151,6 +197,8 @@ def main() -> None:
 
     costs = load_costs(Path(snake.input.costs))
     attach_marginal_costs(n, costs)
+
+    attach_load_shedding(n, subsystems=list(snake.params.subsystems))
 
     write_network(n, Path(snake.output[0]))
 

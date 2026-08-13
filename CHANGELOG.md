@@ -115,6 +115,19 @@ code without touching this file, unless it carries the `no-changelog` label.
   availability profile, no solver — `n.optimize()` still not callable
   (PR-10).
 - `docs/handoffs/PR-10-t0-marginal-cost.md`.
+- `highspy` (HiGHS) added to `pixi.toml` as an explicit dependency — the
+  first solver this project can actually call. `scripts/solve_network.py`
+  runs `n.optimize()` and writes a dispatch summary that always carries a
+  `known_limitations` list, so a result can't be read without it.
+  `build_network.py::attach_load_shedding()` adds an always-available,
+  high-cost slack generator per bus, discovered to be necessary because the
+  `S` subsystem's own capacity falls short of its own peak demand in 2 of
+  8784 hours (267 MWh/year) — with no transmission lines yet, that made the
+  network genuinely infeasible without one. Its dispatch is the honest,
+  quantified signal for exactly that gap (PR-11).
+- `rules/solve.smk::solve_network_t0` and a `solve_all` target, kept outside
+  `all` like `fetch_all`/`build_all` (PR-11).
+- `docs/handoffs/PR-11-t0-solve.md`.
 
 ### Changed
 

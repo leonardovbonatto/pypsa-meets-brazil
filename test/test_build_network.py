@@ -208,3 +208,31 @@ class TestAttachMarginalCosts:
         build_network.attach_generators(n, tidy_generators)
         build_network.attach_marginal_costs(n, tidy_costs)
         n.consistency_check()  # must not raise
+
+
+class TestAttachLoadShedding:
+    def test_adds_one_generator_per_subsystem(self, tidy_demand):
+        n = build_network.build_network(tidy_demand, subsystems=SUBSYSTEMS)
+        build_network.attach_load_shedding(n, subsystems=SUBSYSTEMS)
+
+        shed = n.generators[n.generators["carrier"] == "load_shedding"]
+        assert sorted(shed["bus"]) == sorted(SUBSYSTEMS)
+
+    def test_cost_is_above_any_real_generator_cost(self, tidy_demand, tidy_generators, tidy_costs):
+        n = build_network.build_network(tidy_demand, subsystems=SUBSYSTEMS)
+        build_network.attach_generators(n, tidy_generators)
+        build_network.attach_marginal_costs(n, tidy_costs)
+        build_network.attach_load_shedding(n, subsystems=SUBSYSTEMS)
+
+        real_costs = n.generators.loc[n.generators["carrier"] != "load_shedding", "marginal_cost"]
+        assert build_network.LOAD_SHED_COST > real_costs.max()
+
+    def test_registers_the_carrier(self, tidy_demand):
+        n = build_network.build_network(tidy_demand, subsystems=SUBSYSTEMS)
+        build_network.attach_load_shedding(n, subsystems=SUBSYSTEMS)
+        assert "load_shedding" in n.carriers.index
+
+    def test_passes_consistency_check(self, tidy_demand):
+        n = build_network.build_network(tidy_demand, subsystems=SUBSYSTEMS)
+        build_network.attach_load_shedding(n, subsystems=SUBSYSTEMS)
+        n.consistency_check()  # must not raise
