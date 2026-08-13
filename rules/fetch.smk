@@ -67,3 +67,25 @@ rule fetch_ons_cvu_usina_termica:
         "logs/fetch_ons_cvu_usina_termica/{year}.log",
     script:
         "../scripts/fetch_dataset.py"
+
+
+rule fetch_ons_intercambio_nacional:
+    """
+    ONS real hourly interchange between subsystems, one file per calendar
+    year. Year-split like curva_carga. See ADR-0006: this is the ground
+    truth for T0's inter-subsystem topology and the source of the
+    transfer-capacity proxy used on the resulting Links.
+    """
+    output:
+        raw="resources/ons/INTERCAMBIO_NACIONAL_{year}.csv",
+        provenance="resources/_provenance/ons/intercambio_nacional_{year}.json",
+    params:
+        url=lambda wc: config["sources"]["ons"]["intercambio_nacional"]["url"].format(
+            year=wc.year
+        ),
+        source="ons",
+        dataset=lambda wc: f"intercambio_nacional_{wc.year}",
+    log:
+        "logs/fetch_ons_intercambio_nacional/{year}.log",
+    script:
+        "../scripts/fetch_dataset.py"

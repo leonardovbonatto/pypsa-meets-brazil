@@ -128,6 +128,19 @@ code without touching this file, unless it carries the `no-changelog` label.
 - `rules/solve.smk::solve_network_t0` and a `solve_all` target, kept outside
   `all` like `fetch_all`/`build_all` (PR-11).
 - `docs/handoffs/PR-11-t0-solve.md`.
+- `docs/decisions/ADR-0006-t0-transfer-representation.md` — T0 models
+  inter-subsystem connections as PyPSA `Link`s (a transport model), not
+  `Line`s: real impedances need DESSEM/ANAREDE deck parsing (ADR-0003, T3
+  only). Topology and a transfer-capacity proxy both come from real data,
+  not assumption.
+- Fourth real data connector: `rules/fetch.smk::fetch_ons_intercambio_nacional`
+  fetches ONS real hourly inter-subsystem interchange (signed, MWmed).
+  `docs/data-dictionary/ons/intercambio_nacional.yaml` — confirms the SIN's
+  real T0-relevant topology is exactly four boundaries (`N-NE`, `N-SE`,
+  `NE-SE`, `SE-S`; no direct `N-S` or `NE-S`), and records the sign
+  convention and the ONS-dictionary/data mismatch pattern seen again here
+  (PR-12).
+- `docs/handoffs/PR-12-ons-interchange-connector.md`.
 
 ### Changed
 

@@ -1,0 +1,101 @@
+dataset: intercambio_nacional
+source: ons
+source_url: https://ons-aws-prod-opendata.s3.amazonaws.com/dataset/intercambio_nacional_ho/INTERCAMBIO_NACIONAL_2024.csv
+retrieved: '2026-08-13T22:51:00+00:00'
+format: csv
+encoding: utf-8
+delimiter: ;
+decimal: .
+row_count: 35136
+schema_hash: sha256:c09dc5515eeb176289086d1b156d7c11ab4909da59704eb1639379133567bd73
+columns:
+- name: din_instante
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: Start of the hourly aggregation interval, Brasilia local time.
+  sample:
+  - '2024-01-01 00:00:00'
+  - '2024-01-01 00:00:00'
+  - '2024-01-01 00:00:00'
+- name: id_subsistema_origem
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: Origin subsystem code for this boundary's signed flow convention.
+  sample:
+  - N
+  - N
+  - NE
+- name: nom_subsistema_origem
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: Origin subsystem name in Portuguese.
+  sample:
+  - NORTE
+  - NORTE
+  - NORDESTE
+- name: id_subsistema_destino
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: Destination subsystem code.
+  sample:
+  - NE
+  - SE
+  - SE
+- name: nom_subsistema_destino
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: Destination subsystem name in Portuguese.
+  sample:
+  - NORDESTE
+  - SUDESTE
+  - SUDESTE
+- name: val_intercambiomwmed
+  dtype: float64
+  unit: MWmed
+  nullable: false
+  null_rate: 0.0
+  description: 'Verified interchange: sum of active-power flow measurements on the
+    boundary transmission lines between the origin and destination subsystems. Positive
+    means net flow origin -> destino; negative means the flow was actually destino
+    -> origem that hour.'
+  sample:
+  - 2699.626
+  - -3760.924
+  - -2794.053
+notes:
+- Field meanings are ONS's own, from the dataset's published data dictionary at https://ons-aws-prod-opendata.s3.amazonaws.com/dataset/intercambio_nacional_ho/DicionarioDados_Intercambio_Nacional.json.
+  That JSON also documents a second field, val_intercambioprogmwmed (scheduled/programmed
+  interchange), which is NOT a column in the actual CSV - the same kind of dictionary/data
+  mismatch found in capacidade_geracao (PR-07). Built the schema from the real file,
+  as always.
+- 'MWmed is average power over the interval, not energy - same convention as curva_carga
+  and the same trap: multiply by interval hours (1 h here) for MWh.'
+- 'Exactly four subsystem-pair boundaries carry data for 2024, each with all 8784
+  hours present, no nulls: N-NE, N-SE, NE-SE, SE-S. No N-S or NE-S boundary exists
+  in the data. This is the real SIN topology, not an assumption - a triangle (N, NE,
+  SE mutually connected) plus a pendant (SE-S). See ADR-0006, which uses this as T0''s
+  inter-subsystem topology.'
+- 'Sign convention is directional per boundary, not per subsystem: val_intercambiomwmed
+  is positive when flow ran id_subsistema_origem -> id_subsistema_destino that hour,
+  negative when it reversed. A build step computing a capacity proxy from this must
+  take the max of abs(value), not just max(value), or it will understate the capacity
+  needed in the reverse direction.'
+- '2024 per-boundary flow range (MWmed): N-NE -6019 to +5798, N-SE -4812 to +10492,
+  NE-SE -3871 to +8311, SE-S -6338 to +6902. These are realized flows, not rated capacity
+  - ADR-0006 uses max(abs(min), abs(max)) per boundary as a documented lower-bound
+  proxy for transfer capacity, not a claim about the true rating.'
+- 'No PY (Itaipu 50 Hz) rows - consistent with cvu_usina_termica: this dataset only
+  covers flows within Brazil''s own 60 Hz SIN.'
+- One file per year at a stable URL, .../dataset/intercambio_nacional_ho/INTERCAMBIO_NACIONAL_{year}.csv,
+  published from 2000 onward - same shape as curva_carga and cvu_usina_termica; snapshot_years(config)
+  applies directly.

@@ -57,6 +57,11 @@ sources:
       # Thermal-plant variable cost, weekly per plant, one file per year.
       # See docs/data-dictionary/ons/cvu_usina_termica.yaml.
       url: https://ons-aws-prod-opendata.s3.amazonaws.com/dataset/cvu_usitermica_se/CVU_USINA_TERMICA_{year}.csv
+    intercambio_nacional:
+      # Real hourly interchange between subsystems, one file per year. Ground
+      # truth for T0's inter-subsystem topology and transfer-capacity proxy
+      # (ADR-0006). See docs/data-dictionary/ons/intercambio_nacional.yaml.
+      url: https://ons-aws-prod-opendata.s3.amazonaws.com/dataset/intercambio_nacional_ho/INTERCAMBIO_NACIONAL_{year}.csv
 
 paths:
   resources: resources

@@ -58,6 +58,10 @@ rule fetch_all:
             "resources/ons/CVU_USINA_TERMICA_{year}.csv",
             year=snapshot_years(config),
         ),
+        expand(
+            "resources/ons/INTERCAMBIO_NACIONAL_{year}.csv",
+            year=snapshot_years(config),
+        ),
         "resources/ons/CAPACIDADE_GERACAO.csv",
 
 

@@ -1,0 +1,10 @@
+{
+  "byte_size": 1732370,
+  "dataset": "intercambio_nacional_2024",
+  "format": "csv",
+  "retrieved": "2026-08-13T20:56:39+00:00",
+  "row_count": 35136,
+  "sha256": "243f6667679b48c5370f9117ab453ff2fe30f3db76833b2b425d5144134d35fb",
+  "source": "ons",
+  "source_url": "https://ons-aws-prod-opendata.s3.amazonaws.com/dataset/intercambio_nacional_ho/INTERCAMBIO_NACIONAL_2024.csv"
+}

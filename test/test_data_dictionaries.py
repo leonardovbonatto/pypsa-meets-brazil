@@ -25,6 +25,8 @@ CAPACIDADE_DICT = DICT_DIR / "ons" / "capacidade_geracao.yaml"
 CAPACIDADE_FIXTURE = REPO_ROOT / "test" / "fixtures" / "ons" / "capacidade_geracao_sample.csv"
 CVU_DICT = DICT_DIR / "ons" / "cvu_usina_termica.yaml"
 CVU_FIXTURE = REPO_ROOT / "test" / "fixtures" / "ons" / "cvu_usina_termica_sample.csv"
+INTERCAMBIO_DICT = DICT_DIR / "ons" / "intercambio_nacional.yaml"
+INTERCAMBIO_FIXTURE = REPO_ROOT / "test" / "fixtures" / "ons" / "intercambio_nacional_sample.csv"
 
 
 def _load(name: str, path: Path):
@@ -130,6 +132,44 @@ class TestCvuUsinaTermicaDictionary:
         geramar1 = cvu_df[cvu_df["nom_usina"] == "GERAMAR1"]
         assert geramar1["dat_iniciosemana"].nunique() == 2
         assert geramar1["val_cvu"].nunique() == 2
+
+
+@pytest.fixture
+def intercambio_df():
+    return inspect_mod.inspect_csv(INTERCAMBIO_FIXTURE, delimiter=";")
+
+
+class TestIntercambioNacionalDictionary:
+    def test_schema_validates_against_real_fixture(self, intercambio_df):
+        dictionary = inspect_mod.load_dictionary(INTERCAMBIO_DICT)
+        schema = inspect_mod.to_pandera_schema(dictionary)
+
+        schema.validate(intercambio_df)  # must not raise
+
+    def test_schema_hash_matches_fixture(self, intercambio_df):
+        dictionary = inspect_mod.load_dictionary(INTERCAMBIO_DICT)
+        assert inspect_mod.schema_hash(intercambio_df) == dictionary["schema_hash"]
+
+    def test_flow_column_carries_its_unit(self):
+        dictionary = inspect_mod.load_dictionary(INTERCAMBIO_DICT)
+        col = next(c for c in dictionary["columns"] if c["name"] == "val_intercambiomwmed")
+        assert col["unit"] == "MWmed"
+
+    def test_fixture_has_exactly_the_four_real_boundaries(self, intercambio_df):
+        """No N-S or NE-S boundary exists in the real data - not a complete graph."""
+        pairs = set(
+            zip(
+                intercambio_df["id_subsistema_origem"],
+                intercambio_df["id_subsistema_destino"],
+                strict=True,
+            )
+        )
+        assert pairs == {("N", "NE"), ("N", "SE"), ("NE", "SE"), ("SE", "S")}
+
+    def test_fixture_includes_both_flow_directions(self, intercambio_df):
+        """Sign is directional; a capacity proxy must use abs(), not assume one sign."""
+        assert (intercambio_df["val_intercambiomwmed"] > 0).any()
+        assert (intercambio_df["val_intercambiomwmed"] < 0).any()
 
 
 @pytest.mark.parametrize("path", COMMITTED_DICTS, ids=lambda p: p.name)
