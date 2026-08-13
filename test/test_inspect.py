@@ -11,7 +11,9 @@ from pathlib import Path
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-FIXTURE = REPO_ROOT / "test" / "fixtures" / "ons_carga_sample.csv"
+# Synthetic, not real ONS bytes: it carries a null value so null_rate has
+# something to measure. Real-data checks live in test_data_dictionaries.py.
+FIXTURE = REPO_ROOT / "test" / "fixtures" / "synthetic_load_sample.csv"
 
 
 def _load(name: str, path: Path):

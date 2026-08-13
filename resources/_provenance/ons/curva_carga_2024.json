@@ -1,0 +1,10 @@
+{
+  "byte_size": 1545226,
+  "dataset": "curva_carga_2024",
+  "format": "csv",
+  "retrieved": "2026-08-13T16:29:22+00:00",
+  "row_count": 35136,
+  "sha256": "0c7e02591887591ec0a1e758eeb744dcd24c69e91c09e032ce7772838676cc32",
+  "source": "ons",
+  "source_url": "https://ons-aws-prod-opendata.s3.amazonaws.com/dataset/curva-carga-ho/CURVA_CARGA_2024.csv"
+}

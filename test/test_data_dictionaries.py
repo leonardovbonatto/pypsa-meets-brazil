@@ -1,0 +1,92 @@
+# SPDX-FileCopyrightText: 2026 pypsa-meets-brazil contributors
+# SPDX-License-Identifier: MIT
+"""
+Tests that committed data dictionaries describe reality.
+
+The dictionary is the artifact every later session reads instead of the raw
+file, so a dictionary that has drifted from the data is worse than none at
+all: it is confidently wrong. These tests check it against a committed slice
+of the real upstream bytes.
+"""
+
+from __future__ import annotations
+
+import importlib.util
+import sys
+from pathlib import Path
+
+import pytest
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+DICT_DIR = REPO_ROOT / "docs" / "data-dictionary"
+CURVA_CARGA_DICT = DICT_DIR / "ons" / "curva_carga.yaml"
+CURVA_CARGA_FIXTURE = REPO_ROOT / "test" / "fixtures" / "ons" / "curva_carga_2024_sample.csv"
+
+
+def _load(name: str, path: Path):
+    spec = importlib.util.spec_from_file_location(name, path)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+inspect_mod = _load("_inspect", REPO_ROOT / "scripts" / "_inspect.py")
+
+COMMITTED_DICTS = sorted(DICT_DIR.rglob("*.yaml"))
+
+
+@pytest.fixture
+def curva_carga_df():
+    return inspect_mod.inspect_csv(CURVA_CARGA_FIXTURE, delimiter=";")
+
+
+class TestCurvaCargaDictionary:
+    def test_schema_validates_against_real_fixture(self, curva_carga_df):
+        """The committed dictionary must accept real upstream bytes."""
+        dictionary = inspect_mod.load_dictionary(CURVA_CARGA_DICT)
+        schema = inspect_mod.to_pandera_schema(dictionary)
+
+        schema.validate(curva_carga_df)  # must not raise
+
+    def test_schema_hash_matches_fixture(self, curva_carga_df):
+        """
+        Guards against the dictionary and the data drifting apart. schema_hash
+        covers column names and dtypes only, so the 24-row fixture hashes the
+        same as the 35,136-row file it was cut from.
+        """
+        dictionary = inspect_mod.load_dictionary(CURVA_CARGA_DICT)
+        assert inspect_mod.schema_hash(curva_carga_df) == dictionary["schema_hash"]
+
+    def test_load_column_carries_its_unit(self):
+        """MWmed vs MW vs MWh is the single most common silent error here."""
+        dictionary = inspect_mod.load_dictionary(CURVA_CARGA_DICT)
+        load_col = next(c for c in dictionary["columns"] if c["name"] == "val_cargaenergiahomwmed")
+        assert load_col["unit"] == "MWmed"
+
+    def test_documented_subsystem_codes_are_the_ones_present(self, curva_carga_df):
+        assert set(curva_carga_df["id_subsistema"]) == {"N", "NE", "S", "SE"}
+
+
+@pytest.mark.parametrize("path", COMMITTED_DICTS, ids=lambda p: p.name)
+class TestEveryCommittedDictionary:
+    """
+    Repo-wide invariants. `_inspect.py` emits `description` as null and `notes`
+    as empty on purpose — they cannot be inferred. Committing a dictionary in
+    that state means nobody did the inspection, so fail the build.
+    """
+
+    def test_every_column_has_a_description(self, path):
+        dictionary = inspect_mod.load_dictionary(path)
+        undocumented = [c["name"] for c in dictionary["columns"] if not c["description"]]
+        assert not undocumented, f"columns missing a description: {undocumented}"
+
+    def test_has_notes(self, path):
+        dictionary = inspect_mod.load_dictionary(path)
+        assert dictionary["notes"], "dictionary has no notes — was it inspected by hand?"
+
+    def test_records_where_it_came_from(self, path):
+        dictionary = inspect_mod.load_dictionary(path)
+        assert dictionary["source_url"].startswith("http")
+        assert dictionary["retrieved"]
+        assert dictionary["schema_hash"].startswith("sha256:")

@@ -49,5 +49,29 @@ code without touching this file, unless it carries the `no-changelog` label.
   required keys, and ADR numbers are unique (PR-03).
 - `requests` and `pandera` added to `pixi.toml` (PR-03).
 - `docs/handoffs/PR-03-fetch-provenance-schema-core.md`.
+- First real data connector: `rules/fetch.smk` and `scripts/fetch_dataset.py`
+  fetch ONS *Curva de Carga* (hourly verified load per subsystem) into
+  `resources/ons/`, writing a committed provenance record per file (PR-04).
+- `docs/data-dictionary/ons/curva_carga.yaml` — the first real data
+  dictionary, generated from the 2024 file and annotated by hand with ONS's
+  own field definitions, the MWmed unit, and the timezone and subsystem-code
+  traps (PR-04).
+- `sources:` block in `config/config.default.yaml` and a `fetch_all` target,
+  deliberately outside `rule all` so CI never reaches the network (PR-04).
+- CLI for `scripts/_inspect.py`, so dictionaries can be generated directly
+  from a fetched file (PR-04).
+- `test/test_data_dictionaries.py` — validates committed dictionaries against
+  a real committed slice of upstream data, and requires every dictionary to
+  carry per-column descriptions and notes (PR-04).
+- `docs/handoffs/PR-04-ons-load-connector.md`.
+
+### Changed
+
+- `REUSE.toml` now attributes ONS-derived files (fixtures, data dictionaries)
+  to ONS rather than to this project. Their data is CC-BY, and attribution is
+  what that licence requires (PR-04).
+- Renamed `test/fixtures/ons_carga_sample.csv` to `synthetic_load_sample.csv`:
+  it is invented data, and the old name implied otherwise now that real ONS
+  fixtures sit beside it (PR-04).
 
 [Unreleased]: https://github.com/leonardovbonatto/pypsa-meets-brazil/commits/main

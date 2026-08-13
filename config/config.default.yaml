@@ -37,6 +37,17 @@ solver:
   options:
     threads: 4
 
+# Upstream data sources. URLs are templates expanded by the fetch rules.
+# Anything fetched here is CC-BY (ONS open data); see the per-dataset entry in
+# docs/data-dictionary/ for licence and field meanings.
+sources:
+  ons:
+    curva_carga:
+      # Hourly verified load per subsystem, one file per year, published from
+      # 2000 onward. See docs/data-dictionary/ons/curva_carga.yaml.
+      url: https://ons-aws-prod-opendata.s3.amazonaws.com/dataset/curva-carga-ho/CURVA_CARGA_{year}.csv
+      years: [2024]
+
 paths:
   resources: resources
   results: results

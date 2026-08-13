@@ -1,0 +1,81 @@
+dataset: curva_carga
+source: ons
+source_url: https://ons-aws-prod-opendata.s3.amazonaws.com/dataset/curva-carga-ho/CURVA_CARGA_2024.csv
+retrieved: '2026-08-13T16:20:37+00:00'
+format: csv
+encoding: utf-8
+delimiter: ;
+decimal: .
+row_count: 35136
+schema_hash: sha256:54887f8e4860804ff942f36cd6f0c51b73510ccd2693533c93a45416eb0f97d1
+columns:
+- name: id_subsistema
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: Subsystem code. Values present in 2024 are N, NE, S and SE.
+  sample:
+  - N
+  - NE
+  - S
+- name: nom_subsistema
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: 'Subsystem name in Portuguese: NORTE, NORDESTE, SUL, SUDESTE.'
+  sample:
+  - NORTE
+  - NORDESTE
+  - SUL
+- name: din_instante
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: Start of the hourly interval, Brasilia local time. Arrives as a string;
+    pandas does not parse it automatically.
+  sample:
+  - '2024-01-01 00:00:00'
+  - '2024-01-01 00:00:00'
+  - '2024-01-01 00:00:00'
+- name: val_cargaenergiahomwmed
+  dtype: float64
+  unit: MWmed
+  nullable: false
+  null_rate: 0.0
+  description: Verified load for the subsystem, averaged over the hour.
+  sample:
+  - 6539.56
+  - 11976.884
+  - 9966.972
+notes:
+- Field meanings are ONS's own, taken from the dataset's published data dictionary
+  at https://ons-aws-prod-opendata.s3.amazonaws.com/dataset/curva-carga-ho/DicionarioDados_CurvaCarga.json,
+  which defines val_cargaenergiahomwmed as "Valor da Carga de Energia, em MWmed".
+- MWmed is average power over the interval, not energy. Converting to MWh means multiplying
+  by the interval length, which is 1 h here, so the two coincide numerically and the
+  distinction is easy to lose. It stops being harmless as soon as this is joined to
+  one of ONS's half-hourly series.
+- 'Timestamps are Brasilia local time (UTC-3). Verified rather than assumed: mean
+  SIN load peaks at 19h and troughs at 04h, the expected local-time profile. Under
+  UTC the peak would appear at 22h.'
+- 2024 contains 8784 distinct timestamps (366 days x 24 h) with all four subsystems
+  present at every one - no gaps, no duplicates. Brazil abolished DST in 2019, so
+  there are no ambiguous or missing hours; series covering years before 2019 do contain
+  them.
+- 'Magnitude sanity check: mean SIN load across 2024 is about 78,900 MWmed, roughly
+  693 TWh over the year, which is the right order for Brazil. Recompute this if a
+  later fetch looks wrong.'
+- ONS labels the SE subsystem SUDESTE, but it is the combined Southeast/Centre-West
+  subsystem the sector writes as SE/CO, and which config.default.yaml calls SE_CO.
+  A connector must map id_subsistema onto the config labels rather than joining on
+  the raw code.
+- 'One file per calendar year at a stable URL shape, .../dataset/curva-carga-ho/CURVA_CARGA_{year}.csv,
+  published from 2000 onward and also offered as XLSX and PARQUET. Prefer the CSV:
+  the XLSX twin may use comma decimals.'
+- These dtype values were produced under pandas 3.0.5, which reports string columns
+  as `str` where pandas 2.x reported `object`. schema_hash is therefore sensitive
+  to the pandas major version as well as to upstream; expect it to change on a pandas
+  upgrade, and re-verify rather than assuming upstream drift.

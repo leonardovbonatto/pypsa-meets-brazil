@@ -24,3 +24,23 @@ path = ["test/fixtures/**"]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2026 pypsa-meets-brazil contributors"
 SPDX-License-Identifier = "CC-BY-4.0"
+
+# ONS-derived files carry ONS's copyright, not ours. Their open data is
+# published under Creative Commons Attribution, and attribution is the one
+# thing that licence actually requires — so name the operator rather than
+# claiming these bytes as our own. Covers committed fixtures cut from ONS
+# files and the data dictionaries that quote ONS's own field definitions.
+[[annotations]]
+path = ["test/fixtures/ons/**", "docs/data-dictionary/ons/**"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Operador Nacional do Sistema Eletrico (ONS)"
+SPDX-License-Identifier = "CC-BY-4.0"
+
+# Provenance records are generated wholesale by scripts/fetch.py and rewritten
+# on every fetch, so an inline header would not survive. They are our metadata
+# about upstream data (URL, hash, size), not the data itself.
+[[annotations]]
+path = ["resources/_provenance/**"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 pypsa-meets-brazil contributors"
+SPDX-License-Identifier = "MIT"

@@ -14,6 +14,7 @@ configfile: "config/config.default.yaml"
 
 
 include: "rules/common.smk"
+include: "rules/fetch.smk"
 
 
 RUN_ID = run_id(config)
@@ -22,6 +23,21 @@ RUN_ID = run_id(config)
 rule all:
     input:
         f"results/{RUN_ID}/manifest.json",
+
+
+rule fetch_all:
+    """
+    Acquire every configured upstream dataset.
+
+    Deliberately NOT a dependency of `all`: these rules reach the network, and
+    CI must be able to run the whole default workflow on committed fixtures
+    without downloading anything (ADR-0001). Fetching is an explicit request.
+    """
+    input:
+        expand(
+            "resources/ons/CURVA_CARGA_{year}.csv",
+            year=config["sources"]["ons"]["curva_carga"]["years"],
+        ),
 
 
 rule write_run_manifest:

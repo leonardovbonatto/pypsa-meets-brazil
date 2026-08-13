@@ -14,6 +14,7 @@ hand after inspection (see the data-dictionary README).
 
 from __future__ import annotations
 
+import argparse
 import hashlib
 import json
 from pathlib import Path
@@ -118,3 +119,38 @@ def to_pandera_schema(dictionary: dict[str, Any]) -> pa.DataFrameSchema:
         for col in dictionary["columns"]
     }
     return pa.DataFrameSchema(columns, strict=True)
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Generate a data-dictionary YAML.")
+    parser.add_argument("--raw", required=True, type=Path, help="The fetched file to inspect.")
+    parser.add_argument("--out", required=True, type=Path, help="Where to write the YAML.")
+    parser.add_argument("--dataset", required=True)
+    parser.add_argument("--source", required=True)
+    parser.add_argument("--source-url", required=True)
+    parser.add_argument("--retrieved", required=True, help="ISO 8601, from the provenance record.")
+    parser.add_argument("--delimiter", default=",")
+    parser.add_argument("--encoding", default="utf-8")
+    parser.add_argument("--decimal", default=".")
+    args = parser.parse_args()
+
+    df = inspect_csv(
+        args.raw, delimiter=args.delimiter, encoding=args.encoding, decimal=args.decimal
+    )
+    dictionary = build_dictionary(
+        df,
+        dataset=args.dataset,
+        source=args.source,
+        source_url=args.source_url,
+        retrieved=args.retrieved,
+        encoding=args.encoding,
+        delimiter=args.delimiter,
+        decimal=args.decimal,
+    )
+    out = write_dictionary(dictionary, args.out)
+    print(f"wrote {out} ({len(dictionary['columns'])} columns, {dictionary['row_count']} rows)")
+    print("Fill in `unit`, `description` and `notes` by hand before committing.")
+
+
+if __name__ == "__main__":
+    main()
