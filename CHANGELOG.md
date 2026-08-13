@@ -91,6 +91,14 @@ code without touching this file, unless it carries the `no-changelog` label.
   (50 Hz) side of the binational Itaipu plant, not part of Brazil's 60 Hz SIN
   (PR-07).
 - `docs/handoffs/PR-07-ons-capacity-connector.md`.
+- `scripts/build_generators.py` and `rules/build.smk::build_generators_t0`:
+  aggregate ONS installed capacity to `resources/generators_t0.csv`, one row
+  per `(subsystem, technology)`, filtering to active units and excluding `PY`
+  (Itaipu 50 Hz — not part of Brazil's SIN). `build_network.py::attach_generators()`
+  attaches these to the T0 network as one `Generator` per row. Capacity and
+  topology only — no marginal cost, no availability profile, `n.optimize()`
+  still not callable (PR-08).
+- `docs/handoffs/PR-08-t0-generator-capacity.md`.
 
 ### Changed
 
@@ -102,5 +110,8 @@ code without touching this file, unless it carries the `no-changelog` label.
   fixtures sit beside it (PR-04).
 - `config.default.yaml`: removed `sources.ons.curva_carga.years`, now derived
   from `snapshots` instead of listed separately (PR-05).
+- `scripts/build_demand.py`'s subsystem mapping moved to the new shared
+  `scripts/_ons.py`, since `build_generators.py` needs the identical mapping
+  (PR-08).
 
 [Unreleased]: https://github.com/leonardovbonatto/pypsa-meets-brazil/commits/main

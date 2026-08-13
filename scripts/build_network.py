@@ -1,13 +1,14 @@
 # SPDX-FileCopyrightText: 2026 pypsa-meets-brazil contributors
 # SPDX-License-Identifier: MIT
 """
-Build the bare T0 network: one bus per subsystem, snapshots from config, and
-the tidy demand series PR-05 built, attached as time-varying loads.
+Build the T0 network: one bus per subsystem, snapshots from config, the tidy
+demand series (PR-05) attached as time-varying loads, and the aggregated
+generator capacity (PR-08) attached as one Generator per (subsystem,
+technology).
 
-Deliberately bare. No generators, no lines, no solver. Those are separate
-concerns for separate PRs (see docs/handoffs/PR-06-*.md) - this PR only
-proves buses and load attach correctly and the network survives a round
-trip through NetCDF, which is the artifact every later PR builds on.
+Still no lines, no marginal cost, no availability profile, no solver -
+capacity and topology only. `n.optimize()` is still not callable: see
+docs/handoffs/PR-08-*.md for exactly what is and isn't here yet.
 """
 
 # NOTE: no `from __future__ import annotations` - see write_manifest.py.
@@ -58,6 +59,41 @@ def build_network(demand: pd.DataFrame, *, subsystems: list[str]) -> pypsa.Netwo
     return n
 
 
+def load_generators(path: Path) -> pd.DataFrame:
+    return pd.read_csv(path)
+
+
+def attach_generators(n: pypsa.Network, generators: pd.DataFrame) -> pypsa.Network:
+    """
+    Add one Generator per (subsystem, technology) row: `p_nom` only.
+
+    No `marginal_cost` (needs CVU for thermal, water value for hydro - both
+    unbuilt) and no `p_max_pu` (needs atlite/ERA5 for renewables, also
+    unbuilt) - both default to PyPSA's own defaults (0 and 1 respectively),
+    which is a placeholder, not a modelling claim. Mutates `n` in place and
+    returns it for convenience.
+    """
+    unknown_buses = set(generators["subsystem"]) - set(n.buses.index)
+    if unknown_buses:
+        raise ValueError(f"generator subsystem(s) have no matching bus: {sorted(unknown_buses)}")
+
+    for carrier in generators["carrier"].unique():
+        if carrier not in n.carriers.index:
+            n.add("Carrier", carrier)
+
+    names = (generators["subsystem"] + " " + generators["carrier"]).tolist()
+    n.add(
+        "Generator",
+        names,
+        bus=generators["subsystem"].to_numpy(),
+        carrier=generators["carrier"].to_numpy(),
+        p_nom=generators["p_nom_mw"].to_numpy(),
+    )
+
+    n.consistency_check()
+    return n
+
+
 def write_network(n: pypsa.Network, out_path: Path) -> Path:
     out_path.parent.mkdir(parents=True, exist_ok=True)
     n.export_to_netcdf(str(out_path))
@@ -69,6 +105,10 @@ def main() -> None:
 
     demand = load_demand(Path(snake.input.demand))
     n = build_network(demand, subsystems=list(snake.params.subsystems))
+
+    generators = load_generators(Path(snake.input.generators))
+    attach_generators(n, generators)
+
     write_network(n, Path(snake.output[0]))
 
 

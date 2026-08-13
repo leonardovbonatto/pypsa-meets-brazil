@@ -22,10 +22,7 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from _inspect import inspect_csv, load_dictionary, to_pandera_schema
-
-# ONS labels the combined Southeast/Centre-West subsystem SE / SUDESTE; the
-# sector, and this project's config, write it SE_CO. Everything else matches.
-SUBSYSTEM_MAP = {"N": "N", "NE": "NE", "S": "S", "SE": "SE_CO"}
+from _ons import SUBSYSTEM_MAP, map_subsystems  # noqa: F401 (re-exported for callers/tests)
 
 LOAD_COLUMN = "val_cargaenergiahomwmed"
 
@@ -40,13 +37,6 @@ def validate_against_dictionary(df: pd.DataFrame, dictionary_path: Path) -> None
     dictionary = load_dictionary(dictionary_path)
     schema = to_pandera_schema(dictionary)
     schema.validate(df)
-
-
-def map_subsystems(df: pd.DataFrame) -> pd.DataFrame:
-    unknown = set(df["id_subsistema"]) - set(SUBSYSTEM_MAP)
-    if unknown:
-        raise ValueError(f"unmapped ONS subsystem code(s): {sorted(unknown)}")
-    return df.assign(subsystem=df["id_subsistema"].map(SUBSYSTEM_MAP))
 
 
 def parse_timestamps(df: pd.DataFrame) -> pd.DataFrame:

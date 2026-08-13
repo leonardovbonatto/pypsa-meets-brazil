@@ -102,3 +102,52 @@ class TestWriteNetwork:
         assert sorted(reloaded.buses.index) == sorted(SUBSYSTEMS)
         assert reloaded.loads_t.p_set.equals(n.loads_t.p_set)
         assert len(reloaded.snapshots) == len(n.snapshots)
+
+
+@pytest.fixture
+def tidy_generators():
+    return pd.DataFrame(
+        [
+            {"subsystem": "SE_CO", "carrier": "hydro", "p_nom_mw": 100.0},
+            {"subsystem": "SE_CO", "carrier": "thermal", "p_nom_mw": 50.0},
+            {"subsystem": "S", "carrier": "wind", "p_nom_mw": 25.0},
+        ]
+    )
+
+
+class TestAttachGenerators:
+    def test_adds_one_generator_per_row(self, tidy_demand, tidy_generators):
+        n = build_network.build_network(tidy_demand, subsystems=SUBSYSTEMS)
+        build_network.attach_generators(n, tidy_generators)
+        assert len(n.generators) == 3
+
+    def test_generator_values_are_correct(self, tidy_demand, tidy_generators):
+        n = build_network.build_network(tidy_demand, subsystems=SUBSYSTEMS)
+        build_network.attach_generators(n, tidy_generators)
+
+        gen = n.generators.loc["SE_CO hydro"]
+        assert gen["bus"] == "SE_CO"
+        assert gen["carrier"] == "hydro"
+        assert gen["p_nom"] == pytest.approx(100.0)
+
+    def test_registers_every_carrier(self, tidy_demand, tidy_generators):
+        n = build_network.build_network(tidy_demand, subsystems=SUBSYSTEMS)
+        build_network.attach_generators(n, tidy_generators)
+        assert {"hydro", "thermal", "wind"} <= set(n.carriers.index)
+
+    def test_raises_on_a_generator_bus_with_no_matching_bus(self, tidy_demand, tidy_generators):
+        bad = pd.concat(
+            [
+                tidy_generators,
+                pd.DataFrame([{"subsystem": "ISOLATED_RR", "carrier": "hydro", "p_nom_mw": 1.0}]),
+            ],
+            ignore_index=True,
+        )
+        n = build_network.build_network(tidy_demand, subsystems=SUBSYSTEMS)
+        with pytest.raises(ValueError, match="no matching bus"):
+            build_network.attach_generators(n, bad)
+
+    def test_passes_consistency_check_after_attaching(self, tidy_demand, tidy_generators):
+        n = build_network.build_network(tidy_demand, subsystems=SUBSYSTEMS)
+        build_network.attach_generators(n, tidy_generators)
+        n.consistency_check()  # must not raise
