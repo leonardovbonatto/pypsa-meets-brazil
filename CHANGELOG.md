@@ -77,6 +77,12 @@ code without touching this file, unless it carries the `no-changelog` label.
 - `build_all` Snakemake target, alongside `fetch_all`. Both stay outside `all`
   since they reach the network or its downstream artifacts (PR-05).
 - `docs/handoffs/PR-05-t0-demand-series.md`.
+- `pypsa` added to `pixi.toml` — the first domain modelling dependency to
+  land. `scripts/build_network.py` and `rules/build.smk::build_network_t0`
+  build the bare T0 `Network`: one bus per subsystem, snapshots from config,
+  the T0 demand series attached as time-varying loads. No generators, no
+  lines, no solver yet (PR-06).
+- `docs/handoffs/PR-06-bare-t0-network.md`.
 
 ### Changed
 

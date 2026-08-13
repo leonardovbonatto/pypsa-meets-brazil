@@ -34,7 +34,26 @@ rule build_demand_t0:
         "../scripts/build_demand.py"
 
 
+rule build_network_t0:
+    """
+    Bare T0 network: one bus per subsystem, snapshots from config, and the
+    tidy demand series attached as time-varying loads. No generators, no
+    lines, no solver - see docs/handoffs/PR-06-*.md for why those wait.
+    """
+    input:
+        demand="resources/demand_t0.csv",
+    output:
+        "resources/networks/t0.nc",
+    params:
+        subsystems=config["subsystems"],
+    log:
+        "logs/build_network_t0/run.log",
+    script:
+        "../scripts/build_network.py"
+
+
 rule build_all:
     """Build every configured model-ready artifact. Also network-reaching; see fetch_all."""
     input:
         "resources/demand_t0.csv",
+        "resources/networks/t0.nc",

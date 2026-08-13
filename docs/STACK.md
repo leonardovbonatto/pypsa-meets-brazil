@@ -29,11 +29,12 @@ this document:
 | **BUILT** | Installed, running, and exercised by tests today. |
 | **PLANNED** | Named in the roadmap. Not yet installed. Does not exist in the repo. |
 
-> **Read this twice.** Most of the famous names in this project — PyPSA, atlite,
-> SDDP.jl, HiGHS — are still **PLANNED**. Four commits in, what exists is the
-> plumbing: an environment, a workflow engine, a data-fetching layer with provenance,
-> and the quality gates. That is deliberate, and it is the honest state of things.
-> Anyone claiming the model runs today would be wrong.
+> **Read this twice.** Most of the famous names in this project — atlite, SDDP.jl,
+> HiGHS — are still **PLANNED**. PyPSA itself landed in PR-06, but only as a *bare*
+> network: buses, snapshots, and the T0 load. No generators, no lines, no solver —
+> `n.optimize()` cannot be called yet, because there is nothing to dispatch. What
+> exists is the plumbing plus that one bare network. That is deliberate, and it is
+> the honest state of things. Anyone claiming the model runs today would be wrong.
 
 ---
 
@@ -52,14 +53,21 @@ flowchart LR
     B --> D["resources/_provenance/<br/>curva_carga_2024.json<br/><i>committed</i>"]
     C --> E["scripts/_inspect.py"]
     E --> F["docs/data-dictionary/<br/>ons/curva_carga.yaml"]
+    C --> H["scripts/build_demand.py"]
+    H --> I["resources/demand_t0.csv<br/><i>gitignored</i>"]
+    I --> J["scripts/build_network.py"]
+    J --> K["resources/networks/t0.nc<br/>buses + loads<br/><i>gitignored</i>"]
     D --> G["results/run/manifest.json<br/>what produced this"]
 
     style C stroke-dasharray: 4 4
+    style I stroke-dasharray: 4 4
+    style K stroke-dasharray: 4 4
 ```
 
-Note what is committed and what is not. The 1.5 MB CSV is **never** committed — it is
-regenerable. The 354-byte provenance record **is** committed, because it is the only
-thing that can later say which vintage of upstream data a result came from.
+Note what is committed and what is not. The 1.5 MB CSV, the demand series and the
+network file are all **never** committed — they are regenerable. The 354-byte
+provenance record **is** committed, because it is the only thing that can later say
+which vintage of upstream data a result came from.
 
 ### What the pipeline becomes
 
@@ -68,13 +76,14 @@ flowchart LR
     subgraph BUILT["Built today"]
         A["Fetch"] --> B["Provenance"]
         B --> C["Data dictionary"]
+        C --> D["Tidy demand"]
+        D --> E["Bare PyPSA<br/>Network"]
     end
     subgraph PLANNED["Planned"]
-        D["Build<br/>tidy series"] --> E["PyPSA<br/>Network"]
-        E --> F["linopy → solver"]
-        F --> G["Validate vs<br/>observed ONS data"]
+        F["+ generators<br/>+ lines"] --> G["linopy → solver"]
+        G --> H["Validate vs<br/>observed ONS data"]
     end
-    C --> D
+    E --> F
 ```
 
 The engineering discipline in this repository is aimed almost entirely at that last
@@ -88,7 +97,7 @@ and whether it was ever checked against reality.
 flowchart TD
     L7["<b>Layer 7</b> — Project conventions<br/>provenance · data dictionaries · manifests · ADRs · handoffs"]
     L6["<b>Layer 6</b> — Quality gates<br/>git · pytest · ruff · pre-commit · GitHub Actions · REUSE"]
-    L5["<b>Layer 5</b> — Modelling <i>(planned)</i><br/>PyPSA · linopy · solvers · atlite · geopandas · SDDP.jl"]
+    L5["<b>Layer 5</b> — Modelling <i>(bare PyPSA only)</i><br/>PyPSA · linopy · solvers · atlite · geopandas · SDDP.jl"]
     L4["<b>Layer 4</b> — Data handling<br/>requests · pandas · pandera"]
     L3["<b>Layer 3</b> — Orchestration<br/>Snakemake"]
     L2["<b>Layer 2</b> — Language<br/>Python 3.12"]
@@ -329,7 +338,7 @@ flowchart LR
 | `.json` | Machine-friendly structured text | Provenance records and run manifests — written and read by code. |
 | `.toml` | Configuration format | `pixi.toml`, `pyproject.toml` — tool settings. |
 | `.parquet` | Compressed binary table | *(planned)* Intermediate data. Far smaller, preserves column types. |
-| `.nc` | NetCDF, scientific arrays | *(planned)* Weather data and saved PyPSA networks. |
+| `.nc` | NetCDF, scientific arrays | `resources/networks/t0.nc` — the saved PyPSA network. Weather cutouts are still *(planned)*. |
 
 > **The unit trap, which is not hypothetical.** The load column is in **MWmed** —
 > average power over the interval, not energy. At hourly resolution MWmed and MWh are
@@ -342,10 +351,10 @@ flowchart LR
 
 ## 7. Layer 5 — The modelling layer
 
-None of this is installed yet. It is the destination, and it is the layer where your
-existing knowledge does most of the work.
+Mostly not installed yet. PyPSA landed in PR-06 — everything else in this layer is
+still the destination, where your existing knowledge does most of the work.
 
-### PyPSA — **PLANNED**
+### PyPSA 1.2.4 — **BUILT** (bare network only)
 
 A `Network` object holding `Bus`, `Line`, `Link`, `Generator`, `Load`, `StorageUnit`.
 Static properties sit in DataFrames (`n.generators`); time series sit in parallel
@@ -359,6 +368,18 @@ dynamics, unit commitment — so you are not re-deriving them and getting a sign
 of the nodal energy balance constraints — the locational marginal price, and in
 Brazil's zonal formulation the CMO. You do not compute prices separately; you read
 them off the solved model.
+
+**What exists today.** `resources/networks/t0.nc` — 4 buses (one per subsystem),
+8784 hourly snapshots, and the T0 demand series attached as time-varying loads.
+Nothing else: no generators, no lines, no solver. `n.optimize()` cannot be called
+yet — there is no marginal cost, no capacity, no generation to dispatch. That is the
+next several PRs, not this one.
+
+> A real gotcha: `n.add("Bus", ..., carrier="AC")` does **not** register the carrier
+> itself. `n.consistency_check()` only *warns* about the resulting undefined carrier
+> — it does not raise — so the gap can pass silently. Fix is `n.add("Carrier", "AC")`
+> before adding any bus that references it. Caught by actually reading the build
+> log, not by the check passing.
 
 ### linopy — **PLANNED**
 
