@@ -80,18 +80,42 @@ rule build_costs_t0:
         "../scripts/build_costs.py"
 
 
+rule build_links_t0:
+    """
+    T0 inter-subsystem transfer capacity: one row per real ONS boundary
+    (ADR-0006), MW. p_nom is the largest absolute historical flow observed
+    on that boundary - a documented lower-bound proxy for true transfer
+    capacity, not a rated value.
+    """
+    input:
+        raw=expand(
+            "resources/ons/INTERCAMBIO_NACIONAL_{year}.csv",
+            year=snapshot_years(config),
+        ),
+        dictionary="docs/data-dictionary/ons/intercambio_nacional.yaml",
+    output:
+        "resources/links_t0.csv",
+    params:
+        subsystems=config["subsystems"],
+    log:
+        "logs/build_links_t0/run.log",
+    script:
+        "../scripts/build_links.py"
+
+
 rule build_network_t0:
     """
     T0 network: one bus per subsystem, snapshots from config, the tidy demand
     series attached as time-varying loads, the aggregated generator capacity
-    attached as one Generator per (subsystem, technology), and a
-    marginal_cost on every generator - CVU-derived for thermal, an explicit
-    documented default for everything else. No lines, no availability
-    profile, no solver yet - see docs/handoffs/PR-10-*.md.
+    attached as one Generator per (subsystem, technology), a marginal_cost on
+    every generator, inter-subsystem transfer Links (ADR-0006), and a
+    load-shedding backstop generator per bus. No availability profile, no
+    real transmission physics yet - see docs/handoffs/PR-13-*.md.
     """
     input:
         demand="resources/demand_t0.csv",
         generators="resources/generators_t0.csv",
+        links="resources/links_t0.csv",
         costs="resources/costs_t0.csv",
     output:
         "resources/networks/t0.nc",
@@ -108,5 +132,6 @@ rule build_all:
     input:
         "resources/demand_t0.csv",
         "resources/generators_t0.csv",
+        "resources/links_t0.csv",
         "resources/costs_t0.csv",
         "resources/networks/t0.nc",

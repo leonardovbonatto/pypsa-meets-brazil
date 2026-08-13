@@ -141,6 +141,17 @@ code without touching this file, unless it carries the `no-changelog` label.
   convention and the ONS-dictionary/data mismatch pattern seen again here
   (PR-12).
 - `docs/handoffs/PR-12-ons-interchange-connector.md`.
+- `scripts/build_links.py` and `rules/build.smk::build_links_t0`: reduce the
+  real interchange series to one transfer-capacity row per real boundary
+  (`p_nom = max(abs(flow))`, per ADR-0006). `build_network.py::attach_links()`
+  attaches these as bidirectional PyPSA `Link`s. Re-solving after this
+  resolves PR-11's `S` infeasibility completely (`load_shedding_mwh_by_bus`
+  goes to `{}`) — and reveals a new, real finding: with subsystems now able
+  to trade power, national free-generation capacity so comfortably exceeds
+  even peak demand that thermal generation dispatches at exactly 0 MW for
+  every hour of 2024. A genuine consequence of the still-open "no
+  availability profile" gap, not a bug (PR-13).
+- `docs/handoffs/PR-13-t0-transfer-links.md`.
 
 ### Changed
 

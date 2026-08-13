@@ -210,6 +210,53 @@ class TestAttachMarginalCosts:
         n.consistency_check()  # must not raise
 
 
+@pytest.fixture
+def tidy_links():
+    return pd.DataFrame(
+        [
+            {"bus0": "N", "bus1": "NE", "p_nom_mw": 100.0},
+            {"bus0": "N", "bus1": "SE_CO", "p_nom_mw": 200.0},
+            {"bus0": "NE", "bus1": "SE_CO", "p_nom_mw": 300.0},
+            {"bus0": "SE_CO", "bus1": "S", "p_nom_mw": 400.0},
+        ]
+    )
+
+
+class TestAttachLinks:
+    def test_adds_one_link_per_row(self, tidy_demand, tidy_links):
+        n = build_network.build_network(tidy_demand, subsystems=SUBSYSTEMS)
+        build_network.attach_links(n, tidy_links)
+        assert len(n.links) == 4
+
+    def test_link_values_are_correct(self, tidy_demand, tidy_links):
+        n = build_network.build_network(tidy_demand, subsystems=SUBSYSTEMS)
+        build_network.attach_links(n, tidy_links)
+
+        link = n.links.loc["N-NE"]
+        assert link["bus0"] == "N"
+        assert link["bus1"] == "NE"
+        assert link["p_nom"] == pytest.approx(100.0)
+
+    def test_links_are_bidirectional(self, tidy_demand, tidy_links):
+        n = build_network.build_network(tidy_demand, subsystems=SUBSYSTEMS)
+        build_network.attach_links(n, tidy_links)
+        assert (n.links["p_min_pu"] == -1.0).all()
+
+    def test_raises_on_a_link_bus_with_no_matching_bus(self, tidy_demand, tidy_links):
+        bad = pd.concat(
+            [tidy_links, pd.DataFrame([{"bus0": "S", "bus1": "ISOLATED_RR", "p_nom_mw": 1.0}])],
+            ignore_index=True,
+        )
+        n = build_network.build_network(tidy_demand, subsystems=SUBSYSTEMS)
+        with pytest.raises(ValueError, match="no matching bus"):
+            build_network.attach_links(n, bad)
+
+    def test_passes_consistency_check(self, tidy_demand, tidy_links):
+        n = build_network.build_network(tidy_demand, subsystems=SUBSYSTEMS)
+        build_network.attach_links(n, tidy_links)
+        n.consistency_check()  # must not raise
+
+
 class TestAttachLoadShedding:
     def test_adds_one_generator_per_subsystem(self, tidy_demand):
         n = build_network.build_network(tidy_demand, subsystems=SUBSYSTEMS)

@@ -5,11 +5,13 @@ Build the T0 network: one bus per subsystem, snapshots from config, the tidy
 demand series (PR-05) attached as time-varying loads, the aggregated
 generator capacity (PR-08) attached as one Generator per (subsystem,
 technology), a `marginal_cost` on every generator (PR-10) - CVU-derived for
-thermal, an explicit documented default for everything else - and a
-load-shedding slack generator per bus (PR-11) so the network is solvable
-despite having no transmission lines yet.
+thermal, an explicit documented default for everything else - inter-
+subsystem transfer `Link`s per ADR-0006 (PR-13), and a load-shedding slack
+generator per bus (PR-11) as the last-resort backstop for whatever the
+transfer links still can't cover.
 
-Still no lines, no availability profile: see docs/handoffs/PR-11-*.md for
+Still no real transmission physics (Links are a transport model, not DC-OPF,
+per ADR-0006) and no availability profile: see docs/handoffs/PR-13-*.md for
 exactly what is and isn't here yet, and why the marginal costs and the
 load-shedding usage are both a real simplification worth reading before
 trusting a dispatch result.
@@ -92,6 +94,43 @@ def attach_generators(n: pypsa.Network, generators: pd.DataFrame) -> pypsa.Netwo
         bus=generators["subsystem"].to_numpy(),
         carrier=generators["carrier"].to_numpy(),
         p_nom=generators["p_nom_mw"].to_numpy(),
+    )
+
+    n.consistency_check()
+    return n
+
+
+def load_links(path: Path) -> pd.DataFrame:
+    return pd.read_csv(path)
+
+
+def attach_links(n: pypsa.Network, links: pd.DataFrame) -> pypsa.Network:
+    """
+    Add one bidirectional transfer Link per real ONS boundary (ADR-0006).
+
+    `p_min_pu=-1` (with the default `p_max_pu=1`) makes each Link carry
+    flow in either direction up to `p_nom` - matching the real data, which
+    shows every boundary reversing direction over the year. No
+    `marginal_cost` (transferring is free; only the `p_nom` limit binds) and
+    no losses (`efficiency` stays at PyPSA's default of 1.0) - both a stated
+    T0 simplification, not a claim that real transmission is lossless.
+    Reuses the "AC" carrier already registered for buses, since these
+    represent (simplified) AC transmission corridors. Mutates `n` in place
+    and returns it for convenience.
+    """
+    unknown_buses = (set(links["bus0"]) | set(links["bus1"])) - set(n.buses.index)
+    if unknown_buses:
+        raise ValueError(f"link bus(es) have no matching bus: {sorted(unknown_buses)}")
+
+    names = [f"{b0}-{b1}" for b0, b1 in zip(links["bus0"], links["bus1"], strict=True)]
+    n.add(
+        "Link",
+        names,
+        bus0=links["bus0"].to_numpy(),
+        bus1=links["bus1"].to_numpy(),
+        p_nom=links["p_nom_mw"].to_numpy(),
+        p_min_pu=-1.0,
+        carrier="AC",
     )
 
     n.consistency_check()
@@ -194,6 +233,9 @@ def main() -> None:
 
     generators = load_generators(Path(snake.input.generators))
     attach_generators(n, generators)
+
+    links = load_links(Path(snake.input.links))
+    attach_links(n, links)
 
     costs = load_costs(Path(snake.input.costs))
     attach_marginal_costs(n, costs)
