@@ -152,6 +152,17 @@ code without touching this file, unless it carries the `no-changelog` label.
   every hour of 2024. A genuine consequence of the still-open "no
   availability profile" gap, not a bug (PR-13).
 - `docs/handoffs/PR-13-t0-transfer-links.md`.
+- Fifth real data connector: `rules/fetch.smk::fetch_ons_fator_capacidade`
+  fetches ONS real hourly wind/solar capacity factor, per plant-group, one
+  file per (year, month) since this dataset is large (~37-40 MB/month).
+  `scripts/_common.py::snapshot_year_months()` derives which (year, month)
+  pairs to fetch, the month-level analogue of `snapshot_years()`.
+  `docs/data-dictionary/ons/fator_capacidade.yaml` — records that
+  `val_fatorcapacidade` is exactly PyPSA's `p_max_pu` definition, that a
+  small fraction of real values exceed 1.0 (must be clipped), and a real,
+  verified gap: `SE_CO` has zero wind rows in this dataset in every month
+  checked, despite having ~261 MW of registered wind capacity (PR-14).
+- `docs/handoffs/PR-14-ons-capacity-factor-connector.md`.
 
 ### Changed
 

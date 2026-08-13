@@ -49,3 +49,29 @@ def snapshot_years(cfg: dict) -> list[int]:
     start_year = int(cfg["snapshots"]["start"][:4])
     end_year = int(cfg["snapshots"]["end"][:4])
     return list(range(start_year, end_year + 1))
+
+
+def snapshot_year_months(cfg: dict) -> list[tuple[int, int]]:
+    """
+    (year, month) pairs spanned by `snapshots.start`..`snapshots.end`, inclusive.
+
+    Some ONS datasets (`fator_capacidade`, from 2022 onward) publish one file
+    per month rather than per year - this is the month-level analogue of
+    `snapshot_years()`, for the same reason: derive it from the snapshot
+    range instead of carrying a separate list that could drift out of sync.
+    """
+    start_year, start_month = (
+        int(cfg["snapshots"]["start"][:4]),
+        int(cfg["snapshots"]["start"][5:7]),
+    )
+    end_year, end_month = int(cfg["snapshots"]["end"][:4]), int(cfg["snapshots"]["end"][5:7])
+
+    pairs = []
+    year, month = start_year, start_month
+    while (year, month) <= (end_year, end_month):
+        pairs.append((year, month))
+        month += 1
+        if month > 12:
+            month = 1
+            year += 1
+    return pairs

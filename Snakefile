@@ -62,6 +62,10 @@ rule fetch_all:
             "resources/ons/INTERCAMBIO_NACIONAL_{year}.csv",
             year=snapshot_years(config),
         ),
+        [
+            f"resources/ons/FATOR_CAPACIDADE_2_{year}_{month:02d}.csv"
+            for year, month in snapshot_year_months(config)
+        ],
         "resources/ons/CAPACIDADE_GERACAO.csv",
 
 

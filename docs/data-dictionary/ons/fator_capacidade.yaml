@@ -1,0 +1,252 @@
+dataset: fator_capacidade
+source: ons
+source_url: https://ons-aws-prod-opendata.s3.amazonaws.com/dataset/fator_capacidade_2_di/FATOR_CAPACIDADE-2_2024_01.csv
+retrieved: '2026-08-13T23:34:00+00:00'
+format: csv
+encoding: utf-8
+delimiter: ;
+decimal: .
+row_count: 153528
+schema_hash: sha256:b268ff99db6744fe2540eb9e5b22986c0378832784561b8c0eaafedb2371f143
+columns:
+- name: id_subsistema
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: Subsystem code. N/NE/S/SE observed - no PY (Itaipu is hydro, not wind/solar).
+  sample:
+  - N
+  - NE
+  - NE
+- name: nom_subsistema
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: Subsystem name in Portuguese.
+  sample:
+  - Norte
+  - Nordeste
+  - Nordeste
+- name: id_estado
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: Two-letter state code.
+  sample:
+  - MA
+  - BA
+  - BA
+- name: nom_estado
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: State name.
+  sample:
+  - MARANHAO
+  - BAHIA
+  - BAHIA
+- name: cod_pontoconexao
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: Grid connection point code for the plant/plant-group.
+  sample:
+  - MAMR--500-A
+  - BAPND-230-A
+  - BAIGT-500-A
+- name: nom_pontoconexao
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: Grid connection point name.
+  sample:
+  - MIRANDA II500kVA
+  - PINDAI II - 230 kV (A)
+  - IGAPORA III - 500 kV (A)
+- name: nom_localizacao
+  dtype: str
+  unit: null
+  nullable: true
+  null_rate: 0.1354
+  description: Free-text location. ONS documents this as populated only for Northeast
+    plants.
+  sample:
+  - Interior
+  - Interior
+  - Interior
+- name: val_latitudesecoletora
+  dtype: float64
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: Latitude of the plant/group's collector substation.
+  sample:
+  - -2.727222
+  - -14.353933
+  - -14.353822
+- name: val_longitudesecoletora
+  dtype: float64
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: Longitude of the plant/group's collector substation.
+  sample:
+  - -42.596389
+  - -42.575842
+  - -42.575483
+- name: val_latitudepontoconexao
+  dtype: float64
+  unit: null
+  nullable: true
+  null_rate: 0.0145
+  description: Latitude of the grid connection point.
+  sample:
+  - -3.566219
+  - -14.415433
+  - -13.983
+- name: val_longitudepontoconexao
+  dtype: float64
+  unit: null
+  nullable: true
+  null_rate: 0.0145
+  description: Longitude of the grid connection point.
+  sample:
+  - -44.535478
+  - -42.607767
+  - -42.614
+- name: nom_modalidadeoperacao
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: ONS operating-mode classification for the plant/group.
+  sample:
+  - Conjunto de Usinas
+  - Conjunto de Usinas
+  - Conjunto de Usinas
+- name: nom_tipousina
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: Plant technology. Only EOLICA and SOLAR appear - this dataset is wind/solar
+    only.
+  sample:
+  - Eólica
+  - Eólica
+  - Eólica
+- name: nom_usina_conjunto
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: Plant or plant-group name. Own naming/ID scheme, distinct from capacidade_geracao's
+    and cvu_usina_termica's - no clean join key across these datasets, same pattern
+    noted in PR-09's handoff.
+  sample:
+  - Conj. Paulino Neves
+  - Conj. Abil I
+  - Conj. Abil II
+- name: id_ons
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: ONS's own identifier for the plant/group.
+  sample:
+  - CJU_MAPLN
+  - CJU_BAABL
+  - CJU_BAABD
+- name: ceg
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: ANEEL's unique generation-enterprise code, where available.
+  sample:
+  - '-'
+  - '-'
+  - '-'
+- name: din_instante
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: Hourly timestamp, Brasilia local time.
+  sample:
+  - '2024-01-01 00:00:00'
+  - '2024-01-01 00:00:00'
+  - '2024-01-01 00:00:00'
+- name: val_geracaoprogramada
+  dtype: float64
+  unit: MWmed
+  nullable: true
+  null_rate: 0.0388
+  description: Scheduled generation for the hour.
+  sample:
+  - 50.0
+  - 12.0
+  - 5.0
+- name: val_geracaoverificada
+  dtype: float64
+  unit: MWmed
+  nullable: false
+  null_rate: 0.0
+  description: Verified (realized) generation for the hour.
+  sample:
+  - 2.193
+  - 0.622
+  - 1.506
+- name: val_capacidadeinstalada
+  dtype: float64
+  unit: MW
+  nullable: false
+  null_rate: 0.0
+  description: Installed capacity of the plant/group.
+  sample:
+  - 426.0
+  - 90.0
+  - 46.5
+- name: val_fatorcapacidade
+  dtype: float64
+  unit: dimensionless (fraction of installed capacity)
+  nullable: false
+  null_rate: 0.0
+  description: 'Capacity factor: val_geracaoverificada / val_capacidadeinstalada.
+    This is exactly what feeds PyPSA''s p_max_pu.'
+  sample:
+  - 0.0051478873239436
+  - 0.0069111111111111
+  - 0.0323870967741935
+notes:
+- Field meanings are ONS's own, from the dataset's published data dictionary at https://ons-aws-prod-opendata.s3.amazonaws.com/dataset/fator_capacidade_2_di/DicionarioDados_FatorCapacidade.json.
+  Unlike capacidade_geracao (PR-07) and intercambio_nacional (PR-12), this dictionary's
+  fields match the real CSV columns exactly - no phantom fields this time.
+- 'Large: ~37-40 MB per month, ~150,000+ rows, hourly granularity across 150-200+
+  plant/plant-groups. From 2022 onward files are split by month as well as year (see
+  snapshot_year_months in scripts/_common.py); years 2009-2021 are published one file
+  per year instead.'
+- 'val_fatorcapacidade is generation/installed-capacity directly - exactly PyPSA''s
+  p_max_pu definition, no unit conversion needed. But 35 of 153,528 rows in January
+  2024 exceed 1.0 (max observed: ~1.02) - real measurement/rounding noise around the
+  nameplate boundary, not a data error to silently accept. A build step using this
+  for p_max_pu must clip to <= 1.0, since PyPSA''s p_max_pu > 1 would let a generator
+  exceed its own p_nom.'
+- No nulls observed in val_geracaoverificada, val_capacidadeinstalada or val_fatorcapacidade.
+- 'A real, verified gap, not an artifact of one month: the SE subsystem has *zero*
+  EOLICA (wind) rows in both January and July 2024 (checked both directly), even though
+  capacidade_geracao (PR-07) records ~261 MW of wind capacity for SE_CO. That capacity
+  is apparently not tracked by this specific ONS-dispatched-plants dataset. A build
+  step deriving p_max_pu per (subsystem, technology) has no data for SE_CO wind and
+  must document the resulting fallback explicitly rather than silently defaulting.'
+- nom_usina_conjunto / id_ons / ceg use this dataset's own identifiers, which do not
+  join cleanly against capacidade_geracao's ANEEL CEG codes or cvu_usina_termica's
+  planning-model codes - consistent with the cross-dataset ID mismatch already documented
+  in the PR-09 handoff. Any aggregation here should group by (subsystem, technology),
+  not attempt a per-plant join, for the same reason CVU aggregation did (PR-10).

@@ -89,3 +89,25 @@ rule fetch_ons_intercambio_nacional:
         "logs/fetch_ons_intercambio_nacional/{year}.log",
     script:
         "../scripts/fetch_dataset.py"
+
+
+rule fetch_ons_fator_capacidade:
+    """
+    ONS hourly wind/solar capacity factor, per plant/plant-group, one file
+    per (year, month) from 2022 onward - split by month, not just year,
+    because each month alone already runs ~35-40 MB (unit-level hourly
+    granularity across ~150-200 plant-groups).
+    """
+    output:
+        raw="resources/ons/FATOR_CAPACIDADE_2_{year}_{month}.csv",
+        provenance="resources/_provenance/ons/fator_capacidade_{year}_{month}.json",
+    params:
+        url=lambda wc: config["sources"]["ons"]["fator_capacidade"]["url"].format(
+            year=wc.year, month=wc.month
+        ),
+        source="ons",
+        dataset=lambda wc: f"fator_capacidade_{wc.year}_{wc.month}",
+    log:
+        "logs/fetch_ons_fator_capacidade/{year}_{month}.log",
+    script:
+        "../scripts/fetch_dataset.py"

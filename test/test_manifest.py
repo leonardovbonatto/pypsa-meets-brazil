@@ -69,6 +69,28 @@ class TestSnapshotYears:
         assert common.snapshot_years(cfg) == [2023, 2024, 2025]
 
 
+class TestSnapshotYearMonths:
+    def test_single_month(self):
+        cfg = {"snapshots": {"start": "2024-01-01", "end": "2024-01-31"}}
+        assert common.snapshot_year_months(cfg) == [(2024, 1)]
+
+    def test_full_year(self):
+        cfg = {"snapshots": {"start": "2024-01-01", "end": "2024-12-31"}}
+        months = common.snapshot_year_months(cfg)
+        assert len(months) == 12
+        assert months[0] == (2024, 1)
+        assert months[-1] == (2024, 12)
+
+    def test_spans_a_year_boundary(self):
+        cfg = {"snapshots": {"start": "2023-11-01", "end": "2024-02-01"}}
+        assert common.snapshot_year_months(cfg) == [
+            (2023, 11),
+            (2023, 12),
+            (2024, 1),
+            (2024, 2),
+        ]
+
+
 class TestManifest:
     def test_records_required_fields(self):
         m = write_manifest.build_manifest("smoke", BASE_CONFIG, "deadbeef")

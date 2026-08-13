@@ -27,6 +27,8 @@ CVU_DICT = DICT_DIR / "ons" / "cvu_usina_termica.yaml"
 CVU_FIXTURE = REPO_ROOT / "test" / "fixtures" / "ons" / "cvu_usina_termica_sample.csv"
 INTERCAMBIO_DICT = DICT_DIR / "ons" / "intercambio_nacional.yaml"
 INTERCAMBIO_FIXTURE = REPO_ROOT / "test" / "fixtures" / "ons" / "intercambio_nacional_sample.csv"
+FATOR_CAPACIDADE_DICT = DICT_DIR / "ons" / "fator_capacidade.yaml"
+FATOR_CAPACIDADE_FIXTURE = REPO_ROOT / "test" / "fixtures" / "ons" / "fator_capacidade_sample.csv"
 
 
 def _load(name: str, path: Path):
@@ -170,6 +172,58 @@ class TestIntercambioNacionalDictionary:
         """Sign is directional; a capacity proxy must use abs(), not assume one sign."""
         assert (intercambio_df["val_intercambiomwmed"] > 0).any()
         assert (intercambio_df["val_intercambiomwmed"] < 0).any()
+
+
+@pytest.fixture
+def fator_capacidade_df():
+    return inspect_mod.inspect_csv(FATOR_CAPACIDADE_FIXTURE, delimiter=";")
+
+
+class TestFatorCapacidadeDictionary:
+    def test_schema_validates_against_real_fixture(self, fator_capacidade_df):
+        dictionary = inspect_mod.load_dictionary(FATOR_CAPACIDADE_DICT)
+        schema = inspect_mod.to_pandera_schema(dictionary)
+
+        schema.validate(fator_capacidade_df)  # must not raise
+
+    def test_schema_hash_matches_fixture(self, fator_capacidade_df):
+        dictionary = inspect_mod.load_dictionary(FATOR_CAPACIDADE_DICT)
+        assert inspect_mod.schema_hash(fator_capacidade_df) == dictionary["schema_hash"]
+
+    def test_capacity_factor_column_is_dimensionless(self):
+        dictionary = inspect_mod.load_dictionary(FATOR_CAPACIDADE_DICT)
+        col = next(c for c in dictionary["columns"] if c["name"] == "val_fatorcapacidade")
+        assert col["unit"] == "dimensionless (fraction of installed capacity)"
+
+    def test_only_wind_and_solar_technologies_appear(self, fator_capacidade_df):
+        assert set(fator_capacidade_df["nom_tipousina"]) == {"Eólica", "Solar"}
+
+    def test_fixture_includes_a_factor_above_one(self, fator_capacidade_df):
+        """Real measurement noise near the nameplate boundary - a build step must clip it."""
+        assert (fator_capacidade_df["val_fatorcapacidade"] > 1.0).any()
+
+    def test_fixture_covers_every_real_subsystem_technology_combination(self, fator_capacidade_df):
+        """
+        SE_CO has no wind rows in the real data at all (verified in both
+        January and July 2024) even though it has ~261 MW of wind capacity -
+        a real gap, not a fixture omission. This fixture's coverage should
+        match that: every combination that exists in the real data, and
+        nothing invented for SE wind.
+        """
+        combos = set(
+            zip(
+                fator_capacidade_df["id_subsistema"],
+                fator_capacidade_df["nom_tipousina"],
+                strict=True,
+            )
+        )
+        assert combos == {
+            ("N", "Eólica"),
+            ("NE", "Eólica"),
+            ("NE", "Solar"),
+            ("S", "Eólica"),
+            ("SE", "Solar"),
+        }
 
 
 @pytest.mark.parametrize("path", COMMITTED_DICTS, ids=lambda p: p.name)

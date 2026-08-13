@@ -62,6 +62,12 @@ sources:
       # truth for T0's inter-subsystem topology and transfer-capacity proxy
       # (ADR-0006). See docs/data-dictionary/ons/intercambio_nacional.yaml.
       url: https://ons-aws-prod-opendata.s3.amazonaws.com/dataset/intercambio_nacional_ho/INTERCAMBIO_NACIONAL_{year}.csv
+    fator_capacidade:
+      # Hourly wind/solar capacity factor, per plant/plant-group, one file
+      # per (year, month) from 2022 onward - not just year (see
+      # snapshot_year_months in scripts/_common.py). Feeds T0's p_max_pu.
+      # See docs/data-dictionary/ons/fator_capacidade.yaml.
+      url: https://ons-aws-prod-opendata.s3.amazonaws.com/dataset/fator_capacidade_2_di/FATOR_CAPACIDADE-2_{year}_{month}.csv
 
 paths:
   resources: resources
