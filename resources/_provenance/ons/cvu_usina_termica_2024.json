@@ -1,0 +1,10 @@
+{
+  "byte_size": 456603,
+  "dataset": "cvu_usina_termica_2024",
+  "format": "csv",
+  "retrieved": "2026-08-13T17:36:06+00:00",
+  "row_count": 4881,
+  "sha256": "b943c92d2796afcc7434c6bfe99749e37b0fc1c0cd3d35fff5762cc0b0f1a934",
+  "source": "ons",
+  "source_url": "https://ons-aws-prod-opendata.s3.amazonaws.com/dataset/cvu_usitermica_se/CVU_USINA_TERMICA_2024.csv"
+}

@@ -99,6 +99,13 @@ code without touching this file, unless it carries the `no-changelog` label.
   topology only — no marginal cost, no availability profile, `n.optimize()`
   still not callable (PR-08).
 - `docs/handoffs/PR-08-t0-generator-capacity.md`.
+- Third real data connector: `rules/fetch.smk::fetch_ons_cvu_usina_termica`
+  fetches ONS thermal-plant variable cost (CVU), weekly per plant, one file
+  per year (4881 rows for 2024). `docs/data-dictionary/ons/cvu_usina_termica.yaml`
+  — records the R$/MWh unit, that CVU genuinely varies week to week (not
+  noise), and that this dataset's plant IDs/names do not join cleanly against
+  `capacidade_geracao`'s (PR-09).
+- `docs/handoffs/PR-09-ons-cvu-connector.md`.
 
 ### Changed
 

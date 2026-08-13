@@ -49,3 +49,21 @@ rule fetch_ons_capacidade_geracao:
         "logs/fetch_ons_capacidade_geracao/run.log",
     script:
         "../scripts/fetch_dataset.py"
+
+
+rule fetch_ons_cvu_usina_termica:
+    """
+    ONS thermal-plant variable cost (CVU), one file per calendar year, weekly
+    per-plant granularity within each file. Year-split like curva_carga.
+    """
+    output:
+        raw="resources/ons/CVU_USINA_TERMICA_{year}.csv",
+        provenance="resources/_provenance/ons/cvu_usina_termica_{year}.json",
+    params:
+        url=lambda wc: config["sources"]["ons"]["cvu_usina_termica"]["url"].format(year=wc.year),
+        source="ons",
+        dataset=lambda wc: f"cvu_usina_termica_{wc.year}",
+    log:
+        "logs/fetch_ons_cvu_usina_termica/{year}.log",
+    script:
+        "../scripts/fetch_dataset.py"

@@ -1,0 +1,159 @@
+dataset: cvu_usina_termica
+source: ons
+source_url: https://ons-aws-prod-opendata.s3.amazonaws.com/dataset/cvu_usitermica_se/CVU_USINA_TERMICA_2024.csv
+retrieved: '2026-08-13T19:31:00+00:00'
+format: csv
+encoding: utf-8
+delimiter: ;
+decimal: .
+row_count: 4881
+schema_hash: sha256:0552d84537d38414cf383da1c409b10fd971a2968fa3265329673d861f8164ef
+columns:
+- name: dat_iniciosemana
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: Start date of the ONS operating week (semana operativa).
+  sample:
+  - '2023-12-30'
+  - '2023-12-30'
+  - '2023-12-30'
+- name: dat_fimsemana
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: End date of the operating week.
+  sample:
+  - '2024-01-05'
+  - '2024-01-05'
+  - '2024-01-05'
+- name: ano_referencia
+  dtype: int64
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: PMO (Programa Mensal da Operacao) reference year.
+  sample:
+  - 2024
+  - 2024
+  - 2024
+- name: mes_referencia
+  dtype: int64
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: PMO reference month.
+  sample:
+  - 1
+  - 1
+  - 1
+- name: num_revisao
+  dtype: int64
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: PMO revision number within the month - PMOs are revised intra-month.
+  sample:
+  - 0
+  - 0
+  - 0
+- name: nom_semanaoperativa
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: Free-text name of the operating-week study, e.g. 'PMO Janeiro 2024'.
+  sample:
+  - PMO Janeiro 2024
+  - PMO Janeiro 2024
+  - PMO Janeiro 2024
+- name: cod_usinaplanejamento
+  dtype: int64
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: Plant code in ONS's planning/scheduling models. NOT the same ID scheme
+    as capacidade_geracao's CEG code, and nom_usina here is abbreviated differently
+    too (e.g. 'GERAMAR1' vs capacidade_geracao's fuller names) - joining the two datasets
+    needs name-matching, not a direct key join. See notes.
+  sample:
+  - 207
+  - 209
+  - 203
+- name: id_subsistema
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: 'Subsystem code: N/NE/S/SE only observed - no PY here (CVU is Brazil-only).'
+  sample:
+  - N
+  - N
+  - N
+- name: nom_subsistema
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: Subsystem name in Portuguese.
+  sample:
+  - Norte
+  - Norte
+  - Norte
+- name: nom_usina
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: Plant name, ONS planning-model spelling (see cod_usinaplanejamento
+    note).
+  sample:
+  - PONTA NEGR
+  - TAMBAQUI
+  - C. ROCHA
+- name: val_cvu
+  dtype: float64
+  unit: R$/MWh
+  nullable: false
+  null_rate: 0.0
+  description: Variable unit cost as used in NEWAVE/DECOMP/DESSEM and operational
+    cost tracking.
+  sample:
+  - 0.0
+  - 0.0
+  - 0.0
+notes:
+- 'Field meanings are ONS''s own, from the dataset''s published data dictionary at
+  https://ons-aws-prod-opendata.s3.amazonaws.com/dataset/cvu_usitermica_se/DicionarioDados_CVU_UsinaTermica.json,
+  which states val_cvu''s unit directly: ''Valor do Custo Variavel Unitario - CVU,
+  em R$/MWh''. This is Brazilian Reais, not USD - do not mix with a cost figure from
+  another source without converting.'
+- One row per (operating week, plant); 4881 rows for 2024, 52 distinct weeks, 114
+  distinct plants, exactly one row per (week, plant) pair - no duplicate revisions
+  survive into the published file even though num_revisao varies.
+- 'CVU genuinely varies week to week, not just noise: plant GERAMAR1 (subsystem N)
+  ranges from 983 to 1198 R$/MWh across 2024''s 52 weeks, tracking fuel cost changes.
+  A build step that reduces this to one value per subsystem (the T0 approach) is a
+  real simplification worth stating explicitly, not an artifact of the data.'
+- 854 of 4881 rows (2024) have val_cvu = 0.0 - not missing data, real zero-cost plants
+  (e.g. some biomass/bagasse co-generation, or synchronous-condenser-mode units).
+  Do not filter these out as if they were nulls.
+- cod_usinaplanejamento uses ONS's own small-integer planning-model plant codes, unrelated
+  to capacidade_geracao's ANEEL CEG codes, and nom_usina here is spelled and abbreviated
+  differently from capacidade_geracao's nom_usina (e.g. 'GERAMAR1' vs whatever the
+  ANEEL-derived name is). There is no clean join key between the two datasets as fetched
+  - matching individual plants across them needs a name crosswalk this project does
+  not have yet. A subsystem-level aggregate sidesteps this; per-plant matching is
+  future work if unit-level thermal dispatch is ever wanted.
+- No PY rows - unlike capacidade_geracao, this dataset only covers Brazil's own thermal
+  fleet (Itaipu is hydro, not thermal, so this was never going to include it, but
+  confirmed by inspection rather than assumed).
+- 'Mean CVU by subsystem for 2024 (nonzero plants only, R$/MWh): N 346, S 517, SE
+  650, NE 754 - NE and SE, with the least hydro headroom of the four subsystems, running
+  the most expensive thermal fleets on average is directionally consistent with PRIMER
+  Sec 2.1''s subsystem character description. A sanity check, not a validated result.'
+- One file per year at a stable URL, .../dataset/cvu_usitermica_se/CVU_USINA_TERMICA_{year}.csv,
+  published from 2005 onward - same shape as curva_carga, snapshot_years(config) applies
+  directly.

@@ -53,6 +53,10 @@ sources:
       # Installed capacity per generating unit, current snapshot (not year-split).
       # See docs/data-dictionary/ons/capacidade_geracao.yaml.
       url: https://ons-aws-prod-opendata.s3.amazonaws.com/dataset/capacidade-geracao/CAPACIDADE_GERACAO.csv
+    cvu_usina_termica:
+      # Thermal-plant variable cost, weekly per plant, one file per year.
+      # See docs/data-dictionary/ons/cvu_usina_termica.yaml.
+      url: https://ons-aws-prod-opendata.s3.amazonaws.com/dataset/cvu_usitermica_se/CVU_USINA_TERMICA_{year}.csv
 
 paths:
   resources: resources

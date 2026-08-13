@@ -23,6 +23,8 @@ CURVA_CARGA_DICT = DICT_DIR / "ons" / "curva_carga.yaml"
 CURVA_CARGA_FIXTURE = REPO_ROOT / "test" / "fixtures" / "ons" / "curva_carga_2024_sample.csv"
 CAPACIDADE_DICT = DICT_DIR / "ons" / "capacidade_geracao.yaml"
 CAPACIDADE_FIXTURE = REPO_ROOT / "test" / "fixtures" / "ons" / "capacidade_geracao_sample.csv"
+CVU_DICT = DICT_DIR / "ons" / "cvu_usina_termica.yaml"
+CVU_FIXTURE = REPO_ROOT / "test" / "fixtures" / "ons" / "cvu_usina_termica_sample.csv"
 
 
 def _load(name: str, path: Path):
@@ -97,6 +99,37 @@ class TestCapacidadeGeracaoDictionary:
 
     def test_fixture_includes_a_decommissioned_unit(self, capacidade_df):
         assert capacidade_df["dat_desativacao"].notna().any()
+
+
+@pytest.fixture
+def cvu_df():
+    return inspect_mod.inspect_csv(CVU_FIXTURE, delimiter=";")
+
+
+class TestCvuUsinaTermicaDictionary:
+    def test_schema_validates_against_real_fixture(self, cvu_df):
+        dictionary = inspect_mod.load_dictionary(CVU_DICT)
+        schema = inspect_mod.to_pandera_schema(dictionary)
+
+        schema.validate(cvu_df)  # must not raise
+
+    def test_schema_hash_matches_fixture(self, cvu_df):
+        dictionary = inspect_mod.load_dictionary(CVU_DICT)
+        assert inspect_mod.schema_hash(cvu_df) == dictionary["schema_hash"]
+
+    def test_cost_column_carries_its_unit(self):
+        dictionary = inspect_mod.load_dictionary(CVU_DICT)
+        col = next(c for c in dictionary["columns"] if c["name"] == "val_cvu")
+        assert col["unit"] == "R$/MWh"
+
+    def test_fixture_includes_a_zero_cost_plant(self, cvu_df):
+        """CVU=0 is a real value (e.g. bagasse co-generation), not a null - must not be dropped."""
+        assert (cvu_df["val_cvu"] == 0).any()
+
+    def test_fixture_shows_cvu_varies_by_week_for_the_same_plant(self, cvu_df):
+        geramar1 = cvu_df[cvu_df["nom_usina"] == "GERAMAR1"]
+        assert geramar1["dat_iniciosemana"].nunique() == 2
+        assert geramar1["val_cvu"].nunique() == 2
 
 
 @pytest.mark.parametrize("path", COMMITTED_DICTS, ids=lambda p: p.name)
