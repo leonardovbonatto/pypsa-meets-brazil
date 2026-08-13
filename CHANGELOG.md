@@ -64,6 +64,10 @@ code without touching this file, unless it carries the `no-changelog` label.
   a real committed slice of upstream data, and requires every dictionary to
   carry per-column descriptions and notes (PR-04).
 - `docs/handoffs/PR-04-ons-load-connector.md`.
+- `docs/STACK.md` — companion to the primer covering the *tooling* rather than
+  the domain: every layer from WSL2 up to this project's own conventions, what
+  each tool is for, its engineering equivalent, and which parts are built versus
+  still planned. 12 mermaid diagrams.
 
 ### Changed
 
