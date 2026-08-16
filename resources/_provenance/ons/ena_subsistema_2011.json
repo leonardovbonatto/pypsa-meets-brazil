@@ -1,0 +1,10 @@
+{
+  "byte_size": 108455,
+  "dataset": "ena_subsistema_2011",
+  "format": "csv",
+  "retrieved": "2026-08-16T21:30:14+00:00",
+  "row_count": 1460,
+  "sha256": "2d58d3cf5c67ed308fe594d7c9abb8c3e7252d9bf812ac9edaa43da1a7c2a709",
+  "source": "ons",
+  "source_url": "https://ons-aws-prod-opendata.s3.amazonaws.com/dataset/ena_subsistema_di/ENA_DIARIO_SUBSISTEMA_2011.csv"
+}

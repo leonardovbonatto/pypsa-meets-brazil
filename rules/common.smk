@@ -15,4 +15,10 @@ from pathlib import Path
 # regardless of how the workflow was invoked.
 sys.path.insert(0, str(Path(workflow.basedir) / "scripts"))
 
-from _common import config_hash, run_id, snapshot_year_months, snapshot_years  # noqa: E402,F401
+from _common import (  # noqa: E402,F401
+    config_hash,
+    inflow_history_years,
+    run_id,
+    snapshot_year_months,
+    snapshot_years,
+)

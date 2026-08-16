@@ -91,6 +91,24 @@ class TestSnapshotYearMonths:
         ]
 
 
+class TestInflowHistoryYears:
+    def test_single_year(self):
+        cfg = {"sources": {"ons": {"ena_subsistema": {"years": {"start": 2024, "end": 2024}}}}}
+        assert common.inflow_history_years(cfg) == [2024]
+
+    def test_spans_multiple_years_inclusive(self):
+        cfg = {"sources": {"ons": {"ena_subsistema": {"years": {"start": 2000, "end": 2003}}}}}
+        assert common.inflow_history_years(cfg) == [2000, 2001, 2002, 2003]
+
+    def test_is_independent_of_snapshots(self):
+        """The whole point (ADR-0005): this range must not derive from snapshots.start/end."""
+        cfg = {
+            "snapshots": {"start": "2024-01-01", "end": "2024-12-31"},
+            "sources": {"ons": {"ena_subsistema": {"years": {"start": 2000, "end": 2025}}}},
+        }
+        assert common.inflow_history_years(cfg) != common.snapshot_years(cfg)
+
+
 class TestManifest:
     def test_records_required_fields(self):
         m = write_manifest.build_manifest("smoke", BASE_CONFIG, "deadbeef")

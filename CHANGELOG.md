@@ -244,6 +244,22 @@ code without touching this file, unless it carries the `no-changelog` label.
   of the coupling without needing Julia in CI, the same reason
   `fetch_all` never runs there either (PR-26).
 - `docs/handoffs/PR-26-sddp-smoke-test.md`.
+- Seventh ONS connector: `ena_subsistema` (ADR-0005, SDDP epic stage 1) -
+  daily Energia Natural Afluente per subsystem, 2000-2025 (26 years,
+  `inflow_history_years()` in `scripts/_common.py`, deliberately NOT
+  derived from `snapshots.start/end` like every other connector - PAR(p)
+  needs decades of history, not the T0 reference year). Found the real S3
+  URL directly (`ons-aws-prod-opendata.s3.amazonaws.com/dataset/ena_subsistema_di/`),
+  bypassing the CKAN search API that rate-limited during PR-26's research.
+  `scripts/build_inflow.py` tidies to (date, subsystem) with all four
+  published ENA figures (gross/storable x MWmed/% of long-term average) -
+  deliberately keeps all four rather than picking one, since which figure
+  PAR(p) fits on is the next PR's decision. `docs/data-dictionary/ons/ena_subsistema.yaml`
+  built from the complete 26-year, 37,988-row volume (no nulls anywhere),
+  and records a real, unresolved discrepancy: ONS's own published
+  dictionary states the unit as "MWmes" while the column name says
+  "mwmed" - documented as an inference (MWmed), not silently picked (PR-27).
+- `docs/handoffs/PR-27-ena-connector.md`.
 - `.gitignore` stopped excluding `julia/Manifest.toml`, found while
   staging this PR: it's Julia's exact equivalent of `pixi.lock` (resolved
   package versions), which this project commits for reproducibility - the

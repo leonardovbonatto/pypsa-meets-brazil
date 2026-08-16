@@ -72,6 +72,10 @@ rule fetch_all:
             for year, month in snapshot_year_months(config)
         ],
         "resources/ons/CAPACIDADE_GERACAO.csv",
+        expand(
+            "resources/ons/ENA_DIARIO_SUBSISTEMA_{year}.csv",
+            year=inflow_history_years(config),
+        ),
 
 
 rule write_run_manifest:

@@ -135,3 +135,24 @@ rule fetch_ons_geracao_usina:
         "logs/fetch_ons_geracao_usina/{year}_{month}.log",
     script:
         "../scripts/fetch_dataset.py"
+
+
+rule fetch_ons_ena_subsistema:
+    """
+    ONS daily natural inflow energy (ENA) per subsystem, one file per
+    calendar year, published from 2000 onward. Year range comes from
+    `inflow_history_years()`, NOT `snapshot_years()` like every other rule
+    here - see that function's docstring (scripts/_common.py) and
+    ADR-0005: PAR(p) needs decades of history, not the T0 reference year.
+    """
+    output:
+        raw="resources/ons/ENA_DIARIO_SUBSISTEMA_{year}.csv",
+        provenance="resources/_provenance/ons/ena_subsistema_{year}.json",
+    params:
+        url=lambda wc: config["sources"]["ons"]["ena_subsistema"]["url"].format(year=wc.year),
+        source="ons",
+        dataset=lambda wc: f"ena_subsistema_{wc.year}",
+    log:
+        "logs/fetch_ons_ena_subsistema/{year}.log",
+    script:
+        "../scripts/fetch_dataset.py"

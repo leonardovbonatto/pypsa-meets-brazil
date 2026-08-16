@@ -73,6 +73,19 @@ sources:
       # Used to constrain hydro by BACKCASTING (ADR-0007) - observed output
       # as a model input. See docs/data-dictionary/ons/geracao_usina.yaml.
       url: https://ons-aws-prod-opendata.s3.amazonaws.com/dataset/geracao_usina_2_ho/GERACAO_USINA-2_{year}_{month}.csv
+    ena_subsistema:
+      # Daily natural inflow energy (ENA) per subsystem, one file per year,
+      # published from 2000 onward. Feeds PAR(p) inflow fitting (ADR-0005,
+      # SDDP epic stage 1) - see docs/data-dictionary/ons/ena_subsistema.yaml.
+      url: https://ons-aws-prod-opendata.s3.amazonaws.com/dataset/ena_subsistema_di/ENA_DIARIO_SUBSISTEMA_{year}.csv
+      # Deliberately its OWN range, not snapshots.start/end (see
+      # inflow_history_years in scripts/_common.py): PAR(p) needs decades of
+      # history for persistence/drought statistics (PRIMER Sec 4.7), not the
+      # single T0 reference year. Capped at 2025: 2026 is still in progress
+      # upstream and a partial trailing year should not enter silently.
+      years:
+        start: 2000
+        end: 2025
 
 paths:
   resources: resources

@@ -1,0 +1,127 @@
+dataset: ena_subsistema
+source: ons
+source_url: https://ons-aws-prod-opendata.s3.amazonaws.com/dataset/ena_subsistema_di/ENA_DIARIO_SUBSISTEMA_{year}.csv
+retrieved: '2026-08-16T21:30:15+00:00'
+format: csv
+encoding: utf-8
+delimiter: ;
+decimal: .
+row_count: 37988
+schema_hash: sha256:707270320725976e374d03e8177b84a64e7797cc250d3c56b26b73dd06679ab0
+columns:
+- name: id_subsistema
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: Subsystem code. N/NE/S/SE observed - no PY (this dataset is inflow
+    energy, not generation; Itaipu's 50 Hz split doesn't apply here). SE, not SE_CO
+    - goes through the same _ons.map_subsystems() as every other connector.
+  sample:
+  - N
+  - NE
+  - S
+- name: nom_subsistema
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: Subsystem name in Portuguese.
+  sample:
+  - NORTE
+  - NORDESTE
+  - SUL
+- name: ena_data
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: 'Calendar date of the measurement, YYYY-MM-DD - DAILY, not hourly.
+    Every other ONS connector in this project (curva_carga, fator_capacidade,
+    geracao_usina, intercambio_nacional) is hourly; this one is a real exception,
+    not an oversight, matching ONS''s "_di" (diario) dataset naming.'
+  sample:
+  - '2000-01-01'
+  - '2000-01-01'
+  - '2000-01-01'
+- name: ena_bruta_regiao_mwmed
+  dtype: float64
+  unit: MWmed (see note on the ONS dictionary discrepancy)
+  nullable: false
+  null_rate: 0.0
+  description: Gross ENA (Energia Natural Afluente) per subsystem - natural inflow
+    expressed as energy (flow x productivity, PRIMER Sec 2.4), before netting out
+    spilled water.
+  sample:
+  - 10392.56152344
+  - 10174.40234375
+  - 1772.41503906
+- name: ena_bruta_regiao_percentualmlt
+  dtype: float64
+  unit: '% (dimensionless)'
+  nullable: false
+  null_rate: 0.0
+  description: Gross ENA as a percentage of MLT (Media de Longo Termo - the subsystem's
+    own long-term average inflow). >100% means wetter than average for that
+    calendar day's historical norm; values well above 100% are real (e.g. N's
+    first sample row here is 126.6%), not a data error.
+  sample:
+  - 126.63939667
+  - 78.59410095
+  - 43.59740067
+- name: ena_armazenavel_regiao_mwmed
+  dtype: float64
+  unit: MWmed (see note on the ONS dictionary discrepancy)
+  nullable: false
+  null_rate: 0.0
+  description: Storable ENA per subsystem - gross ENA minus spilled (vertida)
+    inflow (PRIMER Sec 2.4's ENA Armazenavel). Always <= the gross column on the
+    same row. The more directly relevant figure for reservoir dynamics, since
+    spilled water contributes nothing to stored energy.
+  sample:
+  - 10381.55273438
+  - 9990.51074219
+  - 1772.41503906
+- name: ena_armazenavel_regiao_percentualmlt
+  dtype: float64
+  unit: '% (dimensionless)'
+  nullable: false
+  null_rate: 0.0
+  description: Storable ENA as a percentage of MLT, same convention as
+    ena_bruta_regiao_percentualmlt but for the storable series.
+  sample:
+  - 126.50520325
+  - 77.17359924
+  - 43.59740067
+notes:
+- 'ADR-0005 (SDDP epic, stage 1): this is the inflow data source PAR(p) will
+  fit on, chosen over the VAZOES.DAT/NEWAVE-deck route for the epic''s first
+  stage. 26 years (2000-2025) at subsystem level - short of VAZOES.DAT''s ~95
+  years, a real tradeoff recorded in the ADR, not hidden here.'
+- 'A genuine discrepancy between ONS''s own published dictionary and the column
+  name, found and not silently resolved: ONS''s DicionarioDados_EnaPorSubsistema.json
+  states the unit as "MWmes" (MW-month) for both _mwmed columns, but the column
+  name itself says "mwmed" (MW-average, the unit used throughout this project
+  for load/generation/CVU). PRIMER Sec 2.4 defines ENA as flow x productivity -
+  a power-equivalent quantity, which is what MWmed means, not an energy-times-duration
+  product like "MW-month" would imply. Value magnitudes (thousands, comparable
+  to subsystem demand/generation figures elsewhere in this project) are also
+  consistent with MWmed, not some larger MW-month-scaled number. Treated as
+  MWmed here on that basis, but this is inference, not confirmation - worth
+  re-checking against a second source (e.g. an ONS technical publication) before
+  the PAR(p) PR does unit arithmetic that depends on it being right.'
+- 'No nulls anywhere across the full 26-year, 37,988-row volume (26 years x
+  365.25-ish days x 4 subsystems checks out arithmetically) - built from the
+  complete fetched range from the start, per the PR-15 lesson (a January-only
+  sample once marked a column non-nullable that had real nulls elsewhere in
+  the year).'
+- 'Row-level cross-check: ena_armazenavel_regiao_mwmed <= ena_bruta_regiao_mwmed
+  on every row is expected (storable nets out spill) - not yet asserted as a
+  schema constraint, since pandera''s per-dataset schema here checks columns
+  independently; worth adding as a cross-column check in build_inflow.py''s
+  own validation if it''s ever violated in practice.'
+- ONS's own dictionary at the source URL's DicionarioDados_EnaPorSubsistema.json
+  labels ena_data only as "Dia observado da medida" (day the measurement was
+  observed) - no explicit timezone statement, unlike curva_carga's documented
+  Brasilia-local convention. Treated as a plain calendar date (no time-of-day
+  component), which is what the raw string format confirms.

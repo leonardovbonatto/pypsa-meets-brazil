@@ -175,6 +175,34 @@ rule build_mmgd_t0:
         "../scripts/build_mmgd.py"
 
 
+rule build_inflow:
+    """
+    Tidy historical inflow (ENA) series, all four published figures
+    (gross/storable x MWmed/% of long-term average), from ONS's daily
+    per-subsystem dataset (ADR-0005, SDDP epic stage 1).
+
+    Not T0-specific and not wired into build_network_t0: this feeds the
+    separate SDDP/PAR(p) pipeline (still PLANNED, see docs/STACK.md), not
+    the T0 network, which still uses ADR-0007's hydro backcast. Year range
+    comes from inflow_history_years(), not snapshot_years() - see that
+    function's docstring.
+    """
+    input:
+        raw=expand(
+            "resources/ons/ENA_DIARIO_SUBSISTEMA_{year}.csv",
+            year=inflow_history_years(config),
+        ),
+        dictionary="docs/data-dictionary/ons/ena_subsistema.yaml",
+    output:
+        "resources/inflow_ena.csv",
+    params:
+        subsystems=config["subsystems"],
+    log:
+        "logs/build_inflow/run.log",
+    script:
+        "../scripts/build_inflow.py"
+
+
 rule build_network_t0:
     """
     T0 network: one bus per subsystem, snapshots from config, the tidy demand
@@ -218,3 +246,4 @@ rule build_all:
         "resources/mmgd_availability_t0.csv",
         "resources/costs_t0.csv",
         "resources/networks/t0.nc",
+        "resources/inflow_ena.csv",
