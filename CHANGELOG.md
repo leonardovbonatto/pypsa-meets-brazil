@@ -252,4 +252,13 @@ code without touching this file, unless it carries the `no-changelog` label.
   currently connected (PR-20).
 - `docs/handoffs/PR-20-wind-solar-coverage-gap.md`.
 
+### Fixed
+
+- `.github/workflows/meta.yml` now also triggers on push to `main`, not only
+  `pull_request`. This project pushes straight to `main` (ADR-0001) rather
+  than opening PRs, so the meta checks (changelog, provenance schema, ADR
+  numbering) had never actually run in CI since PR-02 introduced them — only
+  ever locally. `META_BASE_REF` diffs against `github.event.before` on a
+  push, the commit before the push, rather than a PR's base branch (PR-21).
+
 [Unreleased]: https://github.com/leonardovbonatto/pypsa-meets-brazil/commits/main

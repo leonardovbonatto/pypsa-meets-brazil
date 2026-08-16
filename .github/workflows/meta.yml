@@ -5,6 +5,8 @@ name: meta
 
 on:
   pull_request:
+  push:
+    branches: [main]
 
 concurrency:
   group: meta-${{ github.ref }}
@@ -16,7 +18,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          # check_meta.py diffs against the PR base to see what changed.
+          # check_meta.py diffs against the base/previous commit to see what changed.
           fetch-depth: 0
 
       - uses: prefix-dev/setup-pixi@v0.8.3
@@ -26,6 +28,8 @@ jobs:
 
       - name: Meta checks (changelog, provenance schema, ADR numbering)
         env:
-          META_BASE_REF: origin/${{ github.event.pull_request.base.ref }}
-          META_SKIP_CHANGELOG: ${{ contains(github.event.pull_request.labels.*.name, 'no-changelog') }}
+          # PRs diff against the PR base; direct pushes (this repo's normal
+          # flow - see ADR-0001) diff against the commit before the push.
+          META_BASE_REF: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.event.pull_request.base.ref) || github.event.before }}
+          META_SKIP_CHANGELOG: ${{ github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'no-changelog') }}
         run: pixi run -e dev python scripts/check_meta.py
