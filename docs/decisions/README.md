@@ -26,10 +26,10 @@ Do **not** write one for routine implementation choices with an obvious default.
 | ADR | Title | Status |
 |-----|-------|--------|
 | [0001](ADR-0001-repository-conventions.md) | Repository conventions | Accepted |
-| 0002 | OpenStreetMap / ODbL boundary | Planned (PR-08) |
+| 0002 | OpenStreetMap / ODbL boundary | Planned |
 | 0003 | Transmission impedance source (T3, nodal) | Planned |
-| 0004 | Bus-level load allocation method | Planned (PR-27) |
-| 0005 | Inflow model formulation | Planned (PR-34) |
+| 0004 | Bus-level load allocation method | Planned |
+| [0005](ADR-0005-inflow-model-formulation.md) | Inflow model formulation (SDDP epic, stage 1) | Accepted |
 | [0006](ADR-0006-t0-transfer-representation.md) | T0 inter-subsystem transfer representation | Accepted |
 | [0007](ADR-0007-hydro-backcast-interim.md) | Hydro constrained by observed generation (interim backcast) | Accepted |
 

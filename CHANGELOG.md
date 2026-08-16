@@ -214,6 +214,28 @@ code without touching this file, unless it carries the `no-changelog` label.
   price premium collapses from 121 to 3 R$/MWh. Reuses `attach_generators`
   and `attach_availability` unchanged (PR-19).
 - `docs/handoffs/PR-19-mmgd-distributed-generation.md`.
+- `docs/decisions/ADR-0005-inflow-model-formulation.md`: fills the epic's
+  reserved ADR slot, deciding how the SDDP water-value epic starts (the
+  user's agreed step 2, after ADR-0007's backcast). Starts with ONS's own
+  open ENA data (CC-BY, no credential blocker, confirmed live this
+  session) at REE/subsystem level, not the NEWAVE-deck route
+  (`VAZOES.DAT` via `inewave`) - matching PRIMER Sec 4.6's "REE first"
+  guidance and this project's established cheap-real-interim pattern
+  (ADR-0007, PR-19/MMGD). Also confirmed Julia 1.12.7 is installable via
+  conda-forge - no blocker of the Gurobi/atlite kind. No code lands with
+  this ADR; it authorizes the epic's staged order, starting with a
+  Julia/SDDP.jl environment feasibility smoke test before any Brazilian
+  data (PR-25).
+- `docs/handoffs/PR-25-sddp-inflow-model-adr.md`.
+- `docs/decisions/README.md`'s index: ADR-0005's slot resolved from
+  "Planned (PR-34)" to Accepted; found while updating it that 0002 and
+  0004 carried the same fragile future-PR-number guesses fixed elsewhere
+  in PR-23 (the real numbering has never matched early guesses) - stripped
+  to plain "Planned" (PR-25).
+- `docs/PRIMER.md` Sec 4.6: removed a reference to "Gate D in the plan" -
+  the roadmap uses numbered phases (0-9), no such gate exists anywhere;
+  another instance of PR-23's stale-forward-reference pattern, found while
+  researching this ADR (PR-25).
 
 ### Changed
 

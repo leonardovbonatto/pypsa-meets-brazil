@@ -474,10 +474,10 @@ in-process bridge, nothing fragile.
 
 ### 4.6 REE first, individualized second
 
-Gate D in the plan exists for a reason. Get SDDP converging on the aggregated (REE)
-formulation before attempting 150+ individualized reservoirs. If it does not converge
-on the easy version, individualization will not rescue it, and you will have spent
-weeks discovering that.
+Get SDDP converging on the aggregated (REE) formulation before attempting 150+
+individualized reservoirs (ADR-0005 makes this the explicit first stage of the epic).
+If it does not converge on the easy version, individualization will not rescue it, and
+you will have spent weeks discovering that.
 
 ### 4.7 PAR(p): the inflow model
 
