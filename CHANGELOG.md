@@ -240,5 +240,16 @@ code without touching this file, unless it carries the `no-changelog` label.
   fixed. It now leads with the real dominant caveat — hydro is unconstrained
   and free — because a stale caveat naming an already-fixed problem is as
   misleading as a missing one (PR-15).
+- `scripts/solve_network.py::KNOWN_LIMITATIONS` and
+  `docs/data-dictionary/ons/fator_capacidade.yaml`: quantified the root
+  cause of PR-19's "utility solar ~1.5x high" finding. `fator_capacidade`
+  (PR-14/15's wind/solar capacity-factor source) tracks only 48% of
+  national solar nameplate capacity and 43% of wind (concentrated
+  ONS-dispatched plant-groups vs `capacidade_geracao`'s full per-plant
+  registry) — the same registry-vs-dispatch population mismatch already
+  found for hydro (PR-17/18), here inflating dispatch rather than deflating
+  it. No code change: no better per-plant capacity-factor source is
+  currently connected (PR-20).
+- `docs/handoffs/PR-20-wind-solar-coverage-gap.md`.
 
 [Unreleased]: https://github.com/leonardovbonatto/pypsa-meets-brazil/commits/main

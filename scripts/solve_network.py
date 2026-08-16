@@ -44,7 +44,17 @@ KNOWN_LIMITATIONS = [
     "stops it covering everything.",
     "Wind and solar have a real hourly availability profile (PR-15) from "
     "ONS measured capacity factors - a purpose-built capacity-factor "
-    "dataset, not a backcast of the same kind as hydro's.",
+    "dataset, not a backcast of the same kind as hydro's. But that dataset "
+    "(fator_capacidade) only covers a SUBSET of installed nameplate "
+    "capacity: 10,273 of 21,312 MW solar (48%) and 14,582 of 33,721 MW "
+    "wind (43%), concentrated in larger ONS-dispatched plant-groups (PR-20 "
+    "finding). Its fleet-average p_max_pu is applied to the FULL nameplate "
+    "capacity from capacidade_geracao, so untracked plants (smaller/older, "
+    "the other 52%/57%) are implicitly assumed to share the tracked "
+    "fleet's average capacity factor. This is the most likely explanation "
+    "for PR-19's finding that model utility solar (4,816 MW mean) runs "
+    "~1.5x observed (~3,234 MW) - not yet fixed, since no per-plant "
+    "capacity-factor source is currently connected.",
     "Transmission is a transport model (ADR-0006): Links with a "
     "transfer-capacity limit derived from historical flows, not real "
     "DC power flow with impedances. No losses.",

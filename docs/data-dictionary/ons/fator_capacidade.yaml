@@ -256,6 +256,20 @@ notes:
   dataset. A build step deriving p_max_pu per (subsystem, technology) has no data
   for SE_CO wind and must document the resulting fallback explicitly rather than silently
   defaulting.'
+- 'SE_CO wind is the extreme case of a general pattern (PR-20 finding, quantified
+  by summing unique cod_pontoconexao plant-groups'' val_capacidadeinstalada against
+  capacidade_geracao''s per-plant val_potenciaefetiva, both filtered to active/matching
+  subsystems): this dataset covers only ~48% of national solar nameplate capacity
+  (10,273 of 21,312 MW) and ~43% of national wind nameplate capacity (14,582 of
+  33,721 MW). capacidade_geracao lists ~1,189 individual solar plants (mostly TIPO
+  II-C) and ~2,152 individual wind plants; this dataset groups a much smaller number
+  of larger connection points (44 solar, 70 wind), mostly under nom_modalidadeoperacao
+  "Conjunto de Usinas" - the same registry-vs-dispatch population mismatch already
+  documented for geracao_usina (PR-17/18), but here it under-covers the *capacity*
+  side rather than the *generation* side. Any p_max_pu derived from this dataset and
+  applied to capacidade_geracao''s full nameplate is a fleet-average from the tracked
+  ~43-48% extrapolated onto the untracked remainder - a real, unquantified-further
+  source of bias, not just a SE_CO-wind quirk.'
 - nom_usina_conjunto / id_ons / ceg use this dataset's own identifiers, which do not
   join cleanly against capacidade_geracao's ANEEL CEG codes or cvu_usina_termica's
   planning-model codes - consistent with the cross-dataset ID mismatch already documented
