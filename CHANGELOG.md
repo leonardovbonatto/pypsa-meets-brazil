@@ -260,5 +260,12 @@ code without touching this file, unless it carries the `no-changelog` label.
   numbering) had never actually run in CI since PR-02 introduced them — only
   ever locally. `META_BASE_REF` diffs against `github.event.before` on a
   push, the commit before the push, rather than a PR's base branch (PR-21).
+- `docs/STACK.md` brought current through PR-21: it still described hydro as
+  "unconstrained and free" (fixed PR-17/18), CI as "never yet executed"
+  (running on every push since PR-03/04), and 49 tests (now 210). Updated
+  the intro caveat, the PyPSA/hydro narrative, the GitHub Actions and pytest
+  sections, the pinned-dependency list (`pypsa`/`highspy` were missing), the
+  two pipeline diagrams, and the file map to name the newer build scripts
+  (PR-22).
 
 [Unreleased]: https://github.com/leonardovbonatto/pypsa-meets-brazil/commits/main

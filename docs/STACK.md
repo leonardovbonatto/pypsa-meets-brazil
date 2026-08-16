@@ -32,17 +32,21 @@ this document:
 > **Read this twice.** Some of the famous names in this project — atlite, SDDP.jl,
 > Gurobi — are still **PLANNED**. PyPSA and HiGHS landed (PR-06 through PR-11),
 > `n.optimize()` genuinely runs and returns `optimal` on the real 2024 T0 network, the
-> four subsystems are connected (PR-13, transport-model `Link`s, ADR-0006), and wind
-> and solar now have real measured hourly availability (PR-15). But **a clean solve is
-> still not the same claim as a correct dispatch**, for one specific, dominant reason:
-> **hydro is still both unconstrained and free.** It has no availability profile
-> (102,678 MW assumed available every hour) and zero marginal cost, and national hydro
-> capacity alone exceeds national demand in **all 8,784 hours of 2024** — so the
-> solver covers essentially everything with hydro and dispatches thermal at exactly
-> 0 MW, every hour. Fixing that is not another data connector; it is the water-value
-> problem (PRIMER §4, SDDP.jl), the hardest part of this project.
-> `dispatch_summary_t0.json` leads with this on every run — read it before trusting a
-> number out of it.
+> four subsystems are connected (PR-13, transport-model `Link`s, ADR-0006), wind and
+> solar have real measured hourly availability (PR-15), and hydro is now constrained
+> too (PR-17/18) — the model is no longer economically degenerate: thermal dispatches
+> a nonzero, roughly-right-ballpark 7,977 MW mean (vs 8,161 MW observed) and marginal
+> prices are nonzero. **But that hydro constraint is a backcast, not a model result**
+> (ADR-0007): hydro's hourly `p_max_pu` comes from ONS's *observed* 2024 generation, so
+> the model was told what hydro actually did rather than deciding it from water value.
+> Comparing the resulting prices against observed CMO is therefore **partly circular**.
+> A second, independent finding (PR-20): the wind/solar capacity-factor dataset itself
+> only covers ~43-48% of installed nameplate, so even the "real measured" availability
+> is a fleet-average extrapolated onto plants it never actually measured. Fixing the
+> first properly is not another data connector; it is the water-value problem (PRIMER
+> §4, SDDP.jl), the hardest part of this project. `dispatch_summary_t0.json` leads with
+> both caveats on every run — read `known_limitations` before trusting a number out of
+> it.
 
 ---
 
@@ -56,10 +60,10 @@ results come out the other. Everything else exists to make that pipeline reprodu
 
 ```mermaid
 flowchart LR
-    A["config.default.yaml"] --> B["fetch rules<br/>curva_carga · capacidade_geracao · cvu_usina_termica<br/>intercambio_nacional · fator_capacidade"]
+    A["config.default.yaml"] --> B["fetch rules<br/>curva_carga · capacidade_geracao · cvu_usina_termica<br/>intercambio_nacional · fator_capacidade · geracao_usina"]
     B --> C["resources/ons/*.csv<br/><i>gitignored</i>"]
     B --> D["resources/_provenance/<br/>*.json<br/><i>committed</i>"]
-    C --> E["build_demand · build_generators · build_costs<br/>build_links · build_availability"]
+    C --> E["build_demand · build_generators · build_costs<br/>build_links · build_availability<br/>build_hydro_availability · build_mmgd"]
     E --> F["resources/*_t0.csv<br/><i>gitignored</i>"]
     F --> J["build_network.py"]
     J --> K["resources/networks/t0.nc<br/><i>gitignored</i>"]
@@ -85,13 +89,14 @@ flowchart LR
         A["Fetch"] --> B["Provenance"]
         B --> C["Data dictionary"]
         C --> D["Tidy tables"]
-        D --> E["PyPSA Network<br/>generators · cost · links<br/>wind/solar availability"]
+        D --> E["PyPSA Network<br/>generators · cost · links<br/>wind/solar + hydro + MMGD availability"]
         E --> S["Solve<br/>HiGHS"]
+        S --> H["Ballpark check vs<br/>observed 2024 ONS mix<br/><i>not real validation - ADR-0007</i>"]
     end
     subgraph PLANNED["Planned"]
-        F["+ hydro water value<br/>SDDP.jl"] --> G["Validate vs<br/>observed ONS CMO"]
+        F["+ real hydro water value<br/>SDDP.jl"] --> G["Genuine validation vs<br/>observed ONS CMO"]
     end
-    S --> F
+    H --> F
 ```
 
 The engineering discipline in this repository is aimed almost entirely at that last
@@ -170,9 +175,11 @@ testing and linting tools. They share a solve group, so both resolve to consiste
 versions rather than drifting apart.
 
 **Currently pinned:** `python 3.12`, `snakemake-minimal`, `pyyaml`, `pandas`, `numpy`,
-`requests`, `pandera`, plus `pytest`, `ruff`, `pre-commit` in `dev`. That is the
-entire list. Domain libraries are added in the pull request that first genuinely needs
-them, which keeps a fresh clone fast.
+`requests`, `pandera`, `pypsa`, `highspy`, plus `pytest`, `ruff`, `pre-commit` in `dev`.
+That is the entire list. Domain libraries are added in the pull request that first
+genuinely needs them, which keeps a fresh clone fast — `pypsa` and `highspy` landed in
+PR-06/PR-11 when the network and solve steps first needed them; `atlite`, `SDDP.jl` and
+`geopandas` are still absent because nothing has needed them yet.
 
 > **A real gotcha, already paid for.** `snakemake-minimal` lives on the **bioconda**
 > channel, not conda-forge. Installation fails with an unhelpful "no candidates were
@@ -378,14 +385,19 @@ Brazil's zonal formulation the CMO. You do not compute prices separately; you re
 them off the solved model. **Not yet meaningful here** — see below.
 
 **What exists today.** `resources/networks/t0.nc` — 4 buses, 8784 hourly snapshots,
-time-varying loads, 15 generators with real capacity and marginal cost, 4
-inter-subsystem `Link`s with a real transfer-capacity proxy (ADR-0006), real measured
-hourly `p_max_pu` for wind and solar (PR-15), and a load-shedding backstop per bus.
+time-varying loads, generators with real capacity and marginal cost (including a
+distinct `solar_mmgd` carrier for distributed rooftop PV, PR-19), 4 inter-subsystem
+`Link`s with a real transfer-capacity proxy (ADR-0006), real measured hourly `p_max_pu`
+for wind and solar (PR-15) and an hourly backcast `p_max_pu` for hydro from observed
+2024 generation (PR-17/18, ADR-0007), and a load-shedding backstop per bus.
 `results/<run>/network_t0_solved.nc` is the solved result: `n.optimize()` runs and
-returns `optimal`. **Hydro remains unconstrained and free** — a clean solve is **not**
-the same claim as a correct dispatch. `results/<run>/dispatch_summary_t0.json` carries
-a `known_limitations` list for exactly this reason; read it before trusting a number
-out of the solve.
+returns `optimal`, thermal dispatches a nonzero, roughly-right mean, and marginal
+prices are nonzero. **A clean, economically-alive solve is still not the same claim as
+a correct dispatch** — hydro's constraint is a backcast (an input, not a model result),
+and PR-20 found the wind/solar capacity-factor data itself only covers 43-48% of
+installed nameplate. `results/<run>/dispatch_summary_t0.json` carries a
+`known_limitations` list naming both, for exactly this reason; read it before trusting
+a number out of the solve.
 
 > A real gotcha: `n.add("Bus", ..., carrier="AC")` does **not** register the carrier
 > itself. `n.consistency_check()` only *warns* about the resulting undefined carrier
@@ -411,11 +423,22 @@ out of the solve.
 > **national hydro nameplate capacity alone (102,678 MW) exceeds national demand in
 > all 8,784 hours** (peak: 102,086 MW). Hydro has no availability profile — this
 > dataset is wind/solar only — and `marginal_cost = 0`, so free unconstrained hydro
-> covers everything regardless of what wind and solar do. Fixing it is not another
-> connector: hydro's real limit is water availability, an opportunity cost that must
-> be *computed* (PRIMER §4, SDDP.jl). Worth remembering as a case where the first
-> plausible explanation for a wrong number was genuinely wrong, and only a specific
-> capacity-vs-demand comparison settled it.
+> covers everything regardless of what wind and solar do. Fixing it properly is not
+> another connector: hydro's real limit is water availability, an opportunity cost
+> that must be *computed* (PRIMER §4, SDDP.jl). Worth remembering as a case where the
+> first plausible explanation for a wrong number was genuinely wrong, and only a
+> specific capacity-vs-demand comparison settled it.
+>
+> **Update, PR-17/18:** a cheaper interim landed ahead of SDDP.jl — hydro's hourly
+> `p_max_pu` set from ONS's own *observed* 2024 generation (ADR-0007, explicitly a
+> backcast). Thermal dispatch moved from exactly 0 to 13,082 MW mean, then to 7,977 MW
+> (PR-19, after adding MMGD) against 8,161 MW observed — genuinely close, but the
+> closeness partly reflects that hydro was *told* the real answer, not derived it.
+> **Update, PR-20:** the wind/solar side of this same story turned out to have its own
+> version of the problem — `fator_capacidade` only measures 43-48% of installed
+> nameplate, so its "real measured" `p_max_pu` is itself an extrapolation, not full
+> coverage. Two different mechanisms, same underlying lesson: check what a dataset
+> actually covers before trusting a ratio derived from it.
 
 ### linopy — **BUILT** (used indirectly via PyPSA)
 
@@ -528,7 +551,7 @@ commit; and a future session can load the entire history cheaply.
 `data:`. Machine-readable, so changelogs and version numbers can be derived rather
 than curated by hand. A hook rejects messages that do not comply.
 
-### pytest 9.1.1 — **BUILT** (49 tests)
+### pytest 9.1.1 — **BUILT** (210 tests)
 
 Functions whose names begin with `test_` that assert something must be true. They run
 in about a second.
@@ -577,19 +600,19 @@ format.
 The large-file check matters because committing a multi-gigabyte dataset into git is
 effectively permanent. The 1 MB limit is the backstop.
 
-### GitHub Actions — **BUILT**, but never yet executed
+### GitHub Actions — **BUILT** and running on every push
 
 The same checks re-run on GitHub's servers on every push, on a clean machine, so "it
 works on mine" cannot hide a missing dependency. Three workflows: `lint`, `test`,
-`meta`.
+`meta` — all three confirmed green on GitHub's real runners, not just locally.
 
 **The hard rule: CI never downloads real data.** No credentials, no flakiness, no
 multi-gigabyte pulls, no dependence on a portal being available. Committed fixtures
 only.
 
-**Honest status.** These workflow files have never actually run — the repository has
-no remote yet. They are written and locally equivalent, but unverified against real
-runners.
+**A gap in this, found and fixed (PR-21):** `meta` only triggered on `pull_request`,
+but this project pushes straight to `main` (below) — so it had never actually fired,
+despite being written correctly. Now triggers on push to `main` too.
 
 ### REUSE — **BUILT**
 
@@ -723,11 +746,16 @@ finished and is not.
 | `scripts/fetch.py` | Download, checksum, write the provenance record. |
 | `scripts/fetch_dataset.py` | Thin bridge connecting a Snakemake rule to `fetch.py`. |
 | `scripts/_inspect.py` | Generate a data dictionary; derive a validation schema from one. |
+| `scripts/_ons.py` | Shared ONS logic: subsystem mapping, excluded (non-SIN) codes. |
 | `scripts/write_manifest.py` | Write the run manifest. |
 | `scripts/check_meta.py` | Changelog, provenance and ADR-numbering checks. |
+| `scripts/build_demand.py`, `build_generators.py`, `build_costs.py`, `build_links.py` | Tidy tables: load, capacity, marginal cost, inter-subsystem transfer capacity. |
+| `scripts/build_availability.py`, `build_hydro_availability.py`, `build_mmgd.py` | Hourly `p_max_pu`: measured wind/solar, backcast hydro (ADR-0007), backcast MMGD. |
+| `scripts/build_network.py` | Assembles the tidy tables into one PyPSA `Network`. |
+| `scripts/solve_network.py` | Runs `n.optimize()`; writes the dispatch summary with `known_limitations`. |
 | `config/config.default.yaml` | Tier, snapshots, subsystems, solver, data sources. |
 | `config/test/config.smoke.yaml` | 72-hour configuration for the fast end-to-end check. |
-| `test/` | 49 tests, plus fixtures — real ONS samples and one labelled synthetic file. |
+| `test/` | 210 tests, plus fixtures — real ONS samples and one labelled synthetic file. |
 | `docs/PRIMER.md` | The domain primer: physics, sector, optimization, stack overview. |
 | `docs/STACK.md` | This document. |
 | `docs/decisions/` | ADRs. |
