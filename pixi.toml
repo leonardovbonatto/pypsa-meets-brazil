@@ -30,10 +30,21 @@ highspy = ">=1.7"
 pytest = ">=8.0"
 ruff = ">=0.9"
 pre-commit = ">=4.0"
+# Reads the Parquet cuts the sddp environment's Julia stage writes (ADR-0005) -
+# dev-only until a later PR makes Parquet consumption part of the production
+# pipeline itself.
+pyarrow = ">=17.0"
+
+# Julia is ~170 MiB and used only for the SDDP stage (ADR-0005) - its own
+# solve-group and environment so a plain `pixi install -e dev` (everyone's
+# common case) never has to resolve or fetch it.
+[feature.sddp.dependencies]
+julia = ">=1.10"
 
 [environments]
 default = { features = [], solve-group = "main" }
 dev = { features = ["dev"], solve-group = "main" }
+sddp = { features = ["sddp"], solve-group = "sddp" }
 
 [tasks]
 # Resolve the DAG without executing anything — the cheapest sanity check we have.

@@ -227,6 +227,30 @@ code without touching this file, unless it carries the `no-changelog` label.
   Julia/SDDP.jl environment feasibility smoke test before any Brazilian
   data (PR-25).
 - `docs/handoffs/PR-25-sddp-inflow-model-adr.md`.
+- `julia/` subproject and `rules/sddp.smk::sddp_smoke_test` (ADR-0005 stage
+  1): trains SDDP.jl's own textbook hydro-thermal example - no Brazilian
+  data - and writes the resulting Benders cuts to Parquet. Proves the
+  Snakemake -> Julia -> Parquet -> Python coupling PRIMER Sec 4.5/5.10
+  describes actually works, checked end-to-end this session rather than
+  assumed: Julia 1.12.7 + SDDP.jl + HiGHS.jl install and precompile
+  cleanly, the trained policy converges to a sensible bound, and
+  `pandas`/`pyarrow` reads the 40 resulting cuts back with the right
+  shape. Deliberately not part of `all` - needs the new `sddp` pixi
+  environment (Julia, ~170 MiB), isolated in its own solve-group so a
+  plain `pixi install -e dev` never fetches it. New deps: `julia` (`sddp`
+  env only), `pyarrow` (`dev` only, to read the Parquet cuts back) (PR-26).
+- `test/test_sddp_cuts.py` and `test/fixtures/sddp/cuts_sample.parquet` (a
+  real, unmodified output of the smoke test): tests the Python-side half
+  of the coupling without needing Julia in CI, the same reason
+  `fetch_all` never runs there either (PR-26).
+- `docs/handoffs/PR-26-sddp-smoke-test.md`.
+- `.gitignore` stopped excluding `julia/Manifest.toml`, found while
+  staging this PR: it's Julia's exact equivalent of `pixi.lock` (resolved
+  package versions), which this project commits for reproducibility - the
+  old exclusion (present since PR-01, before `julia/` existed) contradicted
+  that stated principle the moment `julia/` became real. `.codespellignore`
+  gained `missings` (a real Julia package name in the committed manifest,
+  not a typo) (PR-26).
 - `docs/decisions/README.md`'s index: ADR-0005's slot resolved from
   "Planned (PR-34)" to Accepted; found while updating it that 0002 and
   0004 carried the same fragile future-PR-number guesses fixed elsewhere
@@ -273,6 +297,10 @@ code without touching this file, unless it carries the `no-changelog` label.
   it. No code change: no better per-plant capacity-factor source is
   currently connected (PR-20).
 - `docs/handoffs/PR-20-wind-solar-coverage-gap.md`.
+- `README.md` and `docs/STACK.md`: `julia/` was marked "planned, not yet
+  created" in PR-24 and is real as of this PR - updated both, and added a
+  note to STACK.md's SDDP.jl section recording what PR-26's smoke test
+  actually proved vs what's still PLANNED (PR-26).
 
 ### Fixed
 

@@ -1,0 +1,8 @@
+# SPDX-FileCopyrightText: 2026 pypsa-meets-brazil contributors
+# SPDX-License-Identifier: MIT
+
+[deps]
+DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
+HiGHS = "87dc4568-4c63-4d18-b0c0-bb2238e4078b"
+Parquet2 = "98572fba-bba0-415d-956f-fa77e587d26d"
+SDDP = "f4570300-c277-11e8-125c-4912f86ce65d"

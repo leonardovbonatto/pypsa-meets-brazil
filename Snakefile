@@ -17,6 +17,7 @@ include: "rules/common.smk"
 include: "rules/fetch.smk"
 include: "rules/build.smk"
 include: "rules/solve.smk"
+include: "rules/sddp.smk"
 
 
 RUN_ID = run_id(config)

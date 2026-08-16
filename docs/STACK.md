@@ -175,11 +175,13 @@ testing and linting tools. They share a solve group, so both resolve to consiste
 versions rather than drifting apart.
 
 **Currently pinned:** `python 3.12`, `snakemake-minimal`, `pyyaml`, `pandas`, `numpy`,
-`requests`, `pandera`, `pypsa`, `highspy`, plus `pytest`, `ruff`, `pre-commit` in `dev`.
-That is the entire list. Domain libraries are added in the pull request that first
-genuinely needs them, which keeps a fresh clone fast — `pypsa` and `highspy` landed in
-PR-06/PR-11 when the network and solve steps first needed them; `atlite`, `SDDP.jl` and
-`geopandas` are still absent because nothing has needed them yet.
+`requests`, `pandera`, `pypsa`, `highspy`, plus `pytest`, `ruff`, `pre-commit`,
+`pyarrow` in `dev`. `julia` lives in its own `sddp` environment and solve-group
+(PR-26) - deliberately isolated so a plain `pixi install -e dev` (everyone's common
+case) never resolves or fetches Julia's ~170 MiB. Domain libraries are added in the
+pull request that first genuinely needs them, which keeps a fresh clone fast — `pypsa`
+and `highspy` landed in PR-06/PR-11; `atlite` and `geopandas` are still absent because
+nothing has needed them yet.
 
 > **A real gotcha, already paid for.** `snakemake-minimal` lives on the **bioconda**
 > channel, not conda-forge. Installation fails with an unhelpful "no candidates were
@@ -481,7 +483,7 @@ pandas. This is how `hidr.dat` (hydro plant physical cadastre) and `VAZOES.DAT` 
 ~95-year natural inflow record) get read. Hand-parsing them is a well-known way to
 lose a week.
 
-### SDDP.jl (Julia) — **PLANNED**
+### SDDP.jl (Julia) — **PLANNED** (coupling mechanism BUILT and proven, PR-26)
 
 **Why a second language appears.** SDDP.jl is the mature, well-tested implementation
 of Stochastic Dual Dynamic Programming, with risk measures such as CVaR built in.
@@ -491,7 +493,7 @@ Reimplementing it in Python would be a large, bug-prone project with no upside.
 
 ```mermaid
 flowchart LR
-    V["VAZOES.DAT<br/>1931 onward"] --> P["PAR(p) inflow model"]
+    V["ENA (ADR-0005 stage 1)<br/>or VAZOES.DAT later"] --> P["PAR(p) inflow model"]
     P --> S["SDDP.jl<br/><i>Julia</i>"]
     S --> C["Benders cuts<br/><i>Parquet file</i>"]
     C --> L["PyPSA + linopy<br/><i>Python</i>"]
@@ -505,6 +507,20 @@ What it produces is **Benders cuts** — linear lower bounds on the cost-to-go f
 Their slopes are the dual variables of the storage balance constraints, which is to
 say: the water values. The same shadow-price idea that gives you nodal prices gives
 you the value of stored water.
+
+> **PR-26 checked the whole chain above end-to-end, with no Brazilian data at all.**
+> `julia/smoke_test.jl` trains SDDP.jl's own textbook two-stage hydro-thermal example,
+> writes the resulting Benders cuts to Parquet, and `pandas`/`pyarrow` reads them back
+> with the right shape - proving the Snakemake → Julia → Parquet → Python chain itself
+> works before spending any effort on whether the *Brazilian* data or model is right.
+> Run it: `pixi run -e sddp julia --project=julia julia/smoke_test.jl`, or via
+> Snakemake: `pixi run -e dev snakemake -j1 sddp_smoke_test` (deliberately not part of
+> `all` - needs the separate `sddp` pixi environment, ~170 MiB of Julia, which CI and a
+> plain `pixi install -e dev` never fetch). **What remains PLANNED**: everything that
+> makes this Brazilian rather than a textbook toy - the ENA connector, PAR(p) fitting,
+> a real reservoir/thermal PyPSA model, CVaR, and the linopy cut-coupling into the
+> actual T0 network. The coupling mechanism was the first of several real unknowns
+> (ADR-0005); it is now the one that's checked.
 
 ### Also planned
 
@@ -753,6 +769,7 @@ finished and is not.
 | `scripts/build_availability.py`, `build_hydro_availability.py`, `build_mmgd.py` | Hourly `p_max_pu`: measured wind/solar, backcast hydro (ADR-0007), backcast MMGD. |
 | `scripts/build_network.py` | Assembles the tidy tables into one PyPSA `Network`. |
 | `scripts/solve_network.py` | Runs `n.optimize()`; writes the dispatch summary with `known_limitations`. |
+| `rules/sddp.smk`, `julia/` | SDDP epic rules and Julia subproject (ADR-0005) - own `sddp` pixi environment. |
 | `config/config.default.yaml` | Tier, snapshots, subsystems, solver, data sources. |
 | `config/test/config.smoke.yaml` | 72-hour configuration for the fast end-to-end check. |
 | `test/` | 210 tests, plus fixtures — real ONS samples and one labelled synthetic file. |

@@ -70,9 +70,9 @@ docs/decisions/    Architecture Decision Records
 docs/data-dictionary/  committed schema snapshots — read these, not raw data
 docs/handoffs/     per-PR session handoff notes
 test/fixtures/     tiny real-shaped samples (committed)
+julia/             SDDP.jl subproject (ADR-0005) — its own pixi environment
 
 data/              (planned, not yet created) small static inputs
-julia/             (planned, not yet created) SDDP.jl subproject
 ```
 
 ## Getting started

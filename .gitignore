@@ -42,7 +42,9 @@ __pycache__/
 *.py[cod]
 
 # --- Julia --------------------------------------------------------------
-julia/Manifest.toml
+# Manifest.toml is deliberately NOT excluded - it is Julia's pixi.lock
+# equivalent (exact resolved package versions), and this project commits
+# that file for the same reproducibility reason (see docs/STACK.md Sec 3).
 julia/**/*.jl.cov
 julia/**/*.jl.mem
 
