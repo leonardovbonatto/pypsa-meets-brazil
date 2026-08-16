@@ -40,8 +40,10 @@ rule build_generators_t0:
 
     Filters to active units, maps ONS subsystem codes (dropping PY - see
     scripts/_ons.py) and plant types onto this project's labels, and sums
-    installed capacity. Capacity and topology only - no cost, no availability
-    profile yet (see docs/handoffs/PR-08-*.md).
+    installed capacity. Capacity and topology only from this rule - cost
+    (build_costs_t0) and availability (build_availability_t0,
+    build_hydro_availability_t0, build_mmgd_t0) are separate rules, combined
+    downstream in build_network_t0.
     """
     input:
         raw="resources/ons/CAPACIDADE_GERACAO.csv",
@@ -177,10 +179,13 @@ rule build_network_t0:
     """
     T0 network: one bus per subsystem, snapshots from config, the tidy demand
     series attached as time-varying loads, the aggregated generator capacity
-    attached as one Generator per (subsystem, technology), a marginal_cost on
-    every generator, inter-subsystem transfer Links (ADR-0006), a real hourly
-    wind/solar availability profile, and a load-shedding backstop generator
-    per bus. No real transmission physics yet - see docs/handoffs/PR-15-*.md.
+    (including a distinct MMGD carrier) attached as one Generator per
+    (subsystem, technology), a marginal_cost on every generator,
+    inter-subsystem transfer Links (ADR-0006), real hourly wind/solar
+    availability plus backcast hydro and MMGD availability (ADR-0007), and a
+    load-shedding backstop generator per bus. Links are a transport model, not
+    real transmission physics with impedances - a permanent T0 simplification
+    per ADR-0006, not a stopgap.
     """
     input:
         demand="resources/demand_t0.csv",

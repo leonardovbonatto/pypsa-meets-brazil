@@ -267,5 +267,14 @@ code without touching this file, unless it carries the `no-changelog` label.
   sections, the pinned-dependency list (`pypsa`/`highspy` were missing), the
   two pipeline diagrams, and the file map to name the newer build scripts
   (PR-22).
+- `docs/PRIMER.md`: two stale forward-references to specific future PR
+  numbers (`PR-19`, `PR-23`) that no longer mean what they meant when
+  written - the real PR-19 turned out to be MMGD, and there is no PR-23 yet.
+  Replaced with honest "still PLANNED" notes. The illustrative Snakemake
+  rule in Sec 5.3 didn't match any real rule (`carga_verificada.parquet`,
+  a `{tier}` wildcard that doesn't exist yet); replaced with the real
+  `build_demand_t0` rule. `rules/build.smk`'s `build_generators_t0` and
+  `build_network_t0` docstrings also updated - both still described
+  pre-PR-09/14/17 state (PR-23).
 
 [Unreleased]: https://github.com/leonardovbonatto/pypsa-meets-brazil/commits/main

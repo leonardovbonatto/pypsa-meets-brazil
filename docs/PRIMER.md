@@ -225,7 +225,9 @@ This is why PyPSA alone is not enough here, and why §4 exists.
   downstream, after a travel time. They cannot be optimized independently.
 - **Productivity** (*produtibilidade*) — MW per m³/s, which **depends on head**, which
   depends on how full the reservoir is. A full reservoir generates more per unit of
-  water than an empty one. This makes the physics nonlinear (PR-19).
+  water than an empty one. This makes the physics nonlinear — not yet modelled
+  (**PLANNED**; no PR number assigned, since numbering here is assigned as work
+  actually starts, not reserved in advance — see `docs/STACK.md` §7).
 - **Run-of-river** vs **reservoir** — the former has negligible storage and must use
   water as it arrives; the latter can shift it across months.
 - **Vertimento** (spill) — water released without generating. Pure economic loss.
@@ -530,8 +532,8 @@ PyPSA's optimization layer. It builds the LP/MILP using xarray-style labelled ar
 and dispatches to a solver.
 
 You care because **it is the seam for customization**. Anything PyPSA does not model
-natively — SDDP cuts (§4.5), head-dependent hydro productivity (PR-19), bespoke
-reservoir coupling — enters through linopy:
+natively — SDDP cuts (§4.5), head-dependent hydro productivity, bespoke
+reservoir coupling, none built yet — enters through linopy:
 
 ```python
 m = n.optimize.create_model()
@@ -547,9 +549,12 @@ A workflow manager. You declare **rules** with inputs and outputs; it infers the
 dependency DAG and runs what is needed.
 
 ```python
-rule build_demand:
-    input:  "resources/ons/carga_verificada.parquet"
-    output: "resources/demand_{tier}.nc"
+rule build_demand_t0:
+    input:
+        raw=expand("resources/ons/CURVA_CARGA_{year}.csv", year=snapshot_years(config)),
+        dictionary="docs/data-dictionary/ons/curva_carga.yaml",
+    output:
+        "resources/demand_t0.csv"
     script: "../scripts/build_demand.py"
 ```
 
@@ -560,7 +565,10 @@ Why not a plain script:
   difference between a usable project and an unusable one.
 - **Parallelism.** Independent rules run concurrently, free.
 - **Reproducibility.** The DAG *is* the documentation of how outputs were made.
-- **Wildcards.** `{tier}` generates T0–T3 from one rule.
+- **Wildcards.** `{year}` above generates one file per year from a single rule — the
+  real mechanism, already built. A `{tier}` wildcard generating T0–T3 from one rule is
+  the same idea, planned for once T1–T3 exist; today each tier gets its own explicitly
+  named rule (`build_demand_t0`), since T0 is still the only one built.
 
 `snakemake -n` (dry run) shows what would run without running it — the cheapest
 sanity check in the repo, and one CI performs on every PR.
@@ -601,7 +609,8 @@ The literature also warns that correcting with the Global Wind Atlas can be
 Brazil's advantage: **ONS publishes hourly generation per plant.** You can bias-correct
 against observed output at the individual plant, rather than against a coarse
 national aggregate. Most countries cannot do this. It is one of the strongest
-differentiators available to this project — take it seriously (PR-23).
+differentiators available to this project — take it seriously when this is finally
+built (still **PLANNED**; blocked on CDS/ERA5 credentials, see `docs/STACK.md` §7).
 
 ### 5.7 Geospatial, validation, and deck parsing
 
