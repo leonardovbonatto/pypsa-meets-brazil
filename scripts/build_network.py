@@ -269,7 +269,16 @@ def main() -> None:
     links = load_links(Path(snake.input.links))
     attach_links(n, links)
 
-    availability = load_availability(Path(snake.input.availability))
+    # Wind/solar (measured capacity factors) and hydro (observed generation,
+    # a backcast - see ADR-0007) come from different datasets with different
+    # filtering rules, so they are built separately and concatenated here.
+    availability = pd.concat(
+        [
+            load_availability(Path(snake.input.availability)),
+            load_availability(Path(snake.input.hydro_availability)),
+        ],
+        ignore_index=True,
+    )
     attach_availability(n, availability)
 
     costs = load_costs(Path(snake.input.costs))

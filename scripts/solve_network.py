@@ -28,20 +28,23 @@ import pypsa
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 KNOWN_LIMITATIONS = [
-    "HYDRO IS UNCONSTRAINED AND FREE, and this dominates every result "
-    "below. Hydro has no availability profile (p_max_pu = 1.0 always: "
-    "102,678 MW of nameplate capacity assumed available every hour) and "
-    "marginal_cost = 0. National hydro capacity alone exceeds national "
-    "demand in all 8784 hours of 2024, so the solver covers essentially "
-    "all demand with hydro and dispatches thermal at exactly 0 MW, every "
-    "hour. Real hydro is limited by water availability - an opportunity "
-    "cost that must be computed (PRIMER Sec 4, SDDP.jl), not looked up - "
-    "and until that exists, this model cannot say anything meaningful "
-    "about thermal dispatch, merit order or prices.",
-    "Wind and solar DO have a real hourly availability profile (PR-15, "
-    "from ONS measured capacity factors), so their dispatch is "
-    "physically constrained - but it is economically irrelevant while "
-    "unconstrained free hydro can cover all demand regardless.",
+    "HYDRO IS A BACKCAST, NOT A MODEL RESULT (ADR-0007), and this "
+    "qualifies every number below. Hydro's hourly p_max_pu is derived "
+    "from ONS *observed* 2024 generation, so the model was told what "
+    "hydro actually did rather than deciding it. Consequences: hydro "
+    "dispatch is an input, not an output; and validating these prices "
+    "against observed CMO is PARTLY CIRCULAR, because observed "
+    "generation comes from the same real dispatch that set those "
+    "prices. This configuration can answer 'given real hydro output, is "
+    "the rest of the system in the right ballpark?' - it cannot answer "
+    "'does this model predict prices?'. Real water values (PRIMER Sec 4, "
+    "SDDP.jl) are the intended replacement.",
+    "Hydro also still carries marginal_cost = 0, so it remains first in "
+    "merit order whenever it is available. Only the p_max_pu ceiling now "
+    "stops it covering everything.",
+    "Wind and solar have a real hourly availability profile (PR-15) from "
+    "ONS measured capacity factors - a purpose-built capacity-factor "
+    "dataset, not a backcast of the same kind as hydro's.",
     "Transmission is a transport model (ADR-0006): Links with a "
     "transfer-capacity limit derived from historical flows, not real "
     "DC power flow with impedances. No losses.",

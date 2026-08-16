@@ -196,6 +196,16 @@ code without touching this file, unless it carries the `no-changelog` label.
   reaches 1.021 for `S` — filter to matching modalidades, don't clip
   (PR-17).
 - `docs/handoffs/PR-17-ons-generation-connector.md`.
+- `scripts/build_hydro_availability.py` and
+  `rules/build.smk::build_hydro_availability_t0`: hourly hydro `p_max_pu`
+  per subsystem from observed generation (ADR-0007). **The model is no
+  longer economically degenerate** — thermal dispatch goes from 0 to 13,082
+  MW mean, the objective from 0 to 49.4 bn R$, and marginal prices from 0
+  to 591–712 R$/MWh. First ballpark check against ONS's observed 2024 mix:
+  total generation matches to 0.5%, but thermal runs 60% high because the
+  model lacks Brazil's MMGD distributed solar (observed solar 8,360 MW
+  mean vs the model's 4,816). Not validation — see ADR-0007 (PR-18).
+- `docs/handoffs/PR-18-hydro-backcast-and-ballpark-check.md`.
 
 ### Changed
 

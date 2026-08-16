@@ -128,6 +128,28 @@ rule build_availability_t0:
         "../scripts/build_availability.py"
 
 
+rule build_hydro_availability_t0:
+    """
+    T0 hydro availability profile, from OBSERVED generation (ADR-0007).
+
+    This is a backcast, not an optimisation: it tells the model what hydro
+    actually did. Read ADR-0007 before presenting anything derived from it.
+    """
+    input:
+        raw=[
+            f"resources/ons/GERACAO_USINA_2_{year}_{month:02d}.csv"
+            for year, month in snapshot_year_months(config)
+        ],
+        dictionary="docs/data-dictionary/ons/geracao_usina.yaml",
+        capacity="resources/generators_t0.csv",
+    output:
+        "resources/hydro_availability_t0.csv",
+    log:
+        "logs/build_hydro_availability_t0/run.log",
+    script:
+        "../scripts/build_hydro_availability.py"
+
+
 rule build_network_t0:
     """
     T0 network: one bus per subsystem, snapshots from config, the tidy demand
@@ -142,6 +164,7 @@ rule build_network_t0:
         generators="resources/generators_t0.csv",
         links="resources/links_t0.csv",
         availability="resources/availability_t0.csv",
+        hydro_availability="resources/hydro_availability_t0.csv",
         costs="resources/costs_t0.csv",
     output:
         "resources/networks/t0.nc",
@@ -160,5 +183,6 @@ rule build_all:
         "resources/generators_t0.csv",
         "resources/links_t0.csv",
         "resources/availability_t0.csv",
+        "resources/hydro_availability_t0.csv",
         "resources/costs_t0.csv",
         "resources/networks/t0.nc",
