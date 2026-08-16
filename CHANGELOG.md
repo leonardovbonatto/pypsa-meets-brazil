@@ -206,6 +206,14 @@ code without touching this file, unless it carries the `no-changelog` label.
   model lacks Brazil's MMGD distributed solar (observed solar 8,360 MW
   mean vs the model's 4,816). Not validation — see ADR-0007 (PR-18).
 - `docs/handoffs/PR-18-hydro-backcast-and-ballpark-check.md`.
+- `scripts/build_mmgd.py` and `rules/build.smk::build_mmgd_t0`: adds MMGD
+  (distributed rooftop PV, 5,126 MW mean) as a `solar_mmgd` carrier, from
+  observed generation — a backcast on ADR-0007's principle. Closes the gap
+  PR-18 quantified: **thermal dispatch falls 13,082 → 7,977 MW against
+  8,161 observed (1.60× → 0.98×)**, load shedding goes to zero, and the S
+  price premium collapses from 121 to 3 R$/MWh. Reuses `attach_generators`
+  and `attach_availability` unchanged (PR-19).
+- `docs/handoffs/PR-19-mmgd-distributed-generation.md`.
 
 ### Changed
 

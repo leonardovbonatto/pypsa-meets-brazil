@@ -150,6 +150,29 @@ rule build_hydro_availability_t0:
         "../scripts/build_hydro_availability.py"
 
 
+rule build_mmgd_t0:
+    """
+    T0 MMGD (distributed rooftop PV) capacity and hourly availability, from
+    observed generation. Backcast, same principle as hydro (ADR-0007).
+
+    Closes the gap PR-18 quantified: ~5.1 GW of real MMGD output that
+    capacidade_geracao does not cover, against ~4.9 GW of spurious thermal.
+    """
+    input:
+        raw=[
+            f"resources/ons/GERACAO_USINA_2_{year}_{month:02d}.csv"
+            for year, month in snapshot_year_months(config)
+        ],
+        dictionary="docs/data-dictionary/ons/geracao_usina.yaml",
+    output:
+        capacity="resources/mmgd_generators_t0.csv",
+        availability="resources/mmgd_availability_t0.csv",
+    log:
+        "logs/build_mmgd_t0/run.log",
+    script:
+        "../scripts/build_mmgd.py"
+
+
 rule build_network_t0:
     """
     T0 network: one bus per subsystem, snapshots from config, the tidy demand
@@ -162,9 +185,11 @@ rule build_network_t0:
     input:
         demand="resources/demand_t0.csv",
         generators="resources/generators_t0.csv",
+        mmgd_generators="resources/mmgd_generators_t0.csv",
         links="resources/links_t0.csv",
         availability="resources/availability_t0.csv",
         hydro_availability="resources/hydro_availability_t0.csv",
+        mmgd_availability="resources/mmgd_availability_t0.csv",
         costs="resources/costs_t0.csv",
     output:
         "resources/networks/t0.nc",
@@ -181,8 +206,10 @@ rule build_all:
     input:
         "resources/demand_t0.csv",
         "resources/generators_t0.csv",
+        "resources/mmgd_generators_t0.csv",
         "resources/links_t0.csv",
         "resources/availability_t0.csv",
         "resources/hydro_availability_t0.csv",
+        "resources/mmgd_availability_t0.csv",
         "resources/costs_t0.csv",
         "resources/networks/t0.nc",

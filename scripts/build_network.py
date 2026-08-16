@@ -263,7 +263,15 @@ def main() -> None:
     demand = load_demand(Path(snake.input.demand))
     n = build_network(demand, subsystems=list(snake.params.subsystems))
 
-    generators = load_generators(Path(snake.input.generators))
+    # ONS-dispatched units (capacidade_geracao) plus MMGD, which that
+    # registry does not cover - see scripts/build_mmgd.py.
+    generators = pd.concat(
+        [
+            load_generators(Path(snake.input.generators)),
+            load_generators(Path(snake.input.mmgd_generators)),
+        ],
+        ignore_index=True,
+    )
     attach_generators(n, generators)
 
     links = load_links(Path(snake.input.links))
@@ -276,6 +284,7 @@ def main() -> None:
         [
             load_availability(Path(snake.input.availability)),
             load_availability(Path(snake.input.hydro_availability)),
+            load_availability(Path(snake.input.mmgd_availability)),
         ],
         ignore_index=True,
     )
