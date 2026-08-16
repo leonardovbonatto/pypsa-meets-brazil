@@ -174,6 +174,14 @@ code without touching this file, unless it carries the `no-changelog` label.
   exactly 0 MW, and isolating why produced the more important finding
   below (PR-15).
 - `docs/handoffs/PR-15-t0-availability-profile.md`.
+- `scripts/solve_network.py::summarize_prices()` — records mean
+  `marginal_price` per bus (R$/MWh, the CMO validation target) in the
+  dispatch summary, plus an explicit `all_prices_zero` flag and a runtime
+  warning for the *economically degenerate* case where a zero-cost
+  generator always has headroom so nothing scarce ever sets a price. That
+  is the current state, and it was previously invisible without manually
+  inspecting the solved network (PR-16).
+- `docs/handoffs/PR-16-report-marginal-prices.md`.
 
 ### Changed
 

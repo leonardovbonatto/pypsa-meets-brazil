@@ -74,6 +74,34 @@ def solve(n: pypsa.Network, *, solver_name: str, solver_options: dict) -> tuple[
     return status, condition
 
 
+def summarize_prices(n: pypsa.Network) -> dict:
+    """
+    Mean `marginal_price` per bus (R$/MWh), plus whether every price is zero.
+
+    This is the project's headline validation target (PRIMER Sec 2.6/3.4):
+    the dual of the nodal energy balance is the CMO. It is reported here so
+    the number is visible in a committed artifact rather than only via
+    manual inspection of the solved network.
+
+    `all_prices_zero` is the explicit signal that the model is
+    *economically degenerate*: some zero-marginal-cost generator always has
+    headroom, so nothing scarce ever sets a price. That is the current
+    state (unconstrained free hydro - see KNOWN_LIMITATIONS), and it means
+    no price-based validation is meaningful yet. Note PyPSA drops an
+    all-default time series on export, so an all-zero price frame does not
+    survive to `network_t0_solved.nc` at all - another reason to record it
+    here explicitly.
+    """
+    prices = n.buses_t.marginal_price
+    if prices.empty:
+        return {"mean_marginal_price_rs_per_mwh_by_bus": {}, "all_prices_zero": None}
+
+    return {
+        "mean_marginal_price_rs_per_mwh_by_bus": prices.mean().round(2).to_dict(),
+        "all_prices_zero": bool((prices == 0).all().all()),
+    }
+
+
 def summarize_dispatch(n: pypsa.Network) -> dict:
     mean_by_generator = n.generators_t.p.mean()
 
@@ -92,6 +120,7 @@ def summarize_dispatch(n: pypsa.Network) -> dict:
         "objective_rs": float(n.objective),
         "mean_dispatch_mw_by_carrier": mean_by_carrier.round(1).to_dict(),
         "load_shedding_mwh_by_bus": load_shed_mwh_by_bus,
+        **summarize_prices(n),
         "known_limitations": KNOWN_LIMITATIONS,
     }
 
@@ -113,6 +142,14 @@ def main() -> None:
         print(
             f"WARNING: load shedding occurred - {summary['load_shedding_mwh_by_bus']} "
             "(diagnostic only; see known_limitations in the summary)",
+            file=sys.stderr,
+        )
+    if summary["all_prices_zero"]:
+        print(
+            "WARNING: every marginal price is 0 - the model is economically "
+            "degenerate (a zero-cost generator always has headroom). No "
+            "price-based validation is meaningful in this state; see "
+            "known_limitations in the summary.",
             file=sys.stderr,
         )
 

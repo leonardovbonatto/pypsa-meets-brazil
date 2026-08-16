@@ -99,6 +99,8 @@ class TestSummarizeDispatch:
             "objective_rs",
             "mean_dispatch_mw_by_carrier",
             "load_shedding_mwh_by_bus",
+            "mean_marginal_price_rs_per_mwh_by_bus",
+            "all_prices_zero",
             "known_limitations",
         }
         assert summary["objective_rs"] == pytest.approx(1000.0)
@@ -133,6 +135,74 @@ class TestSummarizeDispatch:
         assert summary["load_shedding_mwh_by_bus"] == {"A": pytest.approx(90.0)}
 
 
+class TestSummarizePrices:
+    def test_reports_the_marginal_generator_cost(self):
+        """
+        Textbook merit order: the price is the marginal unit's cost, not the
+        cheap unit's. Hour 1 needs only the cheap generator (10), hours 2-3
+        need the expensive one (500).
+        """
+        n = pypsa.Network()
+        n.set_snapshots(pd.date_range("2024-01-01", periods=3, freq="1h"))
+        n.add("Carrier", ["AC", "cheap", "expensive"])
+        n.add("Bus", "A", carrier="AC")
+        n.add("Load", "A", bus="A", p_set=[50.0, 150.0, 250.0])
+        n.add("Generator", "A cheap", bus="A", carrier="cheap", p_nom=100.0, marginal_cost=10.0)
+        n.add(
+            "Generator",
+            "A expensive",
+            bus="A",
+            carrier="expensive",
+            p_nom=200.0,
+            marginal_cost=500.0,
+        )
+        solve_network.solve(n, **SOLVER)
+
+        prices = solve_network.summarize_prices(n)
+
+        assert prices["all_prices_zero"] is False
+        # mean of (10, 500, 500)
+        assert prices["mean_marginal_price_rs_per_mwh_by_bus"]["A"] == pytest.approx(
+            336.67, abs=0.01
+        )
+
+    def test_flags_the_economically_degenerate_case(self):
+        """
+        A single zero-cost generator with headroom means nothing scarce ever
+        sets a price - exactly the real T0 situation with free hydro.
+        """
+        n = _one_bus_network(load_mw=100.0)
+        n.add("Carrier", "free")
+        n.add("Generator", "A free", bus="A", carrier="free", p_nom=200.0, marginal_cost=0.0)
+        n.add("Carrier", "backstop")
+        n.add(
+            "Generator",
+            "A backstop",
+            bus="A",
+            carrier="backstop",
+            p_nom=1000.0,
+            marginal_cost=10_000.0,
+        )
+        solve_network.solve(n, **SOLVER)
+
+        prices = solve_network.summarize_prices(n)
+
+        assert prices["all_prices_zero"] is True
+        assert prices["mean_marginal_price_rs_per_mwh_by_bus"]["A"] == pytest.approx(0.0)
+
+    def test_handles_a_network_with_no_prices(self):
+        """
+        PyPSA drops an all-default series on export, so a reloaded solved
+        network can legitimately have no marginal_price frame at all.
+        """
+        n = _one_bus_network(load_mw=100.0)
+
+        prices = solve_network.summarize_prices(n)
+
+        assert prices["mean_marginal_price_rs_per_mwh_by_bus"] == {}
+        assert prices["all_prices_zero"] is None
+
+
 class TestWriteSummary:
     def test_round_trips_through_json(self, tmp_path):
         import json
@@ -141,6 +211,8 @@ class TestWriteSummary:
             "objective_rs": 123.0,
             "mean_dispatch_mw_by_carrier": {"hydro": 1.0},
             "load_shedding_mwh_by_bus": {},
+            "mean_marginal_price_rs_per_mwh_by_bus": {"SE_CO": 0.0},
+            "all_prices_zero": True,
             "known_limitations": ["a", "b"],
         }
         out = solve_network.write_summary(summary, tmp_path / "summary.json")
