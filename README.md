@@ -9,8 +9,15 @@ An open, nodal model of the Brazilian National Interconnected System (SIN) in
 [PyPSA](https://pypsa.org) — with real hydro physics and stochastic water values,
 reducible to any spatial resolution.
 
-> **Status: pre-alpha.** Scaffolding only. Nothing here solves a network yet.
-> See [`Brazilian-Grid-in-PyPSA.md`](Brazilian-Grid-in-PyPSA.md) for the feasibility
+> **Status: early build, T0 only.** The 4-subsystem T0 tier fetches real 2024 ONS
+> data, builds a PyPSA network, and solves it end-to-end — thermal, wind, solar,
+> hydro and MMGD generation, inter-subsystem transfer, marginal prices. Hydro is
+> currently a **backcast** from observed generation (ADR-0007), not real
+> stochastic water-value physics — that gap is the current focus, and it means
+> price comparisons against observed CMO are only a ballpark check, not
+> validation, until it closes. T1–T3 (state, clustered, nodal) are not started.
+> See [`docs/STACK.md`](docs/STACK.md) for exactly what's built vs planned, and
+> [`Brazilian-Grid-in-PyPSA.md`](Brazilian-Grid-in-PyPSA.md) for the feasibility
 > study and staged roadmap this project is built on.
 
 ## What this is
@@ -57,14 +64,15 @@ Snakefile          workflow entrypoint, includes rules/*.smk
 config/            one config per tier, plus a CI-runnable smoke config
 rules/             Snakemake rule groups
 scripts/           one importable, testable module per rule
-data/              small static inputs (committed)
 resources/         intermediate artifacts (gitignored, except _provenance/)
 results/           model outputs + run manifests (gitignored)
-julia/             SDDP.jl subproject
 docs/decisions/    Architecture Decision Records
 docs/data-dictionary/  committed schema snapshots — read these, not raw data
 docs/handoffs/     per-PR session handoff notes
 test/fixtures/     tiny real-shaped samples (committed)
+
+data/              (planned, not yet created) small static inputs
+julia/             (planned, not yet created) SDDP.jl subproject
 ```
 
 ## Getting started

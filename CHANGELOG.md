@@ -276,5 +276,11 @@ code without touching this file, unless it carries the `no-changelog` label.
   `build_demand_t0` rule. `rules/build.smk`'s `build_generators_t0` and
   `build_network_t0` docstrings also updated - both still described
   pre-PR-09/14/17 state (PR-23).
+- `README.md`: the status banner said "pre-alpha, nothing here solves a
+  network yet" - false since PR-11, and actively misleading for the most
+  visible doc in the repo. Replaced with an accurate summary of what T0
+  actually does today and its main caveat (hydro backcast, ADR-0007). The
+  `Layout` section also listed `data/` and `julia/` as if they existed;
+  neither has been created yet - split them out and marked planned (PR-24).
 
 [Unreleased]: https://github.com/leonardovbonatto/pypsa-meets-brazil/commits/main
