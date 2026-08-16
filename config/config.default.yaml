@@ -68,6 +68,11 @@ sources:
       # snapshot_year_months in scripts/_common.py). Feeds T0's p_max_pu.
       # See docs/data-dictionary/ons/fator_capacidade.yaml.
       url: https://ons-aws-prod-opendata.s3.amazonaws.com/dataset/fator_capacidade_2_di/FATOR_CAPACIDADE-2_{year}_{month}.csv
+    geracao_usina:
+      # Hourly verified generation per plant, one file per (year, month).
+      # Used to constrain hydro by BACKCASTING (ADR-0007) - observed output
+      # as a model input. See docs/data-dictionary/ons/geracao_usina.yaml.
+      url: https://ons-aws-prod-opendata.s3.amazonaws.com/dataset/geracao_usina_2_ho/GERACAO_USINA-2_{year}_{month}.csv
 
 paths:
   resources: resources

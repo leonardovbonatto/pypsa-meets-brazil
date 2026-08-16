@@ -182,6 +182,20 @@ code without touching this file, unless it carries the `no-changelog` label.
   is the current state, and it was previously invisible without manually
   inspecting the solved network (PR-16).
 - `docs/handoffs/PR-16-report-marginal-prices.md`.
+- `docs/decisions/ADR-0007-hydro-backcast-interim.md` — constrain T0 hydro
+  with observed generation as an explicitly-labelled **interim backcast**
+  while the water-value work proceeds separately. Records what such a model
+  can and cannot legitimately claim, since validating prices against
+  observed CMO from this configuration would be partly circular.
+- Sixth real data connector: `rules/fetch.smk::fetch_ons_geracao_usina`
+  fetches ONS hourly verified generation per plant (~66 MB/month, 6.1M rows
+  for 2024 — the largest dataset this project fetches).
+  `docs/data-dictionary/ons/geracao_usina.yaml` records the load-bearing
+  finding: this dataset covers Tipo III and MMGD plants that
+  `capacidade_geracao` does not, so an unfiltered capacity-factor ratio
+  reaches 1.021 for `S` — filter to matching modalidades, don't clip
+  (PR-17).
+- `docs/handoffs/PR-17-ons-generation-connector.md`.
 
 ### Changed
 

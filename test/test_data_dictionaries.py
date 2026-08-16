@@ -29,6 +29,8 @@ INTERCAMBIO_DICT = DICT_DIR / "ons" / "intercambio_nacional.yaml"
 INTERCAMBIO_FIXTURE = REPO_ROOT / "test" / "fixtures" / "ons" / "intercambio_nacional_sample.csv"
 FATOR_CAPACIDADE_DICT = DICT_DIR / "ons" / "fator_capacidade.yaml"
 FATOR_CAPACIDADE_FIXTURE = REPO_ROOT / "test" / "fixtures" / "ons" / "fator_capacidade_sample.csv"
+GERACAO_USINA_DICT = DICT_DIR / "ons" / "geracao_usina.yaml"
+GERACAO_USINA_FIXTURE = REPO_ROOT / "test" / "fixtures" / "ons" / "geracao_usina_sample.csv"
 
 
 def _load(name: str, path: Path):
@@ -224,6 +226,53 @@ class TestFatorCapacidadeDictionary:
             ("S", "Eólica"),
             ("SE", "Solar"),
         }
+
+
+@pytest.fixture
+def geracao_usina_df():
+    return inspect_mod.inspect_csv(GERACAO_USINA_FIXTURE, delimiter=";")
+
+
+class TestGeracaoUsinaDictionary:
+    def test_schema_validates_against_real_fixture(self, geracao_usina_df):
+        dictionary = inspect_mod.load_dictionary(GERACAO_USINA_DICT)
+        schema = inspect_mod.to_pandera_schema(dictionary)
+
+        schema.validate(geracao_usina_df)  # must not raise
+
+    def test_schema_hash_matches_fixture(self, geracao_usina_df):
+        dictionary = inspect_mod.load_dictionary(GERACAO_USINA_DICT)
+        assert inspect_mod.schema_hash(geracao_usina_df) == dictionary["schema_hash"]
+
+    def test_generation_column_carries_its_unit(self):
+        dictionary = inspect_mod.load_dictionary(GERACAO_USINA_DICT)
+        col = next(c for c in dictionary["columns"] if c["name"] == "val_geracao")
+        assert col["unit"] == "MWmed"
+
+    def test_fixture_carries_both_matching_and_non_matching_modalidades(self, geracao_usina_df):
+        """
+        The population mismatch against capacidade_geracao is the single
+        most load-bearing property of this dataset (ADR-0007) - the fixture
+        must exercise both sides of the filter, not just the easy case.
+        """
+        modalidades = set(geracao_usina_df["cod_modalidadeoperacao"])
+        assert modalidades & {"TIPO I", "TIPO II-A", "TIPO II-B", "TIPO II-C"}
+        assert modalidades & {"TIPO III", "Pequenas Usinas (Tipo III)", "Pequenas Usinas (MMGD)"}
+
+    def test_fixture_includes_a_real_null_generation_row(self, geracao_usina_df):
+        """Nulls are real (missing), not zero - a build step must decide explicitly."""
+        assert geracao_usina_df["val_geracao"].isna().any()
+
+    def test_technology_spelling_matches_capacidade_geracao_not_fator_capacidade(
+        self, geracao_usina_df
+    ):
+        """
+        Three ONS datasets, two different spellings for the same technology.
+        This one follows capacidade_geracao (HIDROELETRICA/TERMICA), not
+        fator_capacidade (Eolica/Solar) - worth pinning so a future shared
+        TECHNOLOGY_MAP refactor cannot silently assume they all agree.
+        """
+        assert "HIDROELÉTRICA" in set(geracao_usina_df["nom_tipousina"])
 
 
 @pytest.mark.parametrize("path", COMMITTED_DICTS, ids=lambda p: p.name)

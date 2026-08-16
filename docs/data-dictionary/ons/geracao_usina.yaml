@@ -1,0 +1,162 @@
+dataset: geracao_usina
+source: ons
+source_url: https://ons-aws-prod-opendata.s3.amazonaws.com/dataset/geracao_usina_2_ho/GERACAO_USINA-2_2024_01.csv
+retrieved: '2026-08-16T15:40:00+00:00'
+format: csv
+encoding: utf-8
+delimiter: ;
+decimal: .
+row_count: 6089616
+schema_hash: sha256:164b2d4b1a78db3900cf7f341362654b7923d7e89077a2e4630d19f068c43ddf
+columns:
+- name: din_instante
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: Hourly timestamp, Brasilia local time.
+  sample:
+  - '2024-01-01 00:00:00'
+  - '2024-01-01 00:00:00'
+  - '2024-01-01 00:00:00'
+- name: id_subsistema
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: Subsystem code. N/NE/S/SE only - no PY.
+  sample:
+  - N
+  - N
+  - N
+- name: nom_subsistema
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: Subsystem name in Portuguese.
+  sample:
+  - NORTE
+  - NORTE
+  - NORTE
+- name: id_estado
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: Two-letter state code.
+  sample:
+  - AC
+  - AM
+  - AM
+- name: nom_estado
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: State name.
+  sample:
+  - ACRE
+  - AMAZONAS
+  - AMAZONAS
+- name: cod_modalidadeoperacao
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: 'ONS operating-mode classification. CRITICAL for any ratio against
+    capacidade_geracao: this dataset includes Tipo III and MMGD small plants that
+    capacidade_geracao does NOT cover. See notes.'
+  sample:
+  - Pequenas Usinas (MMGD)
+  - Pequenas Usinas (MMGD)
+  - TIPO I
+- name: nom_tipousina
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: 'Plant technology: HIDROELETRICA, TERMICA, EOLIELETRICA, FOTOVOLTAICA,
+    NUCLEAR. Same spelling as capacidade_geracao (PR-07), unlike fator_capacidade''s
+    Eolica/Solar.'
+  sample:
+  - FOTOVOLTAICA
+  - FOTOVOLTAICA
+  - HIDROELÉTRICA
+- name: nom_tipocombustivel
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: Fuel type, finer-grained than nom_tipousina.
+  sample:
+  - Fotovoltaica
+  - Fotovoltaica
+  - Hidráulica
+- name: nom_usina
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: Plant / plant-group / small-plant-group name.
+  sample:
+  - PQU ACRAC FOTOV MMGD
+  - PQU MMAM FOTOV MMGD
+  - Balbina
+- name: id_ons
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: ONS's own identifier for the plant or group.
+  sample:
+  - PQU_ACRAC_GD
+  - PQU_MMAM_GD
+  - AMBA
+- name: ceg
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: ANEEL's unique generation-enterprise code, where available.
+  sample:
+  - '-'
+  - '-'
+  - UHE.PH.AM.000190-2.01
+- name: val_geracao
+  dtype: float64
+  unit: MWmed
+  nullable: true
+  null_rate: 0.0029
+  description: Verified generation for the hour.
+  sample:
+  - 0.0
+  - 0.0
+  - 86.938
+notes:
+- Field meanings are ONS's own, from the dataset's CKAN description and column naming;
+  this dataset has no separate published JSON dictionary (unlike curva_carga, capacidade_geracao,
+  cvu_usina_termica, intercambio_nacional and fator_capacidade).
+- 'The largest dataset this project fetches: ~66 MB per month, ~506,000 rows per month,
+  ~6.1 million rows for 2024, 760 MB for the full year. Split by (year, month) like
+  fator_capacidade - see snapshot_year_months in scripts/_common.py.'
+- Built from ALL TWELVE months of 2024, not a single-month sample - following the
+  lesson recorded in fator_capacidade's notes (PR-15), where a January-only schema
+  wrongly marked a column non-nullable and then rejected the real full-year frame.
+- 'POPULATION MISMATCH against capacidade_geracao, verified directly and load-bearing
+  for any capacity-factor ratio: this dataset covers ALL plants including ''Pequenas
+  Usinas (Tipo III)'', ''TIPO III'' and ''Pequenas Usinas (MMGD)'', whereas capacidade_geracao
+  covers only ONS-dispatched TIPO I / II-A / II-B / II-C units. Dividing unfiltered
+  hydro generation by capacidade_geracao''s hydro capacity gives a ratio of 1.021
+  for subsystem S in January 2024 - physically impossible, and purely an artifact
+  of a numerator covering more plants than the denominator. Filtering to TIPO I/II-A/II-B/II-C
+  brings every subsystem below 1.0 (S drops to 0.931). Filter, do not clip.'
+- val_geracao has real nulls (1,488 in January 2024 alone, all NUCLEAR rows) - not
+  zero, genuinely missing. A build step must decide explicitly whether to treat these
+  as zero or drop them.
+- Values appear in scientific notation in the raw CSV (e.g. '0E-8'); pandas parses
+  these as float64 without special handling.
+- This dataset is the basis for the interim hydro backcast (ADR-0007). Anything derived
+  from it constrains the model with OBSERVED output, so hydro dispatch becomes a model
+  input rather than a model result - read ADR-0007 before presenting any number that
+  depends on it.

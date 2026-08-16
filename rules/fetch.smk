@@ -111,3 +111,27 @@ rule fetch_ons_fator_capacidade:
         "logs/fetch_ons_fator_capacidade/{year}_{month}.log",
     script:
         "../scripts/fetch_dataset.py"
+
+
+rule fetch_ons_geracao_usina:
+    """
+    ONS hourly verified generation per plant, one file per (year, month).
+    The largest dataset this project fetches (~66 MB/month): every plant,
+    every hour, all technologies including small plants and MMGD.
+
+    Used to constrain hydro by backcasting (ADR-0007) - see that ADR before
+    treating anything derived from this as a model *prediction*.
+    """
+    output:
+        raw="resources/ons/GERACAO_USINA_2_{year}_{month}.csv",
+        provenance="resources/_provenance/ons/geracao_usina_{year}_{month}.json",
+    params:
+        url=lambda wc: config["sources"]["ons"]["geracao_usina"]["url"].format(
+            year=wc.year, month=wc.month
+        ),
+        source="ons",
+        dataset=lambda wc: f"geracao_usina_{wc.year}_{wc.month}",
+    log:
+        "logs/fetch_ons_geracao_usina/{year}_{month}.log",
+    script:
+        "../scripts/fetch_dataset.py"
