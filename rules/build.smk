@@ -232,6 +232,28 @@ rule build_reservoir:
         "../scripts/build_reservoir.py"
 
 
+rule build_reservoir_registry:
+    """
+    Tidy per-reservoir physical registry and the REE-to-subsystem mapping
+    ena_ree/ear_ree need (ADR-0008 stage 2) - real data, not the
+    domain-name inference ADR-0008 expected to need. See
+    scripts/build_reservoir_registry.py and docs/handoffs/PR-35-*.md.
+
+    Single current snapshot, like build_generators_t0/capacidade_geracao -
+    not year-split.
+    """
+    input:
+        raw="resources/ons/RESERVATORIOS.csv",
+        dictionary="docs/data-dictionary/ons/reservatorio.yaml",
+    output:
+        registry="resources/reservoir_registry.csv",
+        ree_map="resources/ree_subsystem_map.csv",
+    log:
+        "logs/build_reservoir_registry/run.log",
+    script:
+        "../scripts/build_reservoir_registry.py"
+
+
 rule build_network_t0:
     """
     T0 network: one bus per subsystem, snapshots from config, the tidy demand
@@ -278,3 +300,5 @@ rule build_all:
         "resources/inflow_ena.csv",
         "resources/reservoir_ear_history.csv",
         "resources/reservoir_ear_capacity.csv",
+        "resources/reservoir_registry.csv",
+        "resources/ree_subsystem_map.csv",

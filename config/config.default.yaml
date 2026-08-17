@@ -95,6 +95,15 @@ sources:
       years:
         start: 2000
         end: 2025
+    reservatorio:
+      # Per-reservoir physical registry, current snapshot (not year-split,
+      # like capacidade_geracao): 162 real reservoirs with subsystem, REE,
+      # basin/river, volume, elevation and turbine productivity. ONS's own
+      # dictionary states val_perda matches NEWAVE's own values directly -
+      # this is real, open, per-plant physical data (ADR-0008 stage 2),
+      # not requiring NEWAVE deck parsing via inewave. See
+      # docs/data-dictionary/ons/reservatorio.yaml.
+      url: https://ons-aws-prod-opendata.s3.amazonaws.com/dataset/reservatorio/RESERVATORIOS.csv
 
 paths:
   resources: resources

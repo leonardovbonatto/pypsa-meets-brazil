@@ -176,3 +176,25 @@ rule fetch_ons_ear_subsistema:
         "logs/fetch_ons_ear_subsistema/{year}.log",
     script:
         "../scripts/fetch_dataset.py"
+
+
+rule fetch_ons_reservatorio:
+    """
+    ONS per-reservoir physical registry, current snapshot - 162 real
+    reservoirs with subsystem, REE, basin/river, volume, elevation and
+    turbine productivity (ADR-0008 stage 2). Not year-split, like
+    capacidade_geracao. Supplies the real REE-to-subsystem mapping for
+    ena_ree/ear_ree, replacing the domain-name inference ADR-0008
+    expected to need.
+    """
+    output:
+        raw="resources/ons/RESERVATORIOS.csv",
+        provenance="resources/_provenance/ons/reservatorio.json",
+    params:
+        url=config["sources"]["ons"]["reservatorio"]["url"],
+        source="ons",
+        dataset="reservatorio",
+    log:
+        "logs/fetch_ons_reservatorio/run.log",
+    script:
+        "../scripts/fetch_dataset.py"

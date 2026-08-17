@@ -1,0 +1,10 @@
+{
+  "byte_size": 35740,
+  "dataset": "reservatorio",
+  "format": "csv",
+  "retrieved": "2026-08-17T21:31:30+00:00",
+  "row_count": 162,
+  "sha256": "7db6cf7e65c5b4da195722bc940c71fc234293e23135f7710e75a24c43d1186e",
+  "source": "ons",
+  "source_url": "https://ons-aws-prod-opendata.s3.amazonaws.com/dataset/reservatorio/RESERVATORIOS.csv"
+}

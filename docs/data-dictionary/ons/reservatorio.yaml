@@ -1,0 +1,309 @@
+dataset: reservatorio
+source: ons
+source_url: https://ons-aws-prod-opendata.s3.amazonaws.com/dataset/reservatorio/RESERVATORIOS.csv
+retrieved: '2026-08-17T23:31:30+00:00'
+format: csv
+encoding: utf-8
+delimiter: ;
+decimal: .
+row_count: 162
+schema_hash: sha256:7cde817986270c2a4401940d05fe700ade05b0be8161353476ecde2a98767a2e
+columns:
+- name: nom_reservatorio
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: Reservoir name.
+  sample:
+  - 14 DE JULHO
+  - A. VERMELHA
+  - AIMORES
+- name: tip_reservatorio
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: Reservoir type - e.g. "FIO DAGUA" (run-of-river, negligible
+    storage), "RESERVATORIO COM USINA" (reservoir with its own plant),
+    "RESERVATORIO SEM USINA" (reservoir with no plant of its own - the 2
+    rows with null productivity/head-loss fields are this type).
+  sample:
+  - FIO DAGUA
+  - RESERVATÓRIO COM USINA
+  - FIO DAGUA
+- name: cod_resplanejamento
+  dtype: int64
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: Reservoir code in the official planning models (NEWAVE/DECOMP/DESSEM).
+  sample:
+  - 99
+  - 18
+  - 143
+- name: cod_posto
+  dtype: int64
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: The plant's flow-gauging station code.
+  sample:
+  - 284
+  - 18
+  - 148
+- name: nom_usina
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: Plant name - usually matches nom_reservatorio, but this is
+    its own field, not derived; do not assume they always agree without
+    checking, per this project's own cross-dataset-name-mismatch lesson
+    (PR-09 handoff).
+  sample:
+  - 14 DE JULHO
+  - ÁGUA VERMELHA
+  - AIMORÉS
+- name: ceg
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: ANEEL's unique generation-enterprise code (Codigo Unico de
+    Empreendimentos de Geracao).
+  sample:
+  - UHE.PH.RS.000012-4.01
+  - UHE.PH.MG.000041-8.01
+  - UHE.PH.MG.000042-6.01
+- name: id_subsistema
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: 'Subsystem code. N/NE/S/SE observed - SE covers what this
+    project calls SE_CO (goes through the same _ons.map_subsystems() as
+    every other connector). This is the REAL, data-derived REE-to-subsystem
+    join key ADR-0008 needed - see notes.'
+  sample:
+  - S
+  - SE
+  - SE
+- name: nom_subsistema
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: Subsystem name in Portuguese - here spelled "SUDESTE/CENTRO-OESTE"
+    for SE, a fuller form than other ONS datasets' plain "SUDESTE".
+  sample:
+  - SUL
+  - SUDESTE/CENTRO-OESTE
+  - SUDESTE/CENTRO-OESTE
+- name: nom_bacia
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: Hydro-energy basin name.
+  sample:
+  - JACUI
+  - GRANDE
+  - DOCE
+- name: nom_rio
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: River name.
+  sample:
+  - TAQUARI-ANTAS
+  - GRANDE
+  - DOCE
+- name: nom_ree
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: 'REE (Reservatorio Equivalente de Energia) name - matches
+    ena_ree/ear_ree''s nom_reservatorioee/nom_ree values exactly (12 real
+    REEs, see those dictionaries and ADR-0008). This is the field that
+    resolves ADR-0008''s named open question: joined with id_subsistema
+    on this same row, every REE maps to EXACTLY ONE subsystem, a clean
+    1:1 mapping, not the domain-name inference ADR-0008 expected to need.'
+  sample:
+  - SUL
+  - PARANA
+  - SUDESTE
+- name: dat_entrada
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: Commissioning date (entered operation), YYYY-MM-DD.
+  sample:
+  - '2008-12-25'
+  - '1978-03-01'
+  - '2005-07-30'
+- name: val_cotamaxima
+  dtype: float64
+  unit: m
+  nullable: false
+  null_rate: 0.0
+  description: Maximum operating water level (elevation).
+  sample:
+  - 104.0
+  - 383.3
+  - 90.0
+- name: val_cotaminima
+  dtype: float64
+  unit: m
+  nullable: false
+  null_rate: 0.0
+  description: Minimum operating water level (elevation).
+  sample:
+  - 103.0
+  - 373.3
+  - 89.6
+- name: val_volmax
+  dtype: float64
+  unit: hm3 (cubic hectometres)
+  nullable: false
+  null_rate: 0.0
+  description: Maximum reservoir volume, at the max operating level.
+  sample:
+  - 55.18
+  - 11025.0
+  - 185.52
+- name: val_volmin
+  dtype: float64
+  unit: hm3 (cubic hectometres)
+  nullable: false
+  null_rate: 0.0
+  description: Minimum reservoir volume, at the min operating level.
+  sample:
+  - 50.47
+  - 5856.0
+  - 156.55
+- name: val_volutiltot
+  dtype: float64
+  unit: hm3 (cubic hectometres)
+  nullable: false
+  null_rate: 0.0
+  description: Useful volume - val_volmax minus val_volmin, the volume
+    actually available for operation.
+  sample:
+  - 4.71
+  - 5169.22
+  - 12.14
+- name: val_produtibilidadeespecifica
+  dtype: float64
+  unit: MW per (m3/s per m of head), approximately
+  nullable: true
+  null_rate: 0.0123
+  description: Specific productivity - MW gained per unit of head. Null
+    for the 2 "RESERVATORIO SEM USINA" rows (no turbine, so no productivity
+    to report) - a real, explained null, not missing data.
+  sample:
+  - 0.008927
+  - 0.008825
+  - 0.008926
+- name: val_produtividade65volutil
+  dtype: float64
+  unit: '%'
+  nullable: true
+  null_rate: 0.0123
+  description: Productivity at 65% of useful volume - the standard reference
+    operating point used in Brazilian hydro planning. Same null pattern
+    as val_produtibilidadeespecifica.
+  sample:
+  - 0.3016
+  - 0.4625
+  - 0.2558
+- name: val_tipoperda
+  dtype: str
+  unit: null
+  nullable: true
+  null_rate: 0.0123
+  description: Head-loss unit - "%" or "m" (metres). Same null pattern as
+    val_produtibilidadeespecifica.
+  sample:
+  - m
+  - m
+  - m
+- name: val_perda
+  dtype: float64
+  unit: percent or metres, per val_tipoperda
+  nullable: true
+  null_rate: 0.0123
+  description: 'Head-loss value. ONS''s own dictionary states explicitly:
+    "Estes valores sao os mesmos utilizados pelo programa Newave" (these
+    are the SAME values used by the NEWAVE program) - real evidence this
+    dataset is NEWAVE''s own physical cadastre published directly as open
+    data, not something requiring Fortran deck parsing via inewave to
+    obtain (see this file''s notes and ADR-0008/docs/handoffs/PR-35-*.md).
+    Same null pattern as val_produtibilidadeespecifica.'
+  sample:
+  - 0.74
+  - 0.75
+  - 0.32
+- name: val_latitude
+  dtype: float64
+  unit: degrees
+  nullable: false
+  null_rate: 0.0
+  description: Reservoir latitude.
+  sample:
+  - -29.06944444
+  - -19.86805556
+  - -19.45333333
+- name: val_longitude
+  dtype: float64
+  unit: degrees
+  nullable: false
+  null_rate: 0.0
+  description: Reservoir longitude.
+  sample:
+  - -51.67527778
+  - -50.34277778
+  - -41.09666667
+- name: res_id
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: ONS's own short reservoir identifier code.
+  sample:
+  - JIUHQJ
+  - GRAGVL
+  - DCAIMO
+notes:
+- 'ADR-0008 (SDDP epic, stage 2): this dataset resolves the ADR''s named
+  open question (REE-to-subsystem mapping) with real data instead of
+  domain-name inference. Joining id_subsistema and nom_ree on the same
+  row across all 162 reservoirs gives a clean, unambiguous 1:1 mapping
+  for all 12 REEs - verified directly, not assumed. It also corrected a
+  guess made while drafting ADR-0008: MADEIRA and TELES PIRES (Amazon-basin
+  river names) actually map to subsystem SE, not N as their geography
+  would suggest by name alone - exactly why this was checked against real
+  data rather than left as inference.'
+- '162 real reservoirs, matching PRIMER Sec 2.1''s own "order 100-170"
+  estimate for individualized reservoirs almost exactly.'
+- 'A significant finding for the epic''s later stages, beyond just this
+  PR''s immediate need: ONS''s own dictionary states val_perda "sao os
+  mesmos utilizados pelo programa Newave" (are the same values used by
+  NEWAVE). Combined with this dataset covering physical characteristics
+  (volume, elevation, productivity) that PRIMER/ADR-0008 assumed would
+  need hidr.dat parsed from NEWAVE decks via inewave, this may
+  substantially de-risk full per-plant individualization (ADR-0008''s
+  own named eventual successor) - worth real investigation in that
+  future ADR, not assumed to fully replace hidr.dat without checking
+  what, if anything, is missing (e.g. cascade routing/travel-time between
+  reservoirs is not obviously present in this file).'
+- No nulls except the 4 turbine-productivity/head-loss columns, and only
+  for the 2 "RESERVATORIO SEM USINA" rows (reservoirs without their own
+  plant) - a real, explained pattern, not a data quality problem.
+- nom_subsistema spells SE_CO as "SUDESTE/CENTRO-OESTE" here, a fuller
+  form than other ONS datasets' plain "SUDESTE" - id_subsistema ("SE")
+  is what this project actually keys on via _ons.map_subsystems(), so
+  this spelling difference does not affect the pipeline.

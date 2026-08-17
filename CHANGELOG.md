@@ -395,6 +395,25 @@ code without touching this file, unless it carries the `no-changelog` label.
   unlike every other epic dependency so far, it has never been checked.
   `.codespellignore` gained `parana` (a real REE/river name, not a typo
   for "piranha") (PR-34).
+- Ninth ONS connector: `reservatorio` (ADR-0008 stage 2) - per-reservoir
+  physical registry, 162 real reservoirs (matching PRIMER Sec 2.1's own
+  "order 100-170" estimate almost exactly), current snapshot like
+  `capacidade_geracao`. Resolves ADR-0008's named open question with real
+  data instead of domain-name inference: `id_subsistema` and `nom_ree`
+  sit on the same row for every reservoir, giving a clean, checked 1:1
+  REE-to-subsystem mapping (`scripts/build_reservoir_registry.py::build_ree_subsystem_map()`
+  raises if that invariant is ever violated, not just documented as true).
+  Corrected a domain-name guess made while drafting ADR-0008: MADEIRA and
+  TELES PIRES (Amazon-basin river names) actually map to subsystem
+  SE_CO, not N as their geography would suggest - exactly why this was
+  checked against real data. A significant secondary finding: ONS's own
+  dictionary states `val_perda` "sao os mesmos utilizados pelo programa
+  Newave" (are the same values NEWAVE uses) - this dataset may
+  substantially de-risk ADR-0008's biggest named unknown (whether full
+  per-plant individualization needs NEWAVE deck parsing via `inewave` at
+  all), flagged for real investigation in that future ADR, not assumed
+  to fully replace `hidr.dat` (PR-35).
+- `docs/handoffs/PR-35-reservoir-registry.md`.
 - `.gitignore` stopped excluding `julia/Manifest.toml`, found while
   staging this PR: it's Julia's exact equivalent of `pixi.lock` (resolved
   package versions), which this project commits for reproducibility - the

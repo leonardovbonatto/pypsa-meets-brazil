@@ -80,6 +80,7 @@ rule fetch_all:
             "resources/ons/EAR_DIARIO_SUBSISTEMA_{year}.csv",
             year=inflow_history_years(config, dataset="ear_subsistema"),
         ),
+        "resources/ons/RESERVATORIOS.csv",
 
 
 rule write_run_manifest:
