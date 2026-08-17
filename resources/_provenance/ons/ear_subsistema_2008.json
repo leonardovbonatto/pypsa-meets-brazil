@@ -1,0 +1,10 @@
+{
+  "byte_size": 91567,
+  "dataset": "ear_subsistema_2008",
+  "format": "csv",
+  "retrieved": "2026-08-17T17:48:10+00:00",
+  "row_count": 1464,
+  "sha256": "a6dfe7fc82a7d828047373e9d7c4092f5de6c5dbcb2ca89919b8957b4e687637",
+  "source": "ons",
+  "source_url": "https://ons-aws-prod-opendata.s3.amazonaws.com/dataset/ear_subsistema_di/EAR_DIARIO_SUBSISTEMA_2008.csv"
+}

@@ -1,0 +1,112 @@
+dataset: ear_subsistema
+source: ons
+source_url: https://ons-aws-prod-opendata.s3.amazonaws.com/dataset/ear_subsistema_di/EAR_DIARIO_SUBSISTEMA_{year}.csv
+retrieved: '2026-08-17T19:48:16+00:00'
+format: csv
+encoding: utf-8
+delimiter: ;
+decimal: .
+row_count: 37988
+schema_hash: sha256:f4f3ed74add8be55b7266436be96150443ab8efdcc38e8247f7b83c2e27e3d91
+columns:
+- name: id_subsistema
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: Subsystem code. N/NE/S/SE observed - same population as
+    ena_subsistema (PR-27); goes through the same _ons.map_subsystems().
+  sample:
+  - NE
+  - N
+  - SE
+- name: nom_subsistema
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: Subsystem name in Portuguese.
+  sample:
+  - NORDESTE
+  - NORTE
+  - SUDESTE
+- name: ear_data
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: Calendar date of the measurement, YYYY-MM-DD - daily, same
+    convention as ena_subsistema (PR-27).
+  sample:
+  - '2000-01-01'
+  - '2000-01-01'
+  - '2000-01-01'
+- name: ear_max_subsistema
+  dtype: float64
+  unit: MWmes (MW-month)
+  nullable: false
+  null_rate: 0.0
+  description: Maximum storable energy per subsystem - the real reservoir
+    CAPACITY figure this dataset exists to provide (ADR-0005 stage 1e). A
+    stock, not a flow, so MW-month (roughly, sustained average power the
+    stored energy could deliver over a month) is a coherent unit here -
+    unlike ena_subsistema's flow quantity, where the same "MWmes" label
+    in ONS's dictionary looked like a likely documentation error (see that
+    dictionary's notes). Column name and dictionary agree here ("mwmes"
+    both places), which is part of why that comparison is informative.
+  sample:
+  - 49967.0
+  - 12311.0
+  - 155759.0
+- name: ear_verif_subsistema_mwmes
+  dtype: float64
+  unit: MWmes (MW-month)
+  nullable: false
+  null_rate: 0.0
+  description: Verified (actual) stored energy per subsystem on this date -
+    the real historical storage trajectory, useful for validating a
+    simulated SDDP policy's own storage trajectory against what the real
+    system actually did.
+  sample:
+  - 11171.0
+  - 7656.0
+  - 27853.0
+- name: ear_verif_subsistema_percentual
+  dtype: float64
+  unit: '% (dimensionless)'
+  nullable: false
+  null_rate: 0.0
+  description: ear_verif_subsistema_mwmes as a percentage of
+    ear_max_subsistema on the same row - PRIMER Sec 2.4's usual EAR
+    convention ("quoted as a percentage of maximum, a classic units trap").
+  sample:
+  - 22.36000061
+  - 62.18999863
+  - 17.87999916
+notes:
+- 'ADR-0005 stage 1e: this dataset supplies real reservoir CAPACITY
+  (ear_max_subsistema) for the epic''s first hydro-thermal SDDP policy.
+  Fabricating a placeholder capacity number would have been exactly the
+  "plausible, confident, wrong" failure mode PRIMER Sec 7.1 warns about -
+  checked whether ONS publishes this before assuming it would need to be
+  invented, and it does.'
+- 'ear_max_subsistema genuinely GROWS over the 26-year record, not a
+  static constant: SE 157,701 (2000) -> 204,615 MWmes (2024/2025), real
+  new reservoir capacity built over that period. N/NE/S show smaller but
+  real growth too. A forward-looking SDDP policy should use the MOST
+  RECENT year''s value as current capacity, not an average across the
+  26-year history, which would understate real present-day capacity.'
+- No nulls anywhere across the full 26-year, 37,988-row volume - same
+  clean-data pattern as ena_subsistema (PR-27), built from the complete
+  fetched range from the start per the PR-15 lesson.
+- 'Row-level cross-check DOES fail on 99 of 37,988 real rows (0.26%):
+  ear_verif_subsistema_mwmes exceeds ear_max_subsistema, all in
+  subsystem N, overwhelmingly year 2000, at most 3.66% over (mean 1.6%).
+  Real, checked, not silently accepted: ONS''s own dataset description
+  says this data "is subject to a recurring consistency process and may
+  be updated after publication" - an old row''s max was very likely
+  never retroactively revised. build_reservoir.py clips (does not
+  reject), following the same precedent as fator_capacidade''s >1.0 rows
+  (PR-14): storage exceeding its own capacity is nonsensical for any
+  downstream model, and failing a 26-year build over a small, explicable,
+  early-record quirk would be worse than clipping it.'

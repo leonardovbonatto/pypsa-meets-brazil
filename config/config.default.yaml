@@ -86,6 +86,15 @@ sources:
       years:
         start: 2000
         end: 2025
+    ear_subsistema:
+      # Daily reservoir storage (EAR) per subsystem, one file per year -
+      # ear_max_subsistema is the real max storable energy (reservoir
+      # capacity), needed for a genuine hydro-thermal SDDP policy (ADR-0005
+      # stage 1e). See docs/data-dictionary/ons/ear_subsistema.yaml.
+      url: https://ons-aws-prod-opendata.s3.amazonaws.com/dataset/ear_subsistema_di/EAR_DIARIO_SUBSISTEMA_{year}.csv
+      years:
+        start: 2000
+        end: 2025
 
 paths:
   resources: resources

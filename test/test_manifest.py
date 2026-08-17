@@ -108,6 +108,19 @@ class TestInflowHistoryYears:
         }
         assert common.inflow_history_years(cfg) != common.snapshot_years(cfg)
 
+    def test_dataset_argument_selects_a_different_source(self):
+        """PR-30: ear_subsistema shares the same helper, its own years key."""
+        cfg = {
+            "sources": {
+                "ons": {
+                    "ena_subsistema": {"years": {"start": 2000, "end": 2025}},
+                    "ear_subsistema": {"years": {"start": 2010, "end": 2012}},
+                }
+            }
+        }
+        assert common.inflow_history_years(cfg, dataset="ear_subsistema") == [2010, 2011, 2012]
+        assert common.inflow_history_years(cfg) == list(range(2000, 2026))
+
 
 class TestManifest:
     def test_records_required_fields(self):

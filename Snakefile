@@ -76,6 +76,10 @@ rule fetch_all:
             "resources/ons/ENA_DIARIO_SUBSISTEMA_{year}.csv",
             year=inflow_history_years(config),
         ),
+        expand(
+            "resources/ons/EAR_DIARIO_SUBSISTEMA_{year}.csv",
+            year=inflow_history_years(config, dataset="ear_subsistema"),
+        ),
 
 
 rule write_run_manifest:

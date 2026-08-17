@@ -156,3 +156,23 @@ rule fetch_ons_ena_subsistema:
         "logs/fetch_ons_ena_subsistema/{year}.log",
     script:
         "../scripts/fetch_dataset.py"
+
+
+rule fetch_ons_ear_subsistema:
+    """
+    ONS daily reservoir storage (EAR) per subsystem, one file per calendar
+    year, published from 2000 onward. `ear_max_subsistema` is real max
+    storable energy - reservoir capacity for a genuine hydro-thermal SDDP
+    policy (ADR-0005 stage 1e), not a fabricated placeholder number.
+    """
+    output:
+        raw="resources/ons/EAR_DIARIO_SUBSISTEMA_{year}.csv",
+        provenance="resources/_provenance/ons/ear_subsistema_{year}.json",
+    params:
+        url=lambda wc: config["sources"]["ons"]["ear_subsistema"]["url"].format(year=wc.year),
+        source="ons",
+        dataset=lambda wc: f"ear_subsistema_{wc.year}",
+    log:
+        "logs/fetch_ons_ear_subsistema/{year}.log",
+    script:
+        "../scripts/fetch_dataset.py"

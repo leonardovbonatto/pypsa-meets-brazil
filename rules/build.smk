@@ -203,6 +203,35 @@ rule build_inflow:
         "../scripts/build_inflow.py"
 
 
+rule build_reservoir:
+    """
+    Tidy historical reservoir storage (EAR) series and current reservoir
+    capacity per subsystem, from ONS's daily per-subsystem dataset
+    (ADR-0005, SDDP epic stage 1e). Real capacity, not fabricated - see
+    scripts/build_reservoir.py and docs/handoffs/PR-30-*.md.
+
+    Not T0-specific, like build_inflow: feeds the separate SDDP pipeline.
+    Year range comes from inflow_history_years(config, dataset=
+    "ear_subsistema"), independent of ena_subsistema's own range even
+    though both currently happen to span the same years.
+    """
+    input:
+        raw=expand(
+            "resources/ons/EAR_DIARIO_SUBSISTEMA_{year}.csv",
+            year=inflow_history_years(config, dataset="ear_subsistema"),
+        ),
+        dictionary="docs/data-dictionary/ons/ear_subsistema.yaml",
+    output:
+        history="resources/reservoir_ear_history.csv",
+        capacity="resources/reservoir_ear_capacity.csv",
+    params:
+        subsystems=config["subsystems"],
+    log:
+        "logs/build_reservoir/run.log",
+    script:
+        "../scripts/build_reservoir.py"
+
+
 rule build_network_t0:
     """
     T0 network: one bus per subsystem, snapshots from config, the tidy demand
@@ -247,3 +276,5 @@ rule build_all:
         "resources/costs_t0.csv",
         "resources/networks/t0.nc",
         "resources/inflow_ena.csv",
+        "resources/reservoir_ear_history.csv",
+        "resources/reservoir_ear_capacity.csv",

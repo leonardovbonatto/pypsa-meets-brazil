@@ -295,6 +295,22 @@ code without touching this file, unless it carries the `no-changelog` label.
   is the new output; `results/inflow_par1_validation.json` gained a
   `spatial_correlation_by_subsystem_pair` section (PR-29).
 - `docs/handoffs/PR-29-sddp-par1-spatial-correlation.md`.
+- Eighth ONS connector: `ear_subsistema` (ADR-0005 stage 1e) - daily
+  reservoir storage per subsystem, 2000-2025, same shape as `ena_subsistema`
+  (PR-27). Checked whether ONS publishes real reservoir CAPACITY
+  (`ear_max_subsistema`) before assuming a hydro-thermal SDDP policy would
+  need a fabricated placeholder number - it does. Real finding: capacity
+  genuinely grows over the 26-year record (SE 157,701 -> 204,615 MWmes,
+  new reservoirs built), so `scripts/build_reservoir.py::latest_capacity()`
+  uses the most recent year, not a historical average, which would
+  understate present-day capacity. Real, small, checked quirk: verified
+  storage exceeds max capacity in 99 of 37,988 rows (0.26%, all subsystem
+  N, mostly year 2000, <=3.66% over) - clipped, not rejected, following
+  the same precedent as `fator_capacidade`'s >1.0 rows (PR-14).
+  `scripts/_common.py::inflow_history_years()` generalized to take a
+  `dataset` parameter, shared by `ena_subsistema` and `ear_subsistema`
+  rather than duplicated (PR-30).
+- `docs/handoffs/PR-30-ear-connector.md`.
 - `.gitignore` stopped excluding `julia/Manifest.toml`, found while
   staging this PR: it's Julia's exact equivalent of `pixi.lock` (resolved
   package versions), which this project commits for reproducibility - the

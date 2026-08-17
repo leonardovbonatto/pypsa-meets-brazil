@@ -77,14 +77,19 @@ def snapshot_year_months(cfg: dict) -> list[tuple[int, int]]:
     return pairs
 
 
-def inflow_history_years(cfg: dict) -> list[int]:
+def inflow_history_years(cfg: dict, dataset: str = "ena_subsistema") -> list[int]:
     """
-    Calendar years spanned by `sources.ons.ena_subsistema.years.start`..`end`.
+    Calendar years spanned by `sources.ons.<dataset>.years.start`..`end`.
 
     Deliberately NOT derived from `snapshots.start`/`end` like `snapshot_years()`:
     PAR(p) needs a long historical inflow record for persistence and drought
     statistics (PRIMER Sec 4.7, ADR-0005), independent of whichever single year
     T0 happens to be modelling. The two ranges are allowed to disagree.
+
+    Shared by both `ena_subsistema` (ADR-0005 stage 1b) and `ear_subsistema`
+    (stage 1e, reservoir capacity) - the same historical-window need, a
+    different dataset each carries in its own `sources.ons.<dataset>.years`
+    key rather than a shared one, so each remains independently changeable.
     """
-    years = cfg["sources"]["ons"]["ena_subsistema"]["years"]
+    years = cfg["sources"]["ons"][dataset]["years"]
     return list(range(years["start"], years["end"] + 1))

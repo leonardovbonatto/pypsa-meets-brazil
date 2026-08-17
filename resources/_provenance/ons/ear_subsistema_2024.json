@@ -1,0 +1,10 @@
+{
+  "byte_size": 88786,
+  "dataset": "ear_subsistema_2024",
+  "format": "csv",
+  "retrieved": "2026-08-17T17:48:12+00:00",
+  "row_count": 1464,
+  "sha256": "0cd6d242afe40036d3ca31cc5d02e4f3cc2d17aea83b2fb78998c9948f6667a4",
+  "source": "ons",
+  "source_url": "https://ons-aws-prod-opendata.s3.amazonaws.com/dataset/ear_subsistema_di/EAR_DIARIO_SUBSISTEMA_2024.csv"
+}
