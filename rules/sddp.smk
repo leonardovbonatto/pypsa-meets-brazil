@@ -34,19 +34,21 @@ rule sddp_smoke_test:
 
 rule fit_inflow_par1:
     """
-    Fit a PAR(1) inflow model per subsystem (ADR-0005 stage 1c: persistence)
-    and validate drought-run persistence against the real historical record.
+    Fit a PAR(1) inflow model per subsystem (ADR-0005 stage 1c/1d:
+    persistence + spatial correlation) and validate both of PRIMER Sec
+    4.7's required properties against the real historical record.
 
     Python, not Julia - unlike sddp_smoke_test, this rule needs only `dev`.
-    Deliberately does NOT preserve spatial correlation across subsystems
-    (PRIMER Sec 4.7's second required property) - see KNOWN_LIMITATIONS in
-    scripts/fit_inflow_par1.py and docs/handoffs/PR-28-*.md for why that's
-    a real, named gap rather than an oversight.
+    Spatial correlation is preserved via a single cross-subsystem residual
+    correlation matrix pooled across all calendar months, not fit
+    per-month - a real, documented simplification (see KNOWN_LIMITATIONS in
+    scripts/fit_inflow_par1.py and docs/handoffs/PR-29-*.md).
     """
     input:
         "resources/inflow_ena.csv",
     output:
         params="resources/inflow_par1_params.csv",
+        correlation="resources/inflow_par1_correlation.csv",
         validation="results/inflow_par1_validation.json",
     log:
         "logs/fit_inflow_par1/run.log",

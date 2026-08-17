@@ -7,15 +7,15 @@ from the tidy ENA series (ADR-0005, SDDP epic stage 1c: persistence).
 PAR(p) is the Brazilian standard (PRIMER Sec 4.7): autoregressive
 coefficients vary by calendar month because inflow seasonality is strong,
 fitted on log-transformed flows since they are positive and skewed. This
-PR fits the simplest defensible order - PAR(1), not a higher order chosen
-via AIC/PACF - and validates ONLY persistence (drought duration), the
-first of PRIMER Sec 4.7's two required properties. The second,
-**spatial correlation across subsystems, is deliberately NOT preserved
-here** - each subsystem is fit and simulated independently. That is a
-real, named gap (see KNOWN_LIMITATIONS below), not an oversight, and
-follows this project's own staged-epic discipline (ADR-0005 split
-"coupling mechanism" from "data source"; this PR splits "persistence"
-from "spatial correlation" the same way).
+module fits the simplest defensible order - PAR(1), not a higher order
+chosen via AIC/PACF - and validates BOTH of PRIMER Sec 4.7's required
+properties: persistence (drought duration, PR-28) and spatial correlation
+across subsystems (PR-29). Spatial correlation is preserved via correlated
+residuals (Cholesky decomposition of the cross-subsystem residual
+correlation matrix), pooled across all calendar months into a single 4x4
+matrix rather than fit per-month - a real, documented simplification (see
+KNOWN_LIMITATIONS), not an oversight, given only ~26 observations per
+specific month.
 
 Fits on GROSS inflow (`ena_bruta_mwmed`), not storable
 (`ena_armazenavel_mwmed`): gross is the exogenous hydrological quantity a
@@ -40,16 +40,14 @@ VALUE_COLUMN = "ena_bruta_mwmed"
 KNOWN_LIMITATIONS = [
     "PAR(1) only - order 1, not selected via AIC/PACF. The simplest defensible "
     "first cut, not a re-derivation of NEWAVE's per-REE order selection.",
-    "SPATIAL CORRELATION ACROSS SUBSYSTEMS IS NOT YET PRESERVED (PRIMER Sec "
-    "4.7). Each subsystem's PAR(1) is fit and simulated independently. Real "
-    "Brazilian basins are correlated; independent sampling understates "
-    "true system-wide drought risk. A follow-up PR must add this - via "
-    "correlated residuals (Cholesky decomposition of the cross-subsystem "
-    "residual correlation matrix), as PRIMER and the roadmap both name -  "
-    "before any SDDP policy trained on these parameters is trustworthy.",
+    "Spatial correlation is a SINGLE matrix pooled across all 12 calendar "
+    "months, not fit per-month - only ~26 observations per specific month "
+    "made a month-specific 4x4 matrix too noisy to trust. Real cross-"
+    "subsystem correlation likely varies by season (e.g. N/NE's wet "
+    "seasons do not coincide); this pooled matrix cannot capture that.",
     "Fit on 26 years of ENA (2000-2025, ADR-0005), not VAZOES.DAT's ~95 "
     "years - materially less data to estimate rare/severe drought "
-    "persistence from.",
+    "persistence AND cross-subsystem correlation from.",
     "Fit on gross ena_bruta_mwmed - see module docstring for why storable "
     "was rejected as the modelled quantity.",
 ]
@@ -126,6 +124,124 @@ def simulate_par1(params: pd.DataFrame, *, n_years: int, rng: np.random.Generato
                 )
                 z_prev = z
     return pd.DataFrame(rows)
+
+
+def compute_residuals(monthly: pd.DataFrame, params: pd.DataFrame) -> pd.DataFrame:
+    """
+    One row per (subsystem, year, month): the standardized AR(1) residual
+    epsilon_t = z_t - phi_m * z_{t-1} - what is left after removing each
+    subsystem's OWN predictable persistence. This, not the raw ENA series,
+    is the basis for spatial correlation: whether subsystems' unexplained
+    month-to-month surprises move together, not whether they share the
+    same seasonal pattern (which mu_m/sigma_m already capture separately).
+    """
+    work = monthly.assign(log_ena=np.log(monthly[VALUE_COLUMN])).merge(
+        params[["subsystem", "month", "mu", "sigma", "phi"]], on=["subsystem", "month"]
+    )
+    work = work.sort_values(["subsystem", "year", "month"])
+    work["z"] = (work["log_ena"] - work["mu"]) / work["sigma"]
+    work["z_lag1"] = work.groupby("subsystem")["z"].shift(1)
+    work["month_lag1"] = work.groupby("subsystem")["month"].shift(1)
+
+    expected_lag_month = ((work["month"] - 2) % 12) + 1
+    work = work[work["month_lag1"] == expected_lag_month]
+    work["residual"] = work["z"] - work["phi"] * work["z_lag1"]
+    return work[["subsystem", "year", "month", "residual"]].reset_index(drop=True)
+
+
+def residual_correlation_matrix(residuals: pd.DataFrame) -> pd.DataFrame:
+    """
+    subsystem x subsystem correlation of SAME-(year, month) residuals,
+    pooled across all calendar months (see module docstring for why not
+    per-month) - PRIMER Sec 4.7's spatial correlation: real Brazilian
+    basins are correlated, so a dry month in one subsystem tends to
+    coincide with dry months elsewhere, not be independent of them.
+    """
+    wide = residuals.pivot_table(index=["year", "month"], columns="subsystem", values="residual")
+    return wide.corr()
+
+
+def simulate_par1_correlated(
+    params: pd.DataFrame,
+    corr_matrix: pd.DataFrame,
+    *,
+    n_years: int,
+    rng: np.random.Generator,
+) -> pd.DataFrame:
+    """
+    Synthetic n_years-long monthly series for ALL subsystems jointly, one
+    correlated draw per (year, month) via Cholesky decomposition of
+    `corr_matrix` rather than `simulate_par1`'s independent per-subsystem
+    draws. This is what actually preserves PRIMER Sec 4.7's spatial
+    correlation requirement.
+    """
+    subsystems = list(corr_matrix.columns)
+    cholesky_factor = np.linalg.cholesky(corr_matrix.loc[subsystems, subsystems].to_numpy())
+
+    by_subsystem_month = {(row.subsystem, row.month): row for row in params.itertuples()}
+    z_prev = dict.fromkeys(subsystems, 0.0)
+    for subsystem in subsystems:
+        z_prev[subsystem] = rng.normal()
+
+    rows = []
+    for year in range(n_years):
+        for month in range(1, 13):
+            independent_draw = rng.normal(size=len(subsystems))
+            correlated_unit = cholesky_factor @ independent_draw
+            for i, subsystem in enumerate(subsystems):
+                row = by_subsystem_month[(subsystem, month)]
+                phi = float(np.clip(row.phi, -0.99, 0.99))
+                shock_sd = float(np.sqrt(max(1 - phi**2, 1e-6)))
+                z = phi * z_prev[subsystem] + correlated_unit[i] * shock_sd
+                ena = float(np.exp(row.mu + row.sigma * z))
+                rows.append(
+                    {"subsystem": subsystem, "year": year, "month": month, VALUE_COLUMN: ena}
+                )
+                z_prev[subsystem] = z
+    return pd.DataFrame(rows)
+
+
+def validate_spatial_correlation(
+    monthly: pd.DataFrame,
+    params: pd.DataFrame,
+    corr_matrix: pd.DataFrame,
+    *,
+    n_realizations: int = 200,
+    seed: int = 0,
+) -> dict:
+    """
+    Does the correlated simulator actually REPRODUCE the real historical
+    cross-subsystem correlation - not just have it baked into an input
+    matrix, which would prove nothing about whether fit -> Cholesky ->
+    simulate -> re-estimate is wired correctly end to end?
+
+    Simulates `n_realizations` correlated series, recomputes each one's OWN
+    residual correlation matrix from ITS output (the same estimation
+    procedure used on the real data), and reports the mean simulated
+    correlation per subsystem pair against the historical value.
+    """
+    n_years = monthly["year"].nunique()
+    rng = np.random.default_rng(seed)
+    subsystems = list(corr_matrix.columns)
+
+    simulated_corrs = []
+    for _ in range(n_realizations):
+        sim = simulate_par1_correlated(params, corr_matrix, n_years=n_years, rng=rng)
+        sim_residuals = compute_residuals(sim, params)
+        simulated_corrs.append(
+            residual_correlation_matrix(sim_residuals).loc[subsystems, subsystems]
+        )
+
+    mean_simulated = sum(simulated_corrs) / len(simulated_corrs)
+
+    report = {}
+    for i, a in enumerate(subsystems):
+        for b in subsystems[i + 1 :]:
+            report[f"{a}-{b}"] = {
+                "historical_correlation": float(corr_matrix.loc[a, b]),
+                "mean_simulated_correlation": float(mean_simulated.loc[a, b]),
+            }
+    return report
 
 
 def month_thresholds(historical_monthly: pd.DataFrame, *, percentile: float) -> pd.DataFrame:
@@ -212,9 +328,34 @@ def write_params(df: pd.DataFrame, out_path: Path) -> Path:
     return out_path
 
 
-def write_validation_report(report: dict, out_path: Path) -> Path:
+def write_correlation_matrix(corr_matrix: pd.DataFrame, out_path: Path) -> Path:
+    """Tidy long format (subsystem_a, subsystem_b, correlation) - easier for a
+    downstream Julia reader to consume than a wide matrix with subsystem names
+    as both column headers and an index.
+
+    `.corr()` leaves both axes named "subsystem" (inherited from the pivot
+    that built it) - `.stack().reset_index()` on that raises
+    `ValueError: cannot insert subsystem, already exists`, since both levels
+    would produce the same column name. Rename the axes first so they're
+    distinct before stacking.
+    """
+    matrix = corr_matrix.copy()
+    matrix.index.name = "subsystem_a"
+    matrix.columns.name = "subsystem_b"
+    tidy = matrix.stack().rename("correlation").reset_index()
+
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    payload = {"persistence_by_subsystem": report, "known_limitations": KNOWN_LIMITATIONS}
+    tidy.to_csv(out_path, index=False)
+    return out_path
+
+
+def write_validation_report(persistence_report: dict, spatial_report: dict, out_path: Path) -> Path:
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "persistence_by_subsystem": persistence_report,
+        "spatial_correlation_by_subsystem_pair": spatial_report,
+        "known_limitations": KNOWN_LIMITATIONS,
+    }
     out_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return out_path
 
@@ -226,8 +367,8 @@ def main() -> None:
     monthly = aggregate_to_monthly(df)
     params = fit_par1_by_month(monthly)
 
-    report = validate_persistence(monthly, params)
-    for subsystem, stats in report.items():
+    persistence_report = validate_persistence(monthly, params)
+    for subsystem, stats in persistence_report.items():
         if stats["historical_percentile_within_simulated"] > 0.97:
             print(
                 f"WARNING: {subsystem}'s historical drought ({stats['historical_max_drought_run_months']} "
@@ -236,8 +377,22 @@ def main() -> None:
                 file=sys.stderr,
             )
 
+    residuals = compute_residuals(monthly, params)
+    corr_matrix = residual_correlation_matrix(residuals)
+    spatial_report = validate_spatial_correlation(monthly, params, corr_matrix)
+    for pair, stats in spatial_report.items():
+        gap = abs(stats["historical_correlation"] - stats["mean_simulated_correlation"])
+        if gap > 0.15:
+            print(
+                f"WARNING: {pair}'s simulated correlation ({stats['mean_simulated_correlation']:.2f}) "
+                f"diverges from historical ({stats['historical_correlation']:.2f}) by {gap:.2f} - "
+                "the Cholesky-correlated simulator may not be reproducing this pair correctly.",
+                file=sys.stderr,
+            )
+
     write_params(params, Path(snake.output.params))
-    write_validation_report(report, Path(snake.output.validation))
+    write_correlation_matrix(corr_matrix, Path(snake.output.correlation))
+    write_validation_report(persistence_report, spatial_report, Path(snake.output.validation))
 
 
 if __name__ == "__main__":

@@ -277,6 +277,24 @@ code without touching this file, unless it carries the `no-changelog` label.
   preserved here**, named as a real gap in `KNOWN_LIMITATIONS`, not an
   oversight: each subsystem is fit and simulated independently (PR-28).
 - `docs/handoffs/PR-28-sddp-par1-persistence.md`.
+- `scripts/fit_inflow_par1.py::compute_residuals/residual_correlation_matrix/simulate_par1_correlated/validate_spatial_correlation`
+  (ADR-0005 stage 1d: spatial correlation) - the second of PRIMER Sec 4.7's
+  two required properties, closing the gap PR-28 named explicitly.
+  Correlates same-(year, month) residuals across all 4 subsystems into a
+  single matrix (pooled across calendar months - a documented
+  simplification, see `KNOWN_LIMITATIONS`), then simulates jointly via
+  Cholesky decomposition rather than independently per subsystem. Real,
+  scientifically plausible finding on the actual data: N and S are
+  *negatively* correlated (-0.25), consistent with known Brazilian
+  ENSO-driven rainfall dynamics; N-NE positively correlated (+0.48).
+  Validated by re-estimating correlation from the simulator's OWN output
+  (not just checking the input matrix survived) - every pair recovered
+  within 0.03 of its historical value. Real bug found and fixed:
+  `corr_matrix.stack().reset_index()` collided because `.corr()` leaves
+  both axes named "subsystem" - now a regression test. `resources/inflow_par1_correlation.csv`
+  is the new output; `results/inflow_par1_validation.json` gained a
+  `spatial_correlation_by_subsystem_pair` section (PR-29).
+- `docs/handoffs/PR-29-sddp-par1-spatial-correlation.md`.
 - `.gitignore` stopped excluding `julia/Manifest.toml`, found while
   staging this PR: it's Julia's exact equivalent of `pixi.lock` (resolved
   package versions), which this project commits for reproducibility - the
