@@ -11,13 +11,17 @@
 # docs/handoffs/PR-31-*.md / PR-32-*.md for what is and is not yet real
 # here (known_limitations() at the bottom of this file).
 #
-# Run: julia --project=julia julia/sddp_first_policy.jl <inputs_dir> <output_dir> [risk_kind] [lambda] [alpha]
+# Run: julia --project=julia julia/sddp_first_policy.jl <inputs_dir> <output_dir> [risk_kind] [lambda] [alpha] [seed]
 #   risk_kind: "expectation" (default) or "cvar"
 #   lambda:    PRIMER Sec 4.4's weight on the CVaR term, (1-lambda)*E + lambda*CVaR_alpha
 #              (only used when risk_kind="cvar"; default 0.5)
 #   alpha:     the CVaR tail fraction, e.g. 0.1 = worst 10% of outcomes
 #              (only used when risk_kind="cvar"; default 0.1)
+#   seed:      Random.seed! for SDDP's own training/simulation sampling -
+#              PR-32 shipped without this, so re-runs produced slightly
+#              different numbers; default 0 (PR-33).
 
+using Random
 using SDDP
 using HiGHS
 using DataFrames
@@ -34,10 +38,17 @@ function known_limitations(risk_kind::String)
         "No inter-subsystem transmission in this reduced hydro-thermal subproblem - " *
         "real network coupling belongs in PyPSA/linopy once cuts are consumed there.",
         "Wind, solar and nuclear excluded from this reduced model.",
-        "Fixed iteration_limit=300, not a convergence-gap stopping rule (PRIMER Sec " *
-        "4.3's 'stop when the gap is acceptably small') - checked directly (PR-32) that " *
-        "50 iterations materially understated load shedding for BOTH risk measures " *
-        "relative to 300; 300 is not proven fully converged either, only better.",
+        "SimulationStoppingRule (SDDP.jl's own recommended default) is wired in, " *
+        "but checked directly (PR-33) that it does NOT actually trigger within " *
+        "iteration_limit=1000 - training still hits the safety cap in practice, " *
+        "the same as PR-32's fixed count did, just at a higher number. The bound " *
+        "was still slowly rising at iteration 1000 (2.53bn -> 2.56bn from iteration " *
+        "250 to 1000), and numeric issues rose to 57 (0 at 50 iterations, low " *
+        "single digits at 300) - a real, unresolved signal that this model's LP " *
+        "conditioning may degrade as cuts accumulate, worth investigating directly " *
+        "rather than raising the cap indefinitely.",
+        "100 Monte Carlo simulation realizations back every reported statistic - " *
+        "still real sampling noise, especially for tail (P90) statistics.",
     ]
     if risk_kind == "expectation"
         push!(
@@ -179,16 +190,34 @@ function main()
     risk_kind = length(ARGS) >= 3 ? ARGS[3] : "expectation"
     lambda = length(ARGS) >= 4 ? parse(Float64, ARGS[4]) : 0.5
     alpha = length(ARGS) >= 5 ? parse(Float64, ARGS[5]) : 0.1
+    seed = length(ARGS) >= 6 ? parse(Int, ARGS[6]) : 0
     mkpath(output_dir)
+
+    # Seeds Julia's GLOBAL RNG, which SDDP.jl's own forward-pass sampling
+    # and SDDP.simulate() both draw from - PR-32 shipped without this, so
+    # re-running the same policy produced slightly different numbers each
+    # time, which is why that PR's handoff reports a range rather than one
+    # fixed comparison. scripts/prepare_sddp_inputs.py's own scenario
+    # sampling was already seeded independently (its own `seed` param);
+    # this is the second, previously-missing half.
+    Random.seed!(seed)
 
     inputs = load_inputs(inputs_dir)
     model = build_model(inputs)
     risk_measure = parse_risk_measure(risk_kind, lambda, alpha)
     println("Risk measure: ", risk_kind, " (lambda=", lambda, ", alpha=", alpha, ") -> ", risk_measure)
 
+    # SimulationStoppingRule (SDDP.jl's own recommended default) replaces
+    # PR-32's fixed iteration_limit=300 - checks BOTH that the bound has
+    # stabilized and that two consecutive out-of-sample simulations agree,
+    # PRIMER Sec 4.3's "stop when the gap is acceptably small" rather than
+    # a guessed count. iteration_limit stays as a generous safety cap, not
+    # the primary stopping mechanism, in case the simulation-based rule
+    # never triggers for a pathological input.
     SDDP.train(
         model;
-        iteration_limit = 300,
+        stopping_rules = [SDDP.SimulationStoppingRule()],
+        iteration_limit = 1000,
         print_level = 1,
         log_file = "/dev/null",
         risk_measure = risk_measure,
@@ -259,6 +288,7 @@ function main()
     Parquet2.writefile(joinpath(output_dir, "cuts.parquet"), DataFrame(rows))
 
     summary = Dict(
+        "seed" => seed,
         "risk_kind" => risk_kind,
         "risk_lambda" => risk_kind == "cvar" ? lambda : nothing,
         "risk_alpha" => risk_kind == "cvar" ? alpha : nothing,

@@ -348,6 +348,31 @@ code without touching this file, unless it carries the `no-changelog` label.
   convergence-gap stopping rule; only 100 Monte Carlo simulation
   realizations), not smoothed into a tidier story than the numbers
   support (PR-32).
+- `docs/handoffs/PR-32-sddp-cvar.md`.
+- `julia/sddp_first_policy.jl`: `SDDP.SimulationStoppingRule()` (SDDP.jl's
+  own recommended default) replaces PR-32's fixed `iteration_limit=300`,
+  and `Random.seed!` fixes SDDP.jl's own internal RNG (previously only
+  `prepare_sddp_inputs.py`'s scenario sampling was seeded) - reproducibility
+  verified directly: two identical-seed runs produce byte-identical
+  `summary.json`. Real, checked-not-hidden finding: the stopping rule does
+  NOT actually trigger within a 1000-iteration safety cap - training still
+  hits the cap in practice, and numeric issues rise to 57 (0 at 50
+  iterations, low single digits at 300), a real signal about this model's
+  LP conditioning worth investigating rather than raising the cap
+  indefinitely. A more useful finding fell out of the better-converged,
+  reproducible comparison this enabled: at 1000 iterations with a fixed
+  seed, expectation and CVaR policies converge to nearly IDENTICAL tail
+  outcomes (P90 load shed: 30,090.5 for both). First hypothesis tried and
+  refuted by checking, not left standing: S's own hydro+thermal capacity
+  (19,141 MW) comfortably exceeds its peak monthly demand (15,666 MW), so
+  this is not a physically-forced capacity shortfall. The better-supported
+  explanation ties directly to PR-31's own most significant named
+  limitation: inflow scenarios are i.i.d. per month, so the policy has no
+  signal that a dry month is more likely to follow another one, even
+  though the real fitted PAR(1) process (phi up to 0.81 for S) genuinely
+  has that structure - a concrete symptom of persistence's absence, not
+  just an abstract caveat (PR-33).
+- `docs/handoffs/PR-33-sddp-convergence-and-seeding.md`.
 - `.gitignore` stopped excluding `julia/Manifest.toml`, found while
   staging this PR: it's Julia's exact equivalent of `pixi.lock` (resolved
   package versions), which this project commits for reproducibility - the

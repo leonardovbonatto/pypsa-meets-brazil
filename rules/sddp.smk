@@ -113,7 +113,7 @@ rule sddp_first_policy:
         "logs/sddp_first_policy/run.log",
     shell:
         "pixi run -e sddp julia --project=julia julia/sddp_first_policy.jl "
-        "resources/sddp_inputs results/sddp_first_policy expectation > {log} 2>&1"
+        "resources/sddp_inputs results/sddp_first_policy expectation 0.5 0.1 0 > {log} 2>&1"
 
 
 rule sddp_cvar_policy:
@@ -140,4 +140,4 @@ rule sddp_cvar_policy:
         "logs/sddp_cvar_policy/run.log",
     shell:
         "pixi run -e sddp julia --project=julia julia/sddp_first_policy.jl "
-        "resources/sddp_inputs results/sddp_cvar_policy cvar 0.5 0.1 > {log} 2>&1"
+        "resources/sddp_inputs results/sddp_cvar_policy cvar 0.5 0.1 0 > {log} 2>&1"
