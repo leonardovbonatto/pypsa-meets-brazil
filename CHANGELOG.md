@@ -373,6 +373,28 @@ code without touching this file, unless it carries the `no-changelog` label.
   has that structure - a concrete symptom of persistence's absence, not
   just an abstract caveat (PR-33).
 - `docs/handoffs/PR-33-sddp-convergence-and-seeding.md`.
+- `docs/decisions/ADR-0008-ree-level-individualization.md`: the SDDP
+  epic's next individualization stage - REE (Reservatório Equivalente de
+  Energia, CEPEL/ONS's own real intermediate aggregation), not straight
+  to full per-plant (150-170 reservoirs). A framing correction caught
+  before it became a silent scope-skip: PRIMER Sec 4.6 says "REE first,
+  individualized second" - ADR-0005 actually built at subsystem level
+  (coarser than REE), so this project had not yet taken PRIMER's own
+  named first individualization step. Checked, not assumed: ONS publishes
+  real REE-level ENA/EAR data (12 REEs, 2016-2026, same S3-prefix-listing
+  method as PR-27/30, no CKAN) - confirmed available before deciding to
+  build on it, the same discipline ADR-0005 applied to Julia/ENA. Two
+  real findings from that check, named for the connector PR rather than
+  smoothed over: neither dataset carries a REE-to-subsystem mapping
+  column (the 12 names are inferable but unconfirmed), and one REE
+  (MADEIRA) showed a negative `ear_verif_ree_mwmes` in the first sample
+  row - a different, unexplained failure mode from PR-30's
+  storage-exceeds-capacity quirk. Full per-plant individualization
+  (`hidr.dat`/`VAZOES.DAT` via `inewave`, NEWAVE decks) remains the named
+  further destination, explicitly gated on verifying deck access first -
+  unlike every other epic dependency so far, it has never been checked.
+  `.codespellignore` gained `parana` (a real REE/river name, not a typo
+  for "piranha") (PR-34).
 - `.gitignore` stopped excluding `julia/Manifest.toml`, found while
   staging this PR: it's Julia's exact equivalent of `pixi.lock` (resolved
   package versions), which this project commits for reproducibility - the

@@ -5,12 +5,16 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # ADR-0005 — Inflow model formulation (SDDP epic, stage 1)
 
-- **Status:** Accepted
+- **Status:** Accepted (individualization stage superseded - see below;
+  inflow data source and coupling-mechanism decisions below remain the
+  active decision)
 - **Date:** 2026-08-16
 - **Supersedes:** —
-- **Superseded by:** — (expected: a future ADR individualizing reservoirs,
-  per PRIMER §4.6 - this ADR is explicitly the REE/subsystem-aggregated
-  stage, not the destination)
+- **Superseded by:** [ADR-0008](ADR-0008-ree-level-individualization.md),
+  individualization stage only - this ADR's subsystem-level granularity
+  is superseded by ADR-0008's REE-level stage 2. This ADR's choice of ENA
+  (over VAZOES.DAT) as the inflow data source, and PR-26's Julia/SDDP.jl
+  coupling mechanism, are unaffected and remain in force.
 
 ## Context
 

@@ -29,9 +29,10 @@ Do **not** write one for routine implementation choices with an obvious default.
 | 0002 | OpenStreetMap / ODbL boundary | Planned |
 | 0003 | Transmission impedance source (T3, nodal) | Planned |
 | 0004 | Bus-level load allocation method | Planned |
-| [0005](ADR-0005-inflow-model-formulation.md) | Inflow model formulation (SDDP epic, stage 1) | Accepted |
+| [0005](ADR-0005-inflow-model-formulation.md) | Inflow model formulation (SDDP epic, stage 1) | Accepted (individualization stage superseded by 0008) |
 | [0006](ADR-0006-t0-transfer-representation.md) | T0 inter-subsystem transfer representation | Accepted |
 | [0007](ADR-0007-hydro-backcast-interim.md) | Hydro constrained by observed generation (interim backcast) | Accepted |
+| [0008](ADR-0008-ree-level-individualization.md) | REE-level individualization (SDDP epic, stage 2) | Accepted |
 
 ## Template
 
