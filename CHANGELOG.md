@@ -414,6 +414,28 @@ code without touching this file, unless it carries the `no-changelog` label.
   all), flagged for real investigation in that future ADR, not assumed
   to fully replace `hidr.dat` (PR-35).
 - `docs/handoffs/PR-35-reservoir-registry.md`.
+- Tenth and eleventh ONS connectors: `ena_ree` and `ear_ree` (ADR-0008
+  stage 2) - REE-level counterparts of `ena_subsistema`/`ear_subsistema`
+  (PR-27/30), 12 real REEs, 2016-2025, using PR-35's real
+  REE-to-subsystem mapping instead of domain-name inference. Real
+  findings from the full-volume check, each investigated rather than
+  assumed: 3 REEs (IGUACU, MANAUS-AMAPA, PARANAPANEMA) only exist as
+  separately-tracked units from 2017-12-30 onward (a genuine REE-structure
+  revision, not a data gap - `build_inflow_ree.py`/`build_reservoir_ree.py`
+  deliberately don't require uniform date counts across REEs, unlike
+  their subsystem-level equivalents); ITAIPU's EAR reporting stops
+  entirely on 2019-10-13 (a run-of-river plant with `ear_max_ree = 0.0`);
+  TELES PIRES has a real 13-day EAR gap starting the SAME date ITAIPU's
+  reporting stops - not a coincidence, strongly suggesting a real ONS
+  system/methodology event around then (recorded as a known,
+  non-fatal-warning gap, `REPORTING_GAPS`). Storable-exceeds-gross ENA
+  triggers for the first time in this project (346/41,649 rows) - mostly
+  floating-point noise (~1e-14) but a real, unexplained, substantial
+  pattern (mean +7%, max +40%) specific to PARANA, documented distinctly
+  rather than lumped in with the noise. Verified storage clipped in both
+  directions (below 0 and above capacity), both concentrated in the
+  smallest-capacity REEs (PR-36).
+- `docs/handoffs/PR-36-ena-ear-ree-connectors.md`.
 - `.gitignore` stopped excluding `julia/Manifest.toml`, found while
   staging this PR: it's Julia's exact equivalent of `pixi.lock` (resolved
   package versions), which this project commits for reproducibility - the

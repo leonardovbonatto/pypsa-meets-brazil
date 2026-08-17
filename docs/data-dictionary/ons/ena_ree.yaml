@@ -1,0 +1,130 @@
+dataset: ena_ree
+source: ons
+source_url: https://ons-aws-prod-opendata.s3.amazonaws.com/dataset/ena_ree_di/ENA_DIARIO_REE_{year}.csv
+retrieved: '2026-08-17T23:40:57+00:00'
+format: csv
+encoding: utf-8
+delimiter: ;
+decimal: .
+row_count: 41649
+schema_hash: sha256:461e5743a2082f0ae9337f6c24ffddbe8f1fff3a812b07ba485acfb9eefe414b
+columns:
+- name: nom_reservatorioee
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: 'REE (Reservatorio Equivalente de Energia) name - 12 real
+    REEs, matches reservatorio.yaml''s nom_ree exactly (ADR-0008,
+    PR-35). ONS''s own published dictionary calls this field "nom_ree",
+    not "nom_reservatorioee" - a real mismatch between their JSON
+    dictionary and the actual CSV header, same class of "phantom field"
+    issue already documented for other ONS datasets (fator_capacidade,
+    PR-14 handoff), just the opposite direction (dictionary names a
+    field that does not match the real column, rather than a field the
+    dictionary omits).'
+  sample:
+  - BELO MONTE
+  - ITAIPU
+  - MADEIRA
+- name: ena_data
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: Calendar date of the measurement, YYYY-MM-DD - daily, same
+    convention as ena_subsistema (PR-27).
+  sample:
+  - '2016-01-01'
+  - '2016-01-01'
+  - '2016-01-01'
+- name: ena_bruta_ree_mwmed
+  dtype: float64
+  unit: MWmed (see note on the ONS dictionary discrepancy)
+  nullable: false
+  null_rate: 0.0
+  description: Gross ENA per REE - same definition as ena_subsistema's
+    ena_bruta_regiao_mwmed (PR-27), at REE rather than subsystem granularity.
+  sample:
+  - 13.0
+  - 13062.0
+  - 4790.0
+- name: ena_bruta_ree_percentualmlt
+  dtype: float64
+  unit: '% (dimensionless)'
+  nullable: false
+  null_rate: 0.0
+  description: Gross ENA as a percentage of MLT (long-term average) for
+    this REE. Values well above 100% are real (e.g. ITAIPU 395.73% in the
+    sample here), not a data error - same convention as ena_subsistema.
+  sample:
+  - 55.52
+  - 395.73
+  - 61.81
+- name: ena_armazenavel_ree_mwmed
+  dtype: float64
+  unit: MWmed (see note on the ONS dictionary discrepancy)
+  nullable: false
+  null_rate: 0.0
+  description: Storable ENA per REE - gross minus spilled inflow, same
+    definition as ena_subsistema's storable column.
+  sample:
+  - 13.0
+  - 3311.0
+  - 2456.0
+- name: ena_armazenavel_ree_percentualmlt
+  dtype: float64
+  unit: '% (dimensionless)'
+  nullable: false
+  null_rate: 0.0
+  description: Storable ENA as a percentage of MLT, same convention as
+    ena_bruta_ree_percentualmlt.
+  sample:
+  - 55.52
+  - 100.31
+  - 31.69
+notes:
+- 'ADR-0008 (SDDP epic, stage 2): REE-level counterpart to ena_subsistema
+  (PR-27). 12 real REEs, 2016-2025 (2026 excluded - partial year, same
+  reasoning as ena_subsistema). Shorter record than subsystem-level''s
+  2000-2025, a real tradeoff ADR-0008 already named.'
+- 'Same MWmed/MWmes discrepancy as ena_subsistema (PR-27), checked
+  directly here too rather than assumed to carry over: ONS''s own
+  DicionarioDados_EnaPorResEquivalente.json states the unit as "MWmes"
+  for both _mwmed columns, but the column name says "mwmed". Finding the
+  SAME discrepancy at REE level, independently, reinforces PR-27''s
+  conclusion this is a genuine recurring ONS documentation error across
+  their ENA-family datasets, not a one-off. Treated as MWmed here for the
+  same reasons as PR-27 (PRIMER Sec 2.4''s definition, value magnitudes).'
+- No nulls anywhere across the full 2016-2025, 41,649-row volume.
+- 'Row count differs from ear_ree''s 39,366 (PR-36 finding, not a bug in
+  either connector): ITAIPU''s EAR reporting stops after 2019-10-13
+  (checked directly - its ENA series is complete through 2025), and
+  TELES PIRES is missing 12 EAR rows. ENA and EAR are fetched and
+  validated independently in this project; nothing here assumes their
+  row counts match.'
+- 'A real, checked storable-exceeds-gross pattern (ADR-0007/PR-27''s
+  storable-nets-out-spill invariant, which never triggered at subsystem
+  level), with TWO DISTINCT causes, not one - investigated with the full
+  volume, not left as an assumption: 346 of 41,649 rows have
+  ena_armazenavel_ree_mwmed > ena_bruta_ree_mwmed. For 6 of the 7 REEs
+  involved (BELO MONTE, IGUACU, MANAUS-AMAPA, NORDESTE, PARANAPANEMA,
+  TELES PIRES), the excess is ~1e-14 - pure floating-point noise around
+  spill=0 (storable equals gross exactly, but rounds fractionally higher
+  in float64), not a real data issue. **PARANA is different and real**:
+  164 rows, mean +7.0%, max +40.5% - a substantial, unexplained pattern
+  specific to this one REE, not investigated further here but recorded
+  precisely rather than lumped in with the floating-point cases.
+  build_inflow_ree.py clips both the same way (storable cannot physically
+  exceed gross by definition, whichever the cause), but this note keeps
+  the two causes distinguishable for whoever investigates PARANA next.'
+- 'A real, checked structural finding, not a data gap: 3 of the 12 REEs -
+  IGUACU, MANAUS-AMAPA, PARANAPANEMA - have only 2,924 rows each (all
+  others have 3,653), and their coverage starts 2017-12-30, not
+  2016-01-01. This is a genuine REE-structure revision (these 3 REEs did
+  not exist as separately-tracked units before that date), not a missing
+  history problem to fix - build_inflow_ree.py deliberately does NOT
+  require every REE to share the same date count, unlike
+  build_inflow.py''s subsystem-level equivalent, which validly can (all 4
+  subsystems have always existed as such). Each REE''s own series is
+  still validated gap-free within its own actual coverage window.'

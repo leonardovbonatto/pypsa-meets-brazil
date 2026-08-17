@@ -178,6 +178,44 @@ rule fetch_ons_ear_subsistema:
         "../scripts/fetch_dataset.py"
 
 
+rule fetch_ons_ena_ree:
+    """
+    ONS daily natural inflow energy (ENA) per REE (Reservatorio Equivalente
+    de Energia), one file per calendar year, published from 2016 onward -
+    shorter than ena_subsistema's 2000-2025 (ADR-0008 stage 2). Same
+    inflow_history_years() pattern, its own dataset key.
+    """
+    output:
+        raw="resources/ons/ENA_DIARIO_REE_{year}.csv",
+        provenance="resources/_provenance/ons/ena_ree_{year}.json",
+    params:
+        url=lambda wc: config["sources"]["ons"]["ena_ree"]["url"].format(year=wc.year),
+        source="ons",
+        dataset=lambda wc: f"ena_ree_{wc.year}",
+    log:
+        "logs/fetch_ons_ena_ree/{year}.log",
+    script:
+        "../scripts/fetch_dataset.py"
+
+
+rule fetch_ons_ear_ree:
+    """
+    ONS daily reservoir storage (EAR) per REE, one file per calendar year,
+    same 2016-2025 range as ena_ree (ADR-0008 stage 2).
+    """
+    output:
+        raw="resources/ons/EAR_DIARIO_REE_{year}.csv",
+        provenance="resources/_provenance/ons/ear_ree_{year}.json",
+    params:
+        url=lambda wc: config["sources"]["ons"]["ear_ree"]["url"].format(year=wc.year),
+        source="ons",
+        dataset=lambda wc: f"ear_ree_{wc.year}",
+    log:
+        "logs/fetch_ons_ear_ree/{year}.log",
+    script:
+        "../scripts/fetch_dataset.py"
+
+
 rule fetch_ons_reservatorio:
     """
     ONS per-reservoir physical registry, current snapshot - 162 real

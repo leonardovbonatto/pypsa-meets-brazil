@@ -1,0 +1,117 @@
+dataset: ear_ree
+source: ons
+source_url: https://ons-aws-prod-opendata.s3.amazonaws.com/dataset/ear_ree_di/EAR_DIARIO_REE_{year}.csv
+retrieved: '2026-08-17T23:40:57+00:00'
+format: csv
+encoding: utf-8
+delimiter: ;
+decimal: .
+row_count: 39366
+schema_hash: sha256:0af7725aab8dd8307c6889227fd718cce74674d77b029ae772ba995fb112a277
+columns:
+- name: nom_ree
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: REE name - matches ena_ree's nom_reservatorioee and
+    reservatorio.yaml's nom_ree exactly (unlike ena_ree, ONS's own
+    dictionary field name agrees with the real column here).
+  sample:
+  - BELO MONTE
+  - ITAIPU
+  - MADEIRA
+- name: ear_data
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: Calendar date of the measurement, YYYY-MM-DD.
+  sample:
+  - '2016-01-01'
+  - '2016-01-01'
+  - '2016-01-01'
+- name: ear_max_ree
+  dtype: float64
+  unit: MWmes (MW-month)
+  nullable: false
+  null_rate: 0.0
+  description: Maximum storable energy per REE - same definition as
+    ear_subsistema's ear_max_subsistema (PR-30), at REE granularity.
+    ITAIPU's is 0.0 (see notes) - a run-of-river plant with essentially
+    no reservoir.
+  sample:
+  - 22.0
+  - 0.0
+  - 290.0
+- name: ear_verif_ree_mwmes
+  dtype: float64
+  unit: MWmes (MW-month)
+  nullable: false
+  null_rate: 0.0
+  description: Verified (actual) stored energy per REE on this date. A
+    real, small fraction of rows are NEGATIVE (see notes) - genuine near-empty
+    operating conditions for low-storage REEs, not treated as an error to
+    silently accept without investigation.
+  sample:
+  - 1.0
+  - 0.0
+  - -31.0
+- name: ear_verif_ree_percentual
+  dtype: float64
+  unit: '% (dimensionless)'
+  nullable: false
+  null_rate: 0.0
+  description: ear_verif_ree_mwmes as a percentage of ear_max_ree on the
+    same row.
+  sample:
+  - 4.55
+  - 0.0
+  - -10.69
+notes:
+- 'ADR-0008 (SDDP epic, stage 2): REE-level counterpart to ear_subsistema
+  (PR-30). 12 real REEs, 2016-2025.'
+- 'Unlike ena_ree, ONS''s own DicionarioDados_EarPorResEquivalente.json
+  field name (nom_ree) matches the real CSV column exactly - no phantom
+  field mismatch here, checked independently rather than assumed to
+  match ena_ree''s pattern.'
+- 'A real, systematic BOTH-DIRECTIONS boundary pattern, investigated with
+  the full volume rather than left as the single sample row that first
+  surfaced it (ADR-0008''s other named open question): 73 of 39,366 rows
+  (0.185%) have ear_verif_ree_mwmes < 0 (MADEIRA, 54 rows, -0.11% to
+  -10.69% of its own max; MANAUS-AMAPA, 19 rows, -0.05% to -0.93%), and a
+  separate 547 rows (1.39%) have verified EXCEEDING max - BELO MONTE (522
+  rows, mean +2.05%, max +5.64%), MANAUS-AMAPA (24 rows), MADEIRA (1 row).
+  Both directions span many years (2016 through 2025), not one-time
+  blips. **The pattern that explains both**: every REE involved has a
+  small absolute ear_max_ree (BELO MONTE 22-28, MADEIRA 290-317,
+  MANAUS-AMAPA 773-786 MWmes - the three smallest of all 12 REEs),
+  consistent with being predominantly run-of-river-dominated systems with
+  minimal useful storage. The same absolute measurement/rounding noise
+  that would be negligible for a huge reservoir (e.g. SUDESTE, in the
+  hundreds of thousands of MWmes) becomes a much larger RELATIVE swing -
+  in either direction - for a REE whose capacity is measured in the tens
+  or low hundreds. `scripts/build_reservoir_ree.py` clips both directions
+  to `[0, ear_max_ree]`, matching `ear_subsistema`''s over-capacity clip
+  precedent (PR-30) extended to the negative case, with this reasoning
+  recorded rather than silently rejecting or ignoring either.'
+- 'ITAIPU''s ear_max_ree is 0.0 - a real, run-of-river plant with
+  essentially no reservoir capacity to report, consistent with why its
+  EAR reporting STOPS entirely after 2019-10-13 (checked directly): 1,382
+  rows out of an expected ~3,653 (2016-01-01 through 2025-12-31 daily),
+  all falling in 2016-2019. ITAIPU''s ENA series (ena_ree.yaml) has no
+  such gap - the two datasets must be treated independently, not assumed
+  to share row counts or date coverage.'
+- 'A second, connected finding, not a coincidence: TELES PIRES has a real
+  13-day internal EAR reporting gap, 2019-10-13 to 2019-10-26 - starting
+  on the EXACT SAME DATE ITAIPU''s reporting stops entirely. Two REEs''
+  data both changing on the same day strongly suggests a real ONS
+  system/methodology event around mid-October 2019, not two unrelated
+  quirks. Not investigated further (what the event was), but the
+  connection is real and worth recording. build_reservoir_ree.py treats
+  this specific, already-investigated gap as a warning, not a build
+  failure (REPORTING_GAPS) - a genuinely new, different gap in a future
+  re-fetch still raises.'
+- No nulls anywhere across the full 2016-2025 volume, aside from the
+  structural ITAIPU coverage gap noted above (which is a real absence of
+  rows, not a null within existing rows).

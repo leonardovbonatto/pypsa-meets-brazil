@@ -254,6 +254,55 @@ rule build_reservoir_registry:
         "../scripts/build_reservoir_registry.py"
 
 
+rule build_inflow_ree:
+    """
+    REE-level counterpart of build_inflow (ADR-0008 stage 2) - see
+    scripts/build_inflow_ree.py and docs/handoffs/PR-36-*.md.
+
+    Deliberately does NOT require every REE to share the same date count,
+    unlike build_inflow: 3 REEs only exist as separately-tracked units
+    from 2017-12-30 onward, a real REE-structure revision, not a gap.
+    """
+    input:
+        raw=expand(
+            "resources/ons/ENA_DIARIO_REE_{year}.csv",
+            year=inflow_history_years(config, dataset="ena_ree"),
+        ),
+        dictionary="docs/data-dictionary/ons/ena_ree.yaml",
+        ree_map="resources/ree_subsystem_map.csv",
+    output:
+        "resources/inflow_ena_ree.csv",
+    log:
+        "logs/build_inflow_ree/run.log",
+    script:
+        "../scripts/build_inflow_ree.py"
+
+
+rule build_reservoir_ree:
+    """
+    REE-level counterpart of build_reservoir (ADR-0008 stage 2) - see
+    scripts/build_reservoir_ree.py and docs/handoffs/PR-36-*.md.
+
+    Clips both a below-zero and an over-capacity boundary quirk, real and
+    checked, concentrated in the smallest-capacity REEs - see the
+    ear_ree.yaml data dictionary's notes.
+    """
+    input:
+        raw=expand(
+            "resources/ons/EAR_DIARIO_REE_{year}.csv",
+            year=inflow_history_years(config, dataset="ear_ree"),
+        ),
+        dictionary="docs/data-dictionary/ons/ear_ree.yaml",
+        ree_map="resources/ree_subsystem_map.csv",
+    output:
+        history="resources/reservoir_ear_history_ree.csv",
+        capacity="resources/reservoir_ear_capacity_ree.csv",
+    log:
+        "logs/build_reservoir_ree/run.log",
+    script:
+        "../scripts/build_reservoir_ree.py"
+
+
 rule build_network_t0:
     """
     T0 network: one bus per subsystem, snapshots from config, the tidy demand
@@ -302,3 +351,6 @@ rule build_all:
         "resources/reservoir_ear_capacity.csv",
         "resources/reservoir_registry.csv",
         "resources/ree_subsystem_map.csv",
+        "resources/inflow_ena_ree.csv",
+        "resources/reservoir_ear_history_ree.csv",
+        "resources/reservoir_ear_capacity_ree.csv",

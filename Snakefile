@@ -80,6 +80,14 @@ rule fetch_all:
             "resources/ons/EAR_DIARIO_SUBSISTEMA_{year}.csv",
             year=inflow_history_years(config, dataset="ear_subsistema"),
         ),
+        expand(
+            "resources/ons/ENA_DIARIO_REE_{year}.csv",
+            year=inflow_history_years(config, dataset="ena_ree"),
+        ),
+        expand(
+            "resources/ons/EAR_DIARIO_REE_{year}.csv",
+            year=inflow_history_years(config, dataset="ear_ree"),
+        ),
         "resources/ons/RESERVATORIOS.csv",
 
 

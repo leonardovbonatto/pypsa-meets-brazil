@@ -1,0 +1,10 @@
+{
+  "byte_size": 253000,
+  "dataset": "ena_ree_2025",
+  "format": "csv",
+  "retrieved": "2026-08-17T21:40:51+00:00",
+  "row_count": 4380,
+  "sha256": "ff27a7bbf41cd736cf9510fab9a474e48f0c5258cd813fdce2f69127f4b43228",
+  "source": "ons",
+  "source_url": "https://ons-aws-prod-opendata.s3.amazonaws.com/dataset/ena_ree_di/ENA_DIARIO_REE_2025.csv"
+}

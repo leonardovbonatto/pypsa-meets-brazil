@@ -1,0 +1,10 @@
+{
+  "byte_size": 189077,
+  "dataset": "ear_ree_2018",
+  "format": "csv",
+  "retrieved": "2026-08-17T21:40:55+00:00",
+  "row_count": 4380,
+  "sha256": "57f5cb3297e8f61d3114e29510f39ff3ca5fc69fd85ea639c6f2ec6a8b16a046",
+  "source": "ons",
+  "source_url": "https://ons-aws-prod-opendata.s3.amazonaws.com/dataset/ear_ree_di/EAR_DIARIO_REE_2018.csv"
+}

@@ -95,6 +95,23 @@ sources:
       years:
         start: 2000
         end: 2025
+    ena_ree:
+      # Daily natural inflow energy (ENA) per REE (Reservatorio Equivalente
+      # de Energia), one file per year, published from 2016 onward -
+      # shorter than ena_subsistema's 2000-2025 (ADR-0008 stage 2). See
+      # docs/data-dictionary/ons/ena_ree.yaml.
+      url: https://ons-aws-prod-opendata.s3.amazonaws.com/dataset/ena_ree_di/ENA_DIARIO_REE_{year}.csv
+      years:
+        start: 2016
+        end: 2025
+    ear_ree:
+      # Daily reservoir storage (EAR) per REE, one file per year, same
+      # range as ena_ree (ADR-0008 stage 2). See
+      # docs/data-dictionary/ons/ear_ree.yaml.
+      url: https://ons-aws-prod-opendata.s3.amazonaws.com/dataset/ear_ree_di/EAR_DIARIO_REE_{year}.csv
+      years:
+        start: 2016
+        end: 2025
     reservatorio:
       # Per-reservoir physical registry, current snapshot (not year-split,
       # like capacidade_geracao): 162 real reservoirs with subsystem, REE,
