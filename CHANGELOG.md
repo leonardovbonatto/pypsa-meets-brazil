@@ -311,6 +311,26 @@ code without touching this file, unless it carries the `no-changelog` label.
   `dataset` parameter, shared by `ena_subsistema` and `ear_subsistema`
   rather than duplicated (PR-30).
 - `docs/handoffs/PR-30-ear-connector.md`.
+- `scripts/prepare_sddp_inputs.py` + `julia/sddp_first_policy.jl` +
+  `rules/sddp.smk::prepare_sddp_inputs/sddp_first_policy` (ADR-0005 stage
+  1f): the first expectation-only SDDP policy on real Brazilian data.
+  4 subsystems, 12 monthly stages, real demand/hydro/thermal
+  capacity/cost (T0), real reservoir capacity (PR-30), real fitted
+  seasonal inflow distributions correlated across subsystems (PR-28/29,
+  drawn i.i.d. per month - temporal persistence not yet wired into the
+  policy, a named limitation). Trains cleanly (0 numeric issues, 550
+  cuts, expected annual system cost R$240.9m). Real finding: S subsystem
+  accounts for ~95% of all simulated load shedding (17,178 of 18,074
+  MW-months/year) - the same structural gap PR-11/13 already found and
+  solved with inter-subsystem transmission Links in the T0 network itself;
+  this reduced SDDP subproblem deliberately excludes transmission
+  (KNOWN_LIMITATIONS), so it rediscovers the identical bottleneck from a
+  different model. Two independently-built models finding the same real
+  physical constraint is treated as cross-validation, not a bug to chase.
+  Reused `LOAD_SHED_COST = 10,000` from `build_network.py` for consistency
+  rather than inventing a new slack cost. No new dependencies - `pyarrow`
+  and `Parquet2.jl` already landed in PR-26 (PR-31).
+- `docs/handoffs/PR-31-sddp-first-policy.md`.
 - `.gitignore` stopped excluding `julia/Manifest.toml`, found while
   staging this PR: it's Julia's exact equivalent of `pixi.lock` (resolved
   package versions), which this project commits for reproducibility - the

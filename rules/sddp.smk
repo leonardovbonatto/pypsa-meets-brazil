@@ -54,3 +54,63 @@ rule fit_inflow_par1:
         "logs/fit_inflow_par1/run.log",
     script:
         "../scripts/fit_inflow_par1.py"
+
+
+rule prepare_sddp_inputs:
+    """
+    Assemble every real input the first SDDP policy needs (ADR-0005 stage
+    1f) into Parquet files julia/sddp_first_policy.jl reads: monthly
+    demand, hydro/thermal capacity, thermal cost, initial reservoir
+    storage, and correlated monthly inflow scenarios.
+
+    Python, not Julia. Joins T0 data (already real) with the PAR(1) fit
+    (PR-28/29) and reservoir capacity (PR-30) - see the module docstring
+    in scripts/prepare_sddp_inputs.py for the full reasoning, including
+    why monthly MWmed/MWmes/MW units are directly commensurable here.
+    """
+    input:
+        demand="resources/demand_t0.csv",
+        generators="resources/generators_t0.csv",
+        costs="resources/costs_t0.csv",
+        reservoir_capacity="resources/reservoir_ear_capacity.csv",
+        reservoir_history="resources/reservoir_ear_history.csv",
+        par1_params="resources/inflow_par1_params.csv",
+        par1_correlation="resources/inflow_par1_correlation.csv",
+    output:
+        demand="resources/sddp_inputs/demand.parquet",
+        capacity="resources/sddp_inputs/capacity.parquet",
+        cost="resources/sddp_inputs/cost.parquet",
+        reservoir_capacity="resources/sddp_inputs/reservoir_capacity.parquet",
+        initial_storage="resources/sddp_inputs/initial_storage.parquet",
+        scenarios="resources/sddp_inputs/scenarios.parquet",
+    params:
+        n_scenarios=10,
+        seed=0,
+    log:
+        "logs/prepare_sddp_inputs/run.log",
+    script:
+        "../scripts/prepare_sddp_inputs.py"
+
+
+rule sddp_first_policy:
+    """
+    ADR-0005 stage 1f: train the first expectation-only SDDP policy on
+    real Brazilian data - see julia/sddp_first_policy.jl's module
+    docstring and docs/handoffs/PR-31-*.md for scope and named
+    simplifications (KNOWN_LIMITATIONS in both files).
+    """
+    input:
+        "resources/sddp_inputs/demand.parquet",
+        "resources/sddp_inputs/capacity.parquet",
+        "resources/sddp_inputs/cost.parquet",
+        "resources/sddp_inputs/reservoir_capacity.parquet",
+        "resources/sddp_inputs/initial_storage.parquet",
+        "resources/sddp_inputs/scenarios.parquet",
+    output:
+        cuts="results/sddp_first_policy/cuts.parquet",
+        summary="results/sddp_first_policy/summary.json",
+    log:
+        "logs/sddp_first_policy/run.log",
+    shell:
+        "pixi run -e sddp julia --project=julia julia/sddp_first_policy.jl "
+        "resources/sddp_inputs results/sddp_first_policy > {log} 2>&1"
