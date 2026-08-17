@@ -1,16 +1,22 @@
 # SPDX-FileCopyrightText: 2026 pypsa-meets-brazil contributors
 # SPDX-License-Identifier: MIT
 #
-# ADR-0005 stage 1f: the first expectation-only SDDP policy on real
-# Brazilian data. A 12-stage (one annual cycle), 4-subsystem hydro-thermal
-# model - reservoir storage bounded by real capacity (PR-30), demand and
-# hydro/thermal capacity/cost from T0 (already real), inflow uncertainty
-# from the real fitted PAR(1) model (PR-28/29), correlated across
-# subsystems within each month. See scripts/prepare_sddp_inputs.py's
-# module docstring and docs/handoffs/PR-31-*.md for what is and is not
-# yet real here (KNOWN_LIMITATIONS at the bottom of this file).
+# ADR-0005 stage 1f/1g: the first SDDP policy on real Brazilian data, with
+# a choice of risk measure. A 12-stage (one annual cycle), 4-subsystem
+# hydro-thermal model - reservoir storage bounded by real capacity
+# (PR-30), demand and hydro/thermal capacity/cost from T0 (already real),
+# inflow uncertainty from the real fitted PAR(1) model (PR-28/29),
+# correlated across subsystems within each month. See
+# scripts/prepare_sddp_inputs.py's module docstring and
+# docs/handoffs/PR-31-*.md / PR-32-*.md for what is and is not yet real
+# here (known_limitations() at the bottom of this file).
 #
-# Run: julia --project=julia julia/sddp_first_policy.jl <inputs_dir> <output_dir>
+# Run: julia --project=julia julia/sddp_first_policy.jl <inputs_dir> <output_dir> [risk_kind] [lambda] [alpha]
+#   risk_kind: "expectation" (default) or "cvar"
+#   lambda:    PRIMER Sec 4.4's weight on the CVaR term, (1-lambda)*E + lambda*CVaR_alpha
+#              (only used when risk_kind="cvar"; default 0.5)
+#   alpha:     the CVaR tail fraction, e.g. 0.1 = worst 10% of outcomes
+#              (only used when risk_kind="cvar"; default 0.1)
 
 using SDDP
 using HiGHS
@@ -20,15 +26,54 @@ using Parquet2
 const SUBSYSTEMS = ["N", "NE", "S", "SE_CO"]
 const LOAD_SHED_COST = 10_000.0  # matches scripts/build_network.py::LOAD_SHED_COST (T0)
 
-const KNOWN_LIMITATIONS = [
-    "Inflow scenarios are i.i.d. per month, not autocorrelated month-to-month " *
-    "within the policy - PAR(1)'s fitted phi (PR-28) is not yet wired into SDDP's state.",
-    "12 monthly stages, one annual cycle - not an infinite-horizon cyclic policy graph.",
-    "No CVaR - expectation-only, per ADR-0005's explicit scope for this stage.",
-    "No inter-subsystem transmission in this reduced hydro-thermal subproblem - " *
-    "real network coupling belongs in PyPSA/linopy once cuts are consumed there.",
-    "Wind, solar and nuclear excluded from this reduced model.",
-]
+function known_limitations(risk_kind::String)
+    limitations = [
+        "Inflow scenarios are i.i.d. per month, not autocorrelated month-to-month " *
+        "within the policy - PAR(1)'s fitted phi (PR-28) is not yet wired into SDDP's state.",
+        "12 monthly stages, one annual cycle - not an infinite-horizon cyclic policy graph.",
+        "No inter-subsystem transmission in this reduced hydro-thermal subproblem - " *
+        "real network coupling belongs in PyPSA/linopy once cuts are consumed there.",
+        "Wind, solar and nuclear excluded from this reduced model.",
+        "Fixed iteration_limit=300, not a convergence-gap stopping rule (PRIMER Sec " *
+        "4.3's 'stop when the gap is acceptably small') - checked directly (PR-32) that " *
+        "50 iterations materially understated load shedding for BOTH risk measures " *
+        "relative to 300; 300 is not proven fully converged either, only better.",
+    ]
+    if risk_kind == "expectation"
+        push!(
+            limitations,
+            "Expectation-only - no risk aversion. See the \"cvar\" risk_kind for " *
+            "PRIMER Sec 4.4's (1-lambda)*E + lambda*CVaR_alpha blend.",
+        )
+    end
+    return limitations
+end
+
+"""
+Translate PRIMER Sec 4.4's `(1 - lambda) * E[cost] + lambda * CVaR_alpha[cost]`
+into SDDP.jl's risk measure types.
+
+**A real convention mismatch, checked via `@doc SDDP.EAVaR` rather than
+assumed**: SDDP.jl's `EAVaR(lambda, beta)` puts `lambda` on the
+EXPECTATION term (`lambda * E + (1-lambda) * AVaR(beta)`) - the OPPOSITE
+of PRIMER's `lambda`, which weights the CVaR term. `beta` is the tail
+fraction and matches PRIMER's `alpha` directly (`beta=1` is plain
+expectation, `beta=0` is worst-case - the same convention as
+`SDDP.CVaR`'s own `gamma` in its docstring). Getting the `lambda` swap
+wrong would silently train a policy with the opposite risk appetite from
+the one requested - the same class of unit-convention trap this project
+keeps finding in ONS data (MWmed/MWmes, PR-27/30), just self-inflicted
+this time instead of upstream.
+"""
+function parse_risk_measure(risk_kind::String, lambda::Float64, alpha::Float64)
+    if risk_kind == "expectation"
+        return SDDP.Expectation()
+    elseif risk_kind == "cvar"
+        return SDDP.EAVaR(; lambda = 1.0 - lambda, beta = alpha)
+    else
+        error("unknown risk_kind: $risk_kind (expected \"expectation\" or \"cvar\")")
+    end
+end
 
 function read_parquet_df(path::String)
     return DataFrame(Parquet2.readfile(path); copycols = true)
@@ -131,23 +176,58 @@ end
 function main()
     inputs_dir = length(ARGS) >= 1 ? ARGS[1] : "resources"
     output_dir = length(ARGS) >= 2 ? ARGS[2] : "results/sddp_first_policy"
+    risk_kind = length(ARGS) >= 3 ? ARGS[3] : "expectation"
+    lambda = length(ARGS) >= 4 ? parse(Float64, ARGS[4]) : 0.5
+    alpha = length(ARGS) >= 5 ? parse(Float64, ARGS[5]) : 0.1
     mkpath(output_dir)
 
     inputs = load_inputs(inputs_dir)
     model = build_model(inputs)
+    risk_measure = parse_risk_measure(risk_kind, lambda, alpha)
+    println("Risk measure: ", risk_kind, " (lambda=", lambda, ", alpha=", alpha, ") -> ", risk_measure)
 
-    SDDP.train(model; iteration_limit = 50, print_level = 1, log_file = "/dev/null")
-
-    lower_bound = SDDP.calculate_bound(model)
-    println("Trained. Expected total system cost (R\$): ", lower_bound)
-
-    simulations = SDDP.simulate(model, 100, [:storage, :hydro_generation, :thermal_generation, :load_shed])
-    total_load_shed = sum(
-        sum(stage[:load_shed][s] for s in SUBSYSTEMS) for realization in simulations for
-        stage in realization
+    SDDP.train(
+        model;
+        iteration_limit = 300,
+        print_level = 1,
+        log_file = "/dev/null",
+        risk_measure = risk_measure,
     )
-    mean_load_shed = total_load_shed / length(simulations)
-    println("Mean total annual load shed across simulations (MW-months): ", mean_load_shed)
+
+    risk_adjusted_bound = SDDP.calculate_bound(model; risk_measure = risk_measure)
+    println("Trained. Risk-adjusted bound (R\$): ", risk_adjusted_bound)
+
+    # :stage_objective is not requested here - SDDP.simulate() always
+    # includes it automatically in every stage's result dict; it is not a
+    # JuMP decision variable that needs listing like the others.
+    simulations = SDDP.simulate(model, 100, [:storage, :hydro_generation, :thermal_generation, :load_shed])
+
+    # The PLAIN Monte Carlo expected cost - not calculate_bound(), which
+    # under a CVaR risk measure is a risk-ADJUSTED number, not comparable
+    # across risk_kind runs the way a plain expectation is. Computed the
+    # same way regardless of which risk measure trained the policy, so
+    # expectation-vs-cvar comparisons in the handoff are apples to apples.
+    expected_cost = sum(
+        sum(stage[:stage_objective] for stage in realization) for realization in simulations
+    ) / length(simulations)
+    println("Simulated mean total system cost (R\$): ", expected_cost)
+
+    per_realization_load_shed = [
+        sum(sum(stage[:load_shed][s] for s in SUBSYSTEMS) for stage in realization) for
+        realization in simulations
+    ]
+    mean_load_shed = sum(per_realization_load_shed) / length(simulations)
+    sorted_load_shed = sort(per_realization_load_shed)
+    p50_load_shed = sorted_load_shed[ceil(Int, 0.50 * length(sorted_load_shed))]
+    p90_load_shed = sorted_load_shed[ceil(Int, 0.90 * length(sorted_load_shed))]
+    println(
+        "Mean/P50/P90 annual load shed across simulations (MW-months): ",
+        mean_load_shed,
+        " / ",
+        p50_load_shed,
+        " / ",
+        p90_load_shed,
+    )
 
     load_shed_by_subsystem = Dict(
         s => sum(stage[:load_shed][s] for realization in simulations for stage in realization) /
@@ -179,11 +259,17 @@ function main()
     Parquet2.writefile(joinpath(output_dir, "cuts.parquet"), DataFrame(rows))
 
     summary = Dict(
-        "expected_total_cost_rs" => lower_bound,
+        "risk_kind" => risk_kind,
+        "risk_lambda" => risk_kind == "cvar" ? lambda : nothing,
+        "risk_alpha" => risk_kind == "cvar" ? alpha : nothing,
+        "risk_adjusted_bound_rs" => risk_adjusted_bound,
+        "expected_total_cost_rs" => expected_cost,
         "mean_annual_load_shed_mw_months" => mean_load_shed,
+        "p50_annual_load_shed_mw_months" => p50_load_shed,
+        "p90_annual_load_shed_mw_months" => p90_load_shed,
         "mean_annual_load_shed_by_subsystem" => load_shed_by_subsystem,
         "n_cuts" => length(rows),
-        "known_limitations" => KNOWN_LIMITATIONS,
+        "known_limitations" => known_limitations(risk_kind),
     )
     open(joinpath(output_dir, "summary.json"), "w") do io
         SDDP.JSON.print(io, summary, 2)

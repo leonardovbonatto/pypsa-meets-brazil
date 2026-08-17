@@ -331,6 +331,23 @@ code without touching this file, unless it carries the `no-changelog` label.
   rather than inventing a new slack cost. No new dependencies - `pyarrow`
   and `Parquet2.jl` already landed in PR-26 (PR-31).
 - `docs/handoffs/PR-31-sddp-first-policy.md`.
+- `julia/sddp_first_policy.jl` now takes a risk-measure argument
+  (ADR-0005 stage 1g: PRIMER Sec 4.4's CVaR); `rules/sddp.smk::sddp_cvar_policy`
+  trains it alongside the existing expectation-only policy for
+  comparison. Real convention mismatch found and translated explicitly,
+  not assumed: SDDP.jl's `EAVaR(lambda, beta)` weights `lambda` on
+  *expectation*, the opposite of PRIMER's `(1-lambda)*E + lambda*CVaR_alpha`,
+  where `lambda` weights CVaR. Real, honest finding from actually running
+  both: at the original `iteration_limit=50`, load shedding was
+  materially understated for BOTH policies - bumped to 300 (checked
+  directly, not guessed) after confirming numbers kept moving between the
+  two. Even at 300, the expectation-vs-CVaR comparison isn't fully clean
+  (CVaR's mean simulated cost was sometimes lower than expectation's own,
+  which shouldn't happen if both were perfectly converged) - reported
+  honestly as a real open question (fixed iteration count, not a
+  convergence-gap stopping rule; only 100 Monte Carlo simulation
+  realizations), not smoothed into a tidier story than the numbers
+  support (PR-32).
 - `.gitignore` stopped excluding `julia/Manifest.toml`, found while
   staging this PR: it's Julia's exact equivalent of `pixi.lock` (resolved
   package versions), which this project commits for reproducibility - the

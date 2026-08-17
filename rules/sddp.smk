@@ -113,4 +113,31 @@ rule sddp_first_policy:
         "logs/sddp_first_policy/run.log",
     shell:
         "pixi run -e sddp julia --project=julia julia/sddp_first_policy.jl "
-        "resources/sddp_inputs results/sddp_first_policy > {log} 2>&1"
+        "resources/sddp_inputs results/sddp_first_policy expectation > {log} 2>&1"
+
+
+rule sddp_cvar_policy:
+    """
+    ADR-0005 stage 1g: the same model as sddp_first_policy, trained with
+    PRIMER Sec 4.4's CVaR risk measure instead of plain expectation -
+    (1-lambda)*E + lambda*CVaR_alpha, lambda=0.5, alpha=0.1 (worst 10%).
+
+    Exists alongside sddp_first_policy, not instead of it, so the two can
+    be compared - see docs/handoffs/PR-32-*.md for what that comparison
+    actually showed (a real convergence sensitivity, not a clean result).
+    """
+    input:
+        "resources/sddp_inputs/demand.parquet",
+        "resources/sddp_inputs/capacity.parquet",
+        "resources/sddp_inputs/cost.parquet",
+        "resources/sddp_inputs/reservoir_capacity.parquet",
+        "resources/sddp_inputs/initial_storage.parquet",
+        "resources/sddp_inputs/scenarios.parquet",
+    output:
+        cuts="results/sddp_cvar_policy/cuts.parquet",
+        summary="results/sddp_cvar_policy/summary.json",
+    log:
+        "logs/sddp_cvar_policy/run.log",
+    shell:
+        "pixi run -e sddp julia --project=julia julia/sddp_first_policy.jl "
+        "resources/sddp_inputs results/sddp_cvar_policy cvar 0.5 0.1 > {log} 2>&1"
