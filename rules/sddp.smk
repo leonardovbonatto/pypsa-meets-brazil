@@ -1,10 +1,14 @@
 # SPDX-FileCopyrightText: 2026 pypsa-meets-brazil contributors
 # SPDX-License-Identifier: MIT
 """
-SDDP epic rules (ADR-0005). Deliberately not part of `all` or `solve_all`:
-they need the separate `sddp` pixi environment (Julia, ~170 MiB), which a
-plain `pixi install -e dev` - and CI - never installs. Requested explicitly,
-the same reason `fetch_all` stays out of `all`.
+SDDP epic rules (ADR-0005). Deliberately not part of `all` or `solve_all`.
+
+Julia rules (currently just `sddp_smoke_test`) need the separate `sddp`
+pixi environment (~170 MiB), which a plain `pixi install -e dev` - and CI -
+never installs. Python rules (`fit_inflow_par1`) don't need `sddp`, but
+still depend on `resources/inflow_ena.csv`, itself built from real fetched
+ONS data - the same reason `fetch_all`/`build_all` stay out of `all` too.
+Every rule here is requested explicitly.
 """
 
 
@@ -26,3 +30,25 @@ rule sddp_smoke_test:
         "logs/sddp_smoke_test/run.log",
     shell:
         "pixi run -e sddp julia --project=julia julia/smoke_test.jl {output} > {log} 2>&1"
+
+
+rule fit_inflow_par1:
+    """
+    Fit a PAR(1) inflow model per subsystem (ADR-0005 stage 1c: persistence)
+    and validate drought-run persistence against the real historical record.
+
+    Python, not Julia - unlike sddp_smoke_test, this rule needs only `dev`.
+    Deliberately does NOT preserve spatial correlation across subsystems
+    (PRIMER Sec 4.7's second required property) - see KNOWN_LIMITATIONS in
+    scripts/fit_inflow_par1.py and docs/handoffs/PR-28-*.md for why that's
+    a real, named gap rather than an oversight.
+    """
+    input:
+        "resources/inflow_ena.csv",
+    output:
+        params="resources/inflow_par1_params.csv",
+        validation="results/inflow_par1_validation.json",
+    log:
+        "logs/fit_inflow_par1/run.log",
+    script:
+        "../scripts/fit_inflow_par1.py"

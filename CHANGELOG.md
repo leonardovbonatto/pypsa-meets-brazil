@@ -260,6 +260,23 @@ code without touching this file, unless it carries the `no-changelog` label.
   dictionary states the unit as "MWmes" while the column name says
   "mwmed" - documented as an inference (MWmed), not silently picked (PR-27).
 - `docs/handoffs/PR-27-ena-connector.md`.
+- `rules/sddp.smk::fit_inflow_par1` + `scripts/fit_inflow_par1.py` (ADR-0005
+  stage 1c: persistence): fits a PAR(1) inflow model per subsystem from
+  `resources/inflow_ena.csv` - month-specific mu/sigma of log gross ENA
+  and a lag-1 autocorrelation phi, the Brazilian-standard periodic
+  autoregressive formulation (PRIMER Sec 4.7), on the simplest defensible
+  order (1, not AIC/PACF-selected). Validates persistence - the first of
+  PRIMER Sec 4.7's two required properties - by simulating 200 realizations
+  per subsystem and checking where the real historical drought-run length
+  falls within that distribution: N 0.16, NE 0.365, S 0.81, SE_CO 0.55, all
+  comfortably inside the model's own range rather than an outlier. Real
+  phi values found, not assumed: N 0.80-0.98 (strong, matching the
+  Amazon's predictable seasonality), S 0.34-0.81 (weaker, matching its
+  less ENSO-correlated rainfall). **Spatial correlation across subsystems
+  - PRIMER Sec 4.7's second required property - is deliberately NOT
+  preserved here**, named as a real gap in `KNOWN_LIMITATIONS`, not an
+  oversight: each subsystem is fit and simulated independently (PR-28).
+- `docs/handoffs/PR-28-sddp-par1-persistence.md`.
 - `.gitignore` stopped excluding `julia/Manifest.toml`, found while
   staging this PR: it's Julia's exact equivalent of `pixi.lock` (resolved
   package versions), which this project commits for reproducibility - the
