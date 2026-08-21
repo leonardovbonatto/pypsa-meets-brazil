@@ -11,6 +11,24 @@ ONS data - the same reason `fetch_all`/`build_all` stay out of `all` too.
 Every rule here is requested explicitly.
 """
 
+# Training/simulation effort for both policy rules, shared so the two stay
+# comparable (comparing an expectation policy trained one way against a
+# CVaR policy trained another would make the whole comparison meaningless).
+#
+# 1000 iterations is a CEILING IMPOSED BY THE MODEL, not a converged value:
+# PR-39 measured training crashing at iteration 2277 (expectation) and 1569
+# (CVaR) with HiGHS returning "OPTIMAL" alongside "INFEASIBLE_POINT" as the
+# LP degrades with accumulated cuts. The bound is still climbing when it
+# crashes, so this policy is knowingly under-converged - raising this number
+# without first fixing the conditioning just moves the crash earlier.
+#
+# 1000 simulations (up from 100) because PR-39 checked whether the tail
+# statistics were sampling noise - they were not, but the larger sample is
+# cheap and makes P90 figures meaningfully steadier.
+# See docs/handoffs/PR-39-*.md for the measurements behind both numbers.
+SDDP_ITERATION_LIMIT = 1000
+SDDP_N_SIMULATIONS = 1000
+
 
 rule sddp_smoke_test:
     """
@@ -141,11 +159,15 @@ rule sddp_first_policy:
     output:
         cuts="results/sddp_first_policy/cuts.parquet",
         summary="results/sddp_first_policy/summary.json",
+    params:
+        iteration_limit=SDDP_ITERATION_LIMIT,
+        n_simulations=SDDP_N_SIMULATIONS,
     log:
         "logs/sddp_first_policy/run.log",
     shell:
         "pixi run -e sddp julia --project=julia julia/sddp_first_policy.jl "
-        "resources/sddp_inputs results/sddp_first_policy expectation 0.5 0.1 0 > {log} 2>&1"
+        "resources/sddp_inputs results/sddp_first_policy expectation 0.5 0.1 0 "
+        "{params.iteration_limit} {params.n_simulations} > {log} 2>&1"
 
 
 rule sddp_cvar_policy:
@@ -169,8 +191,12 @@ rule sddp_cvar_policy:
     output:
         cuts="results/sddp_cvar_policy/cuts.parquet",
         summary="results/sddp_cvar_policy/summary.json",
+    params:
+        iteration_limit=SDDP_ITERATION_LIMIT,
+        n_simulations=SDDP_N_SIMULATIONS,
     log:
         "logs/sddp_cvar_policy/run.log",
     shell:
         "pixi run -e sddp julia --project=julia julia/sddp_first_policy.jl "
-        "resources/sddp_inputs results/sddp_cvar_policy cvar 0.5 0.1 0 > {log} 2>&1"
+        "resources/sddp_inputs results/sddp_cvar_policy cvar 0.5 0.1 0 "
+        "{params.iteration_limit} {params.n_simulations} > {log} 2>&1"

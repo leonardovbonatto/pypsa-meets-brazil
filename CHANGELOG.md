@@ -507,6 +507,44 @@ code without touching this file, unless it carries the `no-changelog` label.
   iterations; untested here whether more iterations closes it, named as a
   real next step rather than chased in this PR (PR-38).
 - `docs/handoffs/PR-38-sddp-temporal-persistence.md`.
+- **The SDDP convergence ceiling, measured** (`julia/sddp_first_policy.jl`,
+  `rules/sddp.smk`): `iteration_limit`/`n_simulations` become CLI args and
+  shared, tracked Snakemake params rather than hardcoded values - PR-38's
+  open question ("does CVaR's backwards-looking P90 close with more
+  iterations?") could not even be investigated without editing the file.
+  Answered by sweeping, and the answer is that the question is unanswerable
+  as posed: training **crashes** above ~1000 iterations, at iteration 2277
+  (expectation) and 1569 (CVaR) with seed 0, HiGHS reporting
+  `Termination status: OPTIMAL` alongside `Primal status: INFEASIBLE_POINT`
+  as the LP becomes ill-conditioned with accumulated cuts. So
+  `iteration_limit=1000` is not a converged policy but a ceiling imposed by
+  the model - the bound was still climbing at the crash (7.292e8 at
+  iteration 1000 to 7.901e8 at 2277, +8.3%) - and CVaR, the policy most
+  needing extra iterations, breaks 708 iterations *earlier* than
+  expectation. This is PR-33's "numeric issues rose to 57" warning becoming
+  a hard failure now that PR-38 doubled the state space (4 to 8). Separately
+  confirmed that PR-38's CVaR-above-expectation P90 is **not** a
+  100-realization sampling artifact: it holds at 1000 realizations
+  (57,530 vs 60,995 MW-months), and `n_simulations` is raised to 1000
+  permanently. Fixing the conditioning (cut pruning, coefficient rescaling)
+  is named as the real prerequisite and deliberately left to its own PR
+  (PR-39).
+- **A real unit error found and documented, NOT yet fixed** (PR-39): the
+  SDDP stage objective is `marginal_cost [R$/MWh] * generation [MW]`, which
+  is `R$/h`, with no hours-in-month factor anywhere - so every "expected
+  annual cost in R$" reported since PR-31 (R$241m, R$263m, R$500m) is short
+  by roughly 730x. Verified exactly rather than inferred: reconstructing the
+  objective from simulated quantities reproduces the reported figure to a
+  ratio of 1.0000000000000018. `LOAD_SHED_COST = 10_000` was correctly
+  copied from `build_network.py`, but PyPSA applies snapshot weightings
+  automatically and SDDP.jl does not - right constant, wrong unit context,
+  the same trap class as ONS's MWmed/MWmes (PR-27/30). Policy behaviour and
+  all load-shed statistics are essentially unaffected (near-uniform
+  scaling), so run-to-run comparisons remain valid; only the absolute R$
+  labels are wrong. Recorded in `KNOWN_LIMITATIONS` rather than silently
+  corrected, since fixing it changes every reported number in the epic and
+  is its own conceptual concern (PR-39).
+- `docs/handoffs/PR-39-sddp-convergence-ceiling.md`.
 
 ### Changed
 

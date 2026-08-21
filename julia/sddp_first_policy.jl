@@ -16,7 +16,7 @@
 # docs/handoffs/PR-31-*.md / PR-32-*.md / PR-38-*.md for what is and is
 # not yet real here (known_limitations() at the bottom of this file).
 #
-# Run: julia --project=julia julia/sddp_first_policy.jl <inputs_dir> <output_dir> [risk_kind] [lambda] [alpha] [seed]
+# Run: julia --project=julia julia/sddp_first_policy.jl <inputs_dir> <output_dir> [risk_kind] [lambda] [alpha] [seed] [iteration_limit] [n_simulations]
 #   risk_kind: "expectation" (default) or "cvar"
 #   lambda:    PRIMER Sec 4.4's weight on the CVaR term, (1-lambda)*E + lambda*CVaR_alpha
 #              (only used when risk_kind="cvar"; default 0.5)
@@ -25,6 +25,11 @@
 #   seed:      Random.seed! for SDDP's own training/simulation sampling -
 #              PR-32 shipped without this, so re-runs produced slightly
 #              different numbers; default 0 (PR-33).
+#   iteration_limit / n_simulations: training cap and Monte Carlo
+#              simulation count, both CLI args since PR-39 rather than
+#              hardcoded - PR-38 left a real open question (does CVaR's
+#              backwards-looking P90 close with more of either?) that
+#              could not be investigated without editing this file.
 
 using Random
 using SDDP
@@ -54,8 +59,25 @@ function known_limitations(risk_kind::String)
         "single digits at 300) - a real, unresolved signal that this model's LP " *
         "conditioning may degrade as cuts accumulate, worth investigating directly " *
         "rather than raising the cap indefinitely.",
-        "100 Monte Carlo simulation realizations back every reported statistic - " *
-        "still real sampling noise, especially for tail (P90) statistics.",
+        "REPORTED COSTS ARE A RATE (R\$/h summed over 12 monthly stages), NOT " *
+        "an annual R\$ total - a real unit error found in PR-39 and NOT yet " *
+        "fixed. The stage objective is marginal_cost [R\$/MWh] * generation " *
+        "[MW], which is R\$/h; converting to R\$ needs a hours-in-month factor " *
+        "(~730) that appears nowhere. Verified exactly, not inferred: " *
+        "sum_s(cost_s * thermal_gen_s) + LOAD_SHED_COST * load_shed " *
+        "reproduces the reported figure to a ratio of 1.0000000000000018. " *
+        "LOAD_SHED_COST=10,000 was correctly copied from build_network.py, but " *
+        "PyPSA applies snapshot weightings automatically and SDDP.jl does not - " *
+        "right constant, wrong unit context. Every \"expected annual cost in " *
+        "R\$\" this epic has reported since PR-31 is therefore short by ~730x. " *
+        "Policy and load-shed statistics are essentially unaffected (near-" *
+        "uniform scaling), so comparisons between runs remain valid; only the " *
+        "absolute R\$ labels are wrong.",
+        "1000 Monte Carlo simulation realizations back every reported statistic " *
+        "(raised from 100 in PR-39, after checking the tail statistics actually " *
+        "move) - real sampling noise remains, but PR-38's " *
+        "CVaR-P90-above-expectation finding was directly confirmed NOT to be an " *
+        "artifact of the old 100-realization sample.",
         "PR-38's AR(1) state doubled the state-variable count (4 -> 8: z per " *
         "subsystem alongside storage per subsystem) - a real, checked increase " *
         "in mean/P90 load shed and cost versus PR-31/33's i.i.d.-inflow baseline " *
@@ -70,8 +92,23 @@ function known_limitations(risk_kind::String)
         "near-identical (PR-33's own headline finding) but CVaR's P90 load shed " *
         "came out HIGHER than expectation's - backwards from theory, the same " *
         "direction PR-32 found and PR-33 only partly resolved by raising " *
-        "iterations. Whether more iterations closes this gap (as it partly did " *
-        "then) is untested here - a real next step, not chased in this PR.",
+        "iterations.",
+        "TRAINING HAS A HARD CEILING WELL SHORT OF CONVERGENCE (PR-39, measured " *
+        "not assumed): with seed 0, training CRASHES at iteration 2277 " *
+        "(expectation) and 1569 (CVaR) with HiGHS reporting " *
+        "\"Termination status: OPTIMAL, Primal status: INFEASIBLE_POINT\" - the " *
+        "LP becomes ill-conditioned as cuts accumulate. This is PR-33's " *
+        "\"numeric issues rose to 57\" warning turning into a hard failure now " *
+        "that PR-38 doubled the state space. Two consequences, both real: " *
+        "(1) iteration_limit=1000 is NOT a converged policy - the bound was " *
+        "still climbing at the crash (7.292e8 at iteration 1000 -> 7.901e8 at " *
+        "2277, +8.3%); it is simply the largest round number safely below the " *
+        "observed breakdown. (2) PR-38's open question \"does CVaR's backwards " *
+        "P90 close with more iterations?\" CANNOT be answered by training " *
+        "longer - and CVaR, the policy that would most need the extra " *
+        "iterations, breaks 708 iterations EARLIER than expectation does. " *
+        "Fixing the conditioning (cut pruning, coefficient scaling) is the real " *
+        "prerequisite, not a larger cap - deliberately not attempted here.",
     ]
     if risk_kind == "expectation"
         push!(
@@ -247,6 +284,8 @@ function main()
     lambda = length(ARGS) >= 4 ? parse(Float64, ARGS[4]) : 0.5
     alpha = length(ARGS) >= 5 ? parse(Float64, ARGS[5]) : 0.1
     seed = length(ARGS) >= 6 ? parse(Int, ARGS[6]) : 0
+    iteration_limit = length(ARGS) >= 7 ? parse(Int, ARGS[7]) : 1000
+    n_simulations = length(ARGS) >= 8 ? parse(Int, ARGS[8]) : 100
     mkpath(output_dir)
 
     # Seeds Julia's GLOBAL RNG, which SDDP.jl's own forward-pass sampling
@@ -273,7 +312,7 @@ function main()
     SDDP.train(
         model;
         stopping_rules = [SDDP.SimulationStoppingRule()],
-        iteration_limit = 1000,
+        iteration_limit = iteration_limit,
         print_level = 1,
         log_file = "/dev/null",
         risk_measure = risk_measure,
@@ -297,7 +336,8 @@ function main()
     # :stage_objective is not requested here - SDDP.simulate() always
     # includes it automatically in every stage's result dict; it is not a
     # JuMP decision variable that needs listing like the others.
-    simulations = SDDP.simulate(model, 100, [:storage, :hydro_generation, :thermal_generation, :load_shed])
+    simulations =
+        SDDP.simulate(model, n_simulations, [:storage, :hydro_generation, :thermal_generation, :load_shed])
 
     # The PLAIN Monte Carlo expected cost - not calculate_bound(), which
     # under a CVaR risk measure is a risk-ADJUSTED number, not comparable
@@ -357,6 +397,8 @@ function main()
 
     summary = Dict(
         "seed" => seed,
+        "iteration_limit" => iteration_limit,
+        "n_simulations" => n_simulations,
         "risk_kind" => risk_kind,
         "risk_lambda" => risk_kind == "cvar" ? lambda : nothing,
         "risk_alpha" => risk_kind == "cvar" ? alpha : nothing,
