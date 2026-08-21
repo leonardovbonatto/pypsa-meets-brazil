@@ -621,6 +621,31 @@ code without touching this file, unless it carries the `no-changelog` label.
   millions of R$ per MWmes, recorded in `summary.json` as `cuts_money_scale`
   (PR-42).
 - `docs/handoffs/PR-42-cost-units-and-conditioning.md`.
+- **Correction: the CVaR "anomaly" is a nested risk measure, not a defect.**
+  Since PR-32 this epic has carried an open finding that the CVaR-trained
+  policy scores worse on tail statistics than the expectation-trained one,
+  "backwards from theory"; PR-33 blamed under-convergence, PR-39 the LP
+  conditioning ceiling, PR-40/ADR-0009 persistence-blindness. All three
+  attributions were wrong. Established by: re-deriving the `EAVaR`
+  translation from the installed docstring (correct); verifying `lambda=0`
+  reproduces the expectation policy to every digit (plumbing correct);
+  sweeping lambda on the real model, which degrades monotonically (P90 load
+  shed 56,812 at `lambda=0` rising to 63,947 at `lambda=1`); and
+  reproducing the same pattern in a 6-stage toy with **i.i.d. noise, no
+  persistence, and hedging plainly available**, using the verbatim
+  production translation. The cause is in SDDP.jl's own theory docs: the
+  risk measure replaces the expectation operator **inside** the Bellman
+  recursion, so training with CVaR minimises a **nested** composition of
+  per-stage risk measures rather than CVaR of total annual cost - and
+  nothing guarantees such a policy improves a non-nested, end-of-horizon
+  statistic. The mistake was in the comparison, not the model. A structural
+  second reason is recorded too: `LOAD_SHED_COST` is uniform across months
+  with no discounting, so hoarding water relocates shortfall rather than
+  reducing it. ADR-0009 gains a correction note withdrawing its "CVaR will
+  finally have something to hedge against" argument; **its decision stands
+  unchanged**, resting on PR-40's independently measured all-zero cut
+  coefficients (PR-43).
+- `docs/handoffs/PR-43-cvar-nested-risk-measure.md`.
 
 ### Changed
 

@@ -5,12 +5,39 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # ADR-0009 — Making the SDDP policy persistence-aware (Markovian policy graph)
 
-- **Status:** Accepted
+- **Status:** Accepted (one supporting argument corrected — see
+  "Correction (PR-43)" below; the decision itself is unchanged)
 - **Date:** 2026-08-21
 - **Supersedes:** ADR-0005 (the mechanism by which inflow persistence
   reaches the policy only - ADR-0005's inflow data source, its PAR(p)
   choice, and its Julia/Parquet coupling decision all stand unchanged)
 - **Superseded by:** —
+
+## Correction (PR-43)
+
+The text below is left exactly as written, per this project's practice of
+correcting forward rather than rewriting what was believed at the time.
+One supporting argument in it has since been **refuted by measurement**:
+
+> "The policy gains a genuine hydrological regime state, so CVaR finally
+> has something to hedge against — the most plausible explanation for
+> PR-38/39's backwards CVaR result … becomes testable."
+
+That link does not hold. PR-43 established that CVaR-trained policies
+scoring worse than expectation-trained ones on plain annual-total
+statistics is **not an anomaly at all**: SDDP.jl substitutes the risk
+measure for the expectation operator *inside* the Bellman recursion, so
+training with CVaR minimises a **nested** composition of per-stage risk
+measures rather than CVaR of the total annual cost. The effect reproduces
+in a 6-stage toy with i.i.d. noise and hedging plainly available — i.e.
+with no persistence to be blind to — so persistence-blindness cannot be
+its cause.
+
+**The decision below is unaffected.** It rests on the independently
+measured fact that every cut coefficient on the anomaly state is exactly
+zero (PR-40), which makes the policy genuinely persistence-blind
+regardless of anything to do with CVaR. Only the expectation that fixing
+it would also explain the CVaR comparison is withdrawn.
 
 ## Context
 

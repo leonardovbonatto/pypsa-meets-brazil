@@ -140,22 +140,35 @@ function known_limitations(risk_kind::String)
         "cost/load-shed increase PR-38 reported and attributed to persistence " *
         "being priced correctly: the simulated world got harder while the " *
         "policy did not improve. It is also a strong candidate explanation for " *
-        "the CVaR-P90-above-expectation anomaly below - a risk measure cannot " *
-        "hedge against a state variable it cannot observe. Fixing it needs a " *
-        "different formulation (Markovian policy graph, or a levels-space AR " *
-        "that can enter the balance constraint linearly), pending its own ADR.",
+        "the CVaR comparison below - though PR-43 later REFUTED that link, see " *
+        "that entry. Fixing it needs a different formulation (Markovian policy " *
+        "graph, or a levels-space AR that can enter the balance constraint " *
+        "linearly), pending ADR-0009.",
         "PR-38's AR(1) state doubled the state-variable count (4 -> 8: z per " *
         "subsystem alongside storage per subsystem) - a real, checked increase " *
         "in mean/P90 load shed and cost versus PR-31/33's i.i.d.-inflow baseline " *
         "(P90 load shed ~58,000-63,000 MW-months here vs ~30,090 there), but see " *
         "the persistence-blindness entry above for why this is NOT evidence that " *
         "persistence is being priced correctly. " *
-        "The now-larger state space also makes the SAME PR-33-named convergence " *
-        "concern more visible, not new: expectation and CVaR are no longer " *
-        "near-identical (PR-33's own headline finding) but CVaR's P90 load shed " *
-        "came out HIGHER than expectation's - backwards from theory, the same " *
-        "direction PR-32 found and PR-33 only partly resolved by raising " *
-        "iterations.",
+        "CVaR-trained policies score WORSE than expectation-trained ones on " *
+        "plain annual-total statistics, monotonically in lambda (PR-43 sweep, " *
+        "P90 load shed: 56,812 at lambda=0 rising to 63,947 at lambda=1). This " *
+        "is NOT a bug and NOT backwards - it is a category error to expect " *
+        "otherwise. SDDP.jl substitutes the risk measure for the expectation " *
+        "operator INSIDE the Bellman recursion (see its own theory docs), so " *
+        "training with CVaR minimises a NESTED composition of per-stage risk " *
+        "measures, not CVaR of the total annual cost. Nesting compounds over " *
+        "12 stages into something far more conservative than \"the worst 10% of " *
+        "years\", and nothing guarantees such a policy improves a non-nested " *
+        "end-of-horizon statistic. Verified in a 6-stage toy with i.i.d. noise " *
+        "and hedging plainly available, where the same monotonic degradation " *
+        "reproduces - so it is not caused by this model's data, its " *
+        "persistence-blindness, or its convergence. A second, structural " *
+        "reason specific to this model: load-shed cost is uniform across months " *
+        "with no discounting, so hoarding water mostly RELOCATES shortfall " *
+        "rather than reducing it, leaving little for risk aversion to win on an " *
+        "annual-total metric. Reporting a nested-consistent metric, or " *
+        "discounting, would be the real fix - neither attempted.",
         "PR-39's hard training ceiling (crashes at iteration 2277 expectation / " *
         "1569 CVaR, HiGHS reporting OPTIMAL alongside INFEASIBLE_POINT) was " *
         "REMOVED in PR-42 by solving in millions of R\$ - it was caused by the " *

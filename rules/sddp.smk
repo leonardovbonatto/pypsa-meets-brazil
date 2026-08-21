@@ -182,8 +182,13 @@ rule sddp_cvar_policy:
     (1-lambda)*E + lambda*CVaR_alpha, lambda=0.5, alpha=0.1 (worst 10%).
 
     Exists alongside sddp_first_policy, not instead of it, so the two can
-    be compared - see docs/handoffs/PR-32-*.md for what that comparison
-    actually showed (a real convergence sensitivity, not a clean result).
+    be compared - but read docs/handoffs/PR-43-*.md before drawing any
+    conclusion from that comparison. SDDP.jl applies the risk measure
+    INSIDE the Bellman recursion, so this policy minimises a nested
+    composition of per-stage risk measures, not CVaR of the total annual
+    cost. It therefore scores worse than the expectation policy on plain
+    annual-total statistics (monotonically in lambda), which is a category
+    error to read as a defect rather than evidence of one.
     """
     input:
         "resources/sddp_inputs/demand.parquet",
