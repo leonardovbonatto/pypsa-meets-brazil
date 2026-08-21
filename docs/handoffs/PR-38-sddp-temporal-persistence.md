@@ -5,6 +5,40 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # PR-38 — temporal persistence in the SDDP policy (state-augmented AR(1))
 
+> ## ⚠️ CORRECTED BY PR-40 — read this first
+>
+> **This PR's headline claim is only half true.** The AR(1) recursion does
+> make the sampled inflow **scenarios** autocorrelated month-to-month —
+> that part is real and works. It does **not** make the **policy** aware of
+> that autocorrelation, which is what the title and most of the text below
+> imply.
+>
+> `z` is declared an `SDDP.State` but appears in **no `@constraint` and no
+> objective term**. The recursion runs in plain Julia inside
+> `parameterize`, and its result is `fix()`-ed as a constant. The LP never
+> sees `z`, so its dual is identically zero and the cost-to-go function is
+> **flat** in it. Measured, not theorised: **all 22,000 exported cut
+> coefficients on `z[*]` are exactly `0.0`** across both policies.
+>
+> Consequences for the results reported below:
+>
+> - The ~2× cost/load-shed increase is **not** evidence that persistence is
+>   now priced correctly. The likelier reading is that the simulated world
+>   got harder while the policy stayed blind.
+> - The CVaR-above-expectation anomaly has an obvious candidate cause: a
+>   risk measure cannot hedge a state variable it cannot observe.
+> - The "verified directly" smoke test below was genuine but tested the
+>   wrong thing — it confirmed the recursion *computes* correctly and the
+>   state *carries* across stages, never that the value function *depends*
+>   on it. Checking the cut coefficients would have caught this immediately.
+>
+> The root cause is inherent to a **log-space** AR done in Julia
+> arithmetic: `exp(mu + sigma*z)` is nonlinear, so it cannot be a linear
+> constraint — which is exactly why the recursion sits outside the LP.
+> Fixing it is a real modelling decision (Markovian policy graph, or a
+> levels-space AR that can enter the balance constraint linearly), pending
+> its own ADR. See `docs/handoffs/PR-40-sddp-persistence-correction.md`.
+
 **Landed:**
 
 - `julia/sddp_first_policy.jl` — a new per-subsystem `z` state (standardized

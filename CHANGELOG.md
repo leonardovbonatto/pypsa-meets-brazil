@@ -471,8 +471,12 @@ code without touching this file, unless it carries the `no-changelog` label.
   of the 66 REE-pair correlations within 0.06 of the historical value
   (PR-37).
 - `docs/handoffs/PR-37-par1-ree-refit.md`.
-- **Temporal persistence wired into the SDDP policy** (`julia/sddp_first_policy.jl`,
-  `scripts/prepare_sddp_inputs.py`) - PR-31/33's own most-implicated gap:
+- **Temporal persistence wired into the SDDP _scenarios_** (`julia/sddp_first_policy.jl`,
+  `scripts/prepare_sddp_inputs.py`). **Note: this entry originally claimed the
+  POLICY became persistence-aware; PR-40 measured that it did not, and the
+  claim is corrected there and in the entry below - the scenario-level
+  persistence described here is real, the policy-level claim was wrong.**
+  PR-31/33's own most-implicated gap:
   inflow scenarios were i.i.d. per month, so the policy could never see a
   drought coming from consecutive dry months. Now a state-augmented AR(1)
   log-inflow anomaly (`z`) carries persistence month-to-month, using the
@@ -545,6 +549,29 @@ code without touching this file, unless it carries the `no-changelog` label.
   corrected, since fixing it changes every reported number in the epic and
   is its own conceptual concern (PR-39).
 - `docs/handoffs/PR-39-sddp-convergence-ceiling.md`.
+- **Correction: the SDDP policy is blind to temporal persistence** - PR-38
+  claimed to have wired PAR(1) persistence into the policy; PR-40 measured
+  that only half of it landed. The sampled inflow *scenarios* really are
+  autocorrelated month-to-month, but the *policy* is not: `z` is declared an
+  `SDDP.State` yet appears in no `@constraint` and no objective term, since
+  the log-space recursion `exp(mu + sigma*z)` is nonlinear and therefore runs
+  in plain Julia inside `parameterize` with its result fixed as a constant.
+  The LP never sees `z`, so its dual is identically zero and the cost-to-go is
+  flat in it - **all 22,000 exported cut coefficients on `z[*]` are exactly
+  0.0 across both policies**, found by inspecting the real cut export rather
+  than by reasoning. Two reported results are reinterpreted as a result: the
+  ~2x cost/load-shed jump is not evidence that persistence is priced
+  correctly (more likely the simulated world got harder while the policy
+  stayed blind), and the CVaR-P90-above-expectation anomaly now has an
+  obvious candidate cause (a risk measure cannot hedge a state it cannot
+  observe). PR-38's own "verified directly" smoke test was genuine but tested
+  the wrong property - that the recursion computes and the state carries,
+  never that the value function depends on it. Corrected in place across the
+  PR-38 handoff, both module docstrings, and `KNOWN_LIMITATIONS`; the fix
+  itself (Markovian policy graph, or a levels-space AR that can enter the
+  balance constraint linearly) is a real modelling decision deferred to its
+  own ADR rather than improvised (PR-40).
+- `docs/handoffs/PR-40-sddp-persistence-correction.md`.
 
 ### Changed
 

@@ -13,8 +13,19 @@ correlated monthly inflow scenarios.
 `_correlation.csv` (PR-28/29). Nothing here is fabricated; the one
 genuinely new judgement call is shock sampling (below).
 
-**Temporal persistence (PR-38): this module emits SHOCKS, not inflow
-levels.** Earlier (PR-31-36), `sample_month_scenarios` drew i.i.d. inflow
+**Temporal persistence (PR-38, corrected by PR-40): this module emits
+SHOCKS, not inflow levels.**
+
+PR-40 correction, read this before trusting anything below: the AR(1)
+recursion described here does make the sampled SCENARIOS autocorrelated
+(real and working), but it does NOT make the SDDP policy aware of that
+autocorrelation. `z` never enters the Julia model's LP - it is read with
+`fix_value`, used in plain-Julia arithmetic, and fixed back as a constant -
+so its dual is identically zero and every exported cut coefficient on it is
+exactly 0.0 (measured across all 22,000 cuts). The policy is
+persistence-blind; fixing that needs a different formulation and its own
+ADR. See docs/handoffs/PR-40-*.md.
+ Earlier (PR-31-36), `sample_month_scenarios` drew i.i.d. inflow
 LEVELS directly (`exp(mu + sigma*shock)`) - the fitted phi went along for
 the ride in `par1_params.csv` but was never applied, so the SDDP policy
 saw no autocorrelation month-to-month (named explicitly in

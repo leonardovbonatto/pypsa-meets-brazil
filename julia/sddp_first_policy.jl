@@ -6,15 +6,25 @@
 # hydro-thermal model - reservoir storage bounded by real capacity
 # (PR-30), demand and hydro/thermal capacity/cost from T0 (already real),
 # inflow uncertainty from the real fitted PAR(1) model (PR-28/29),
-# correlated across subsystems within each month AND, since PR-38,
-# autocorrelated month-to-month via a state-augmented AR(1) log-inflow
-# anomaly (see build_model's `z` state and PR-38's own handoff for the
-# investigation that led here - SDDP.jl's experimental `add_objective_state`
-# was checked and rejected first, since its own docs require the state to
-# never appear in a `@constraint`, which inflow must). See
-# scripts/prepare_sddp_inputs.py's module docstring and
-# docs/handoffs/PR-31-*.md / PR-32-*.md / PR-38-*.md for what is and is
-# not yet real here (known_limitations() at the bottom of this file).
+# correlated across subsystems within each month.
+#
+# !! PR-38's temporal-persistence claim is only HALF true - corrected in
+# PR-40, do not read PR-38's handoff without this correction. The AR(1)
+# recursion added in PR-38 makes the sampled SCENARIOS autocorrelated
+# month-to-month (real, working), but it does NOT make the POLICY aware of
+# that autocorrelation. `z` is declared an SDDP.State yet appears in no
+# @constraint and in no objective term - the recursion runs in plain Julia
+# inside `parameterize` and its result is fix()-ed as a constant - so the
+# LP never sees `z`, its dual is identically zero, and the cost-to-go
+# function is FLAT in it. Measured, not theorised: all 22,000 exported cut
+# coefficients on z[*] are exactly 0.0 across both policies (PR-40).
+# The policy therefore cannot reason "water is worth more this month
+# because last month was dry", which is the entire point of modelling
+# persistence. See docs/handoffs/PR-40-*.md.
+#
+# See scripts/prepare_sddp_inputs.py's module docstring and
+# docs/handoffs/PR-31-*.md / PR-32-*.md / PR-38-*.md / PR-39-*.md /
+# PR-40-*.md for what is and is not real here (known_limitations() below).
 #
 # Run: julia --project=julia julia/sddp_first_policy.jl <inputs_dir> <output_dir> [risk_kind] [lambda] [alpha] [seed] [iteration_limit] [n_simulations]
 #   risk_kind: "expectation" (default) or "cvar"
@@ -78,15 +88,25 @@ function known_limitations(risk_kind::String)
         "move) - real sampling noise remains, but PR-38's " *
         "CVaR-P90-above-expectation finding was directly confirmed NOT to be an " *
         "artifact of the old 100-realization sample.",
+        "THE POLICY IS BLIND TO TEMPORAL PERSISTENCE, despite PR-38's claim " *
+        "(corrected in PR-40, measured not theorised): all 22,000 exported cut " *
+        "coefficients on z[*] are exactly 0.0 across both policies, because z " *
+        "appears in no constraint and no objective term - the LP never sees it, " *
+        "so the cost-to-go is flat in it. PR-38 delivered persistent SCENARIOS " *
+        "with a persistence-BLIND policy. This most likely explains the ~2x " *
+        "cost/load-shed increase PR-38 reported and attributed to persistence " *
+        "being priced correctly: the simulated world got harder while the " *
+        "policy did not improve. It is also a strong candidate explanation for " *
+        "the CVaR-P90-above-expectation anomaly below - a risk measure cannot " *
+        "hedge against a state variable it cannot observe. Fixing it needs a " *
+        "different formulation (Markovian policy graph, or a levels-space AR " *
+        "that can enter the balance constraint linearly), pending its own ADR.",
         "PR-38's AR(1) state doubled the state-variable count (4 -> 8: z per " *
         "subsystem alongside storage per subsystem) - a real, checked increase " *
         "in mean/P90 load shed and cost versus PR-31/33's i.i.d.-inflow baseline " *
-        "(expected annual cost ~R\$500m here vs ~R\$263m there; P90 load shed " *
-        "~58,000-63,000 MW-months here vs ~30,090 there), plausible given " *
-        "consecutive-dry-month runs are now representable at all (physically " *
-        "real for a system where S cannot meet its own peak demand without " *
-        "transmission, itself outside this subproblem), not confirmed as fully " *
-        "correct beyond the direct Julia-level verification in PR-38's handoff. " *
+        "(P90 load shed ~58,000-63,000 MW-months here vs ~30,090 there), but see " *
+        "the persistence-blindness entry above for why this is NOT evidence that " *
+        "persistence is being priced correctly. " *
         "The now-larger state space also makes the SAME PR-33-named convergence " *
         "concern more visible, not new: expectation and CVaR are no longer " *
         "near-identical (PR-33's own headline finding) but CVaR's P90 load shed " *
@@ -216,14 +236,27 @@ function build_model(inputs)
             SDDP.State,
             initial_value = inputs.storage0[s]
         )
-        # Standardized log-inflow anomaly (PR-38) - an ordinary SDDP.State,
-        # NOT SDDP.jl's experimental add_objective_state mechanism (checked
-        # and rejected: objective states cannot appear in a @constraint,
-        # and `inflow` must, via the storage balance below). z.out is
-        # computed entirely in plain Julia inside `parameterize` (below)
-        # and then fix()-ed - never a free JuMP decision variable - which
-        # is what lets a log-space AR(1) recursion (nonlinear if it were a
-        # JuMP constraint) coexist with an LP subproblem.
+        # Standardized log-inflow anomaly (PR-38), CORRECTED IN PR-40.
+        #
+        # What this does: carries last month's anomaly forward so the
+        # sampled inflow SCENARIOS are autocorrelated (real and working).
+        #
+        # What it does NOT do, contrary to PR-38's claim: make the POLICY
+        # persistence-aware. `z` appears in no @constraint and no objective
+        # term - the AR(1) recursion runs in plain Julia inside
+        # `parameterize` and its result is fix()-ed as a constant. The LP
+        # therefore never sees `z`; its dual is identically zero and every
+        # cut coefficient on it is exactly 0.0 (measured across all 22,000
+        # exported cuts, PR-40). The cost-to-go is FLAT in z.
+        #
+        # This is not a bug to patch here - it is inherent to doing a
+        # LOG-space AR in Julia arithmetic. exp(mu + sigma*z) is nonlinear,
+        # so it cannot be a linear constraint, which is exactly why the
+        # recursion was moved outside the LP in the first place. Making the
+        # policy see persistence needs a different formulation (a Markovian
+        # policy graph, or a levels-space AR that CAN enter the balance
+        # constraint linearly) - a real modelling decision, deliberately
+        # left to its own ADR rather than improvised here.
         @variable(subproblem, z[s in SUBSYSTEMS], SDDP.State, initial_value = 0.0)
         @variable(subproblem, 0 <= hydro_generation[s in SUBSYSTEMS] <= inputs.hydro_cap[s])
         @variable(subproblem, 0 <= thermal_generation[s in SUBSYSTEMS] <= inputs.thermal_cap[s])
