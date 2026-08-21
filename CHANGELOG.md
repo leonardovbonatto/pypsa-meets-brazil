@@ -452,6 +452,25 @@ code without touching this file, unless it carries the `no-changelog` label.
   the roadmap uses numbered phases (0-9), no such gate exists anywhere;
   another instance of PR-23's stale-forward-reference pattern, found while
   researching this ADR (PR-25).
+- `scripts/fit_inflow_par1_ree.py` + `rules/sddp.smk::fit_inflow_par1_ree`
+  (ADR-0008 stage 2): PAR(1) persistence and a 12x12 spatial correlation
+  matrix fit per REE, the REE-level counterpart of `fit_inflow_par1.py`
+  (PR-28/29). A real finding from fitting on the full 2016-2025 volume:
+  TELES PIRES reports `ena_bruta_mwmed == 0.0` for its first 213 days
+  (2016-01-01 to 2016-07-31) before real values start - a "not yet
+  tracked" placeholder (same underlying phenomenon as PR-36's 3
+  later-starting REEs, just represented as zero rows instead of missing
+  ones) that would otherwise corrupt that month's log-space mu to -inf;
+  dropped before fitting via a general rule (`drop_pre_tracking_zeros`),
+  not a REE-specific exception. Despite the much shorter, more ragged
+  record (9-10 years per REE vs. the subsystem-level fit's 26), both
+  validations held up well against the real data: no REE's historical
+  drought run exceeded the 90.5th percentile of its own simulated
+  distribution (well under the understated-persistence warning
+  threshold), and the Cholesky-correlated simulator reproduced every one
+  of the 66 REE-pair correlations within 0.06 of the historical value
+  (PR-37).
+- `docs/handoffs/PR-37-par1-ree-refit.md`.
 
 ### Changed
 

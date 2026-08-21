@@ -56,6 +56,28 @@ rule fit_inflow_par1:
         "../scripts/fit_inflow_par1.py"
 
 
+rule fit_inflow_par1_ree:
+    """
+    REE-level counterpart of fit_inflow_par1 (ADR-0008 stage 2): fits a
+    PAR(1) model per REE (12x12 spatial correlation) instead of per
+    subsystem, on the shorter, more ragged 2016-2025 ena_ree record - see
+    scripts/fit_inflow_par1_ree.py's module docstring and
+    docs/handoffs/PR-37-*.md for what "shorter and more ragged" concretely
+    means here, including a real zero-inflow-before-tracking quirk found
+    and handled while fitting (TELES PIRES).
+    """
+    input:
+        "resources/inflow_ena_ree.csv",
+    output:
+        params="resources/inflow_par1_params_ree.csv",
+        correlation="resources/inflow_par1_correlation_ree.csv",
+        validation="results/inflow_par1_validation_ree.json",
+    log:
+        "logs/fit_inflow_par1_ree/run.log",
+    script:
+        "../scripts/fit_inflow_par1_ree.py"
+
+
 rule prepare_sddp_inputs:
     """
     Assemble every real input the first SDDP policy needs (ADR-0005 stage
