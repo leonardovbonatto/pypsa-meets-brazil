@@ -5,16 +5,27 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # ADR-0005 — Inflow model formulation (SDDP epic, stage 1)
 
-- **Status:** Accepted (individualization stage superseded - see below;
-  inflow data source and coupling-mechanism decisions below remain the
-  active decision)
+- **Status:** Accepted (individualization stage and persistence mechanism
+  both superseded - see below; inflow data source, the PAR(p) choice
+  itself, and the coupling-mechanism decision below remain the active
+  decision)
 - **Date:** 2026-08-16
 - **Supersedes:** —
-- **Superseded by:** [ADR-0008](ADR-0008-ree-level-individualization.md),
-  individualization stage only - this ADR's subsystem-level granularity
-  is superseded by ADR-0008's REE-level stage 2. This ADR's choice of ENA
-  (over VAZOES.DAT) as the inflow data source, and PR-26's Julia/SDDP.jl
-  coupling mechanism, are unaffected and remain in force.
+- **Superseded by:**
+  - [ADR-0008](ADR-0008-ree-level-individualization.md),
+    individualization stage only - this ADR's subsystem-level granularity
+    is superseded by ADR-0008's REE-level stage 2.
+  - [ADR-0009](ADR-0009-persistence-aware-policy.md), the *mechanism* by
+    which inflow persistence reaches the policy only - a Markovian policy
+    graph replaces the state-augmented log-space AR(1) attempted in
+    PR-38, which PR-40 measured to leave the policy persistence-blind
+    (every cut coefficient on the anomaly state was exactly zero). This
+    ADR's PAR(p) formulation and its fitted parameters are unchanged and
+    are reused directly by ADR-0009.
+
+  This ADR's choice of ENA (over VAZOES.DAT) as the inflow data source,
+  and PR-26's Julia/SDDP.jl coupling mechanism, are unaffected by either
+  and remain in force.
 
 ## Context
 

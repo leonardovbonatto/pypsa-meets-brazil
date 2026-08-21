@@ -572,6 +572,28 @@ code without touching this file, unless it carries the `no-changelog` label.
   balance constraint linearly) is a real modelling decision deferred to its
   own ADR rather than improvised (PR-40).
 - `docs/handoffs/PR-40-sddp-persistence-correction.md`.
+- **ADR-0009**: make the SDDP policy persistence-aware with a **Markovian
+  policy graph** (a single system-wide dry/normal/wet hydrological state,
+  K=3 initially), replacing PR-38's state-augmented log-space AR(1) that
+  PR-40 measured to leave the policy blind. Transition matrices are derived
+  analytically from PR-28/29's already-fitted `phi_m` rather than refitted,
+  and the `z` state disappears (its role taken by the Markov node), dropping
+  the model from 8 continuous states back to 4. **The obvious alternative
+  was rejected on measured evidence, not principle**: a levels-space AR
+  would be linear and could therefore enter the balance constraint directly,
+  but fitting one on the real 2000-2025 series and simulating it produces
+  physically impossible negative inflows in **19.3% of months for subsystem
+  N**, 14.7% for NE and 6.7% for S - clipping at that rate would distort the
+  drought behaviour the model exists to represent, which is exactly why
+  Brazilian practice uses log-space PAR(p). A single shared Markov state is
+  chosen over per-subsystem chains to avoid `K^4` joint states against an
+  already-measured convergence ceiling. Carries an explicit acceptance test
+  chosen to avoid repeating PR-38's mistake - not "is the mechanism wired
+  up" but "does the value function actually differ between regimes", i.e.
+  water must be worth more in the dry state than the wet state at identical
+  storage. ADR-0005's "Superseded by" updated to record that its persistence
+  *mechanism* (not its PAR(p) formulation or fitted parameters) is
+  superseded (PR-41).
 
 ### Changed
 
