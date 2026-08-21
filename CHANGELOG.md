@@ -594,6 +594,33 @@ code without touching this file, unless it carries the `no-changelog` label.
   storage. ADR-0005's "Superseded by" updated to record that its persistence
   *mechanism* (not its PAR(p) formulation or fitted parameters) is
   superseded (PR-41).
+- **Real R$ costs, and PR-39's conditioning ceiling removed**
+  (`julia/sddp_first_policy.jl`, `rules/sddp.smk`). PR-39 queued the
+  R$-per-hour unit error and the LP conditioning ceiling as two independent
+  defects; they are not independent, and finding that out is the main
+  result. Adding the missing `HOURS_PER_MONTH` factor **alone** pushed
+  objective magnitudes from ~7e8 to ~5e11 against constraint coefficients of
+  1, and training went from crashing at iteration 2277 to crashing at ~600,
+  with HiGHS degrading from "OPTIMAL with an INFEASIBLE_POINT" to
+  "OTHER_ERROR" - correct units are simply not trainable at raw R$ scale.
+  Solving in millions of R$ (`MONEY_SCALE`, converted back at every
+  reporting point, which cannot change the argmin of a minimisation) fixed
+  both: costs are now real R$, and **the ceiling disappeared entirely** -
+  both policies now complete 4000 iterations with 0 (expectation) and 2
+  (CVaR) numeric issues, against 51 and 40 before. PR-39's diagnosis that
+  the LP degraded as *cuts accumulated* was therefore wrong about the
+  mechanism - the objective's magnitude was the cause - and it took
+  deliberately making the problem worse to expose that. `iteration_limit`
+  raised 1000 -> 4000. Real results: expectation R$342.9bn mean cost /
+  56,818 MW-months P90 load shed, CVaR R$378.9bn / 61,417. **Two things
+  explicitly not fixed**: the CVaR-P90-above-expectation anomaly survives at
+  4000 iterations (so conditioning did not explain it, leaving ADR-0009's
+  persistence-blindness as the remaining candidate), and the bound was still
+  climbing at 4000 (+7.7% from 1000), so the policy is measured-safe but not
+  converged. Note for the future PyPSA coupling: `cuts.parquet` is now in
+  millions of R$ per MWmes, recorded in `summary.json` as `cuts_money_scale`
+  (PR-42).
+- `docs/handoffs/PR-42-cost-units-and-conditioning.md`.
 
 ### Changed
 

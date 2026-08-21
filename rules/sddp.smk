@@ -15,18 +15,23 @@ Every rule here is requested explicitly.
 # comparable (comparing an expectation policy trained one way against a
 # CVaR policy trained another would make the whole comparison meaningless).
 #
-# 1000 iterations is a CEILING IMPOSED BY THE MODEL, not a converged value:
-# PR-39 measured training crashing at iteration 2277 (expectation) and 1569
-# (CVaR) with HiGHS returning "OPTIMAL" alongside "INFEASIBLE_POINT" as the
-# LP degrades with accumulated cuts. The bound is still climbing when it
-# crashes, so this policy is knowingly under-converged - raising this number
-# without first fixing the conditioning just moves the crash earlier.
+# 4000 iterations, raised from PR-39's 1000 because PR-42 REMOVED the
+# ceiling that forced that value. PR-39 measured training crashing at
+# iteration 2277 (expectation) / 1569 (CVaR) as the LP degraded with
+# accumulated cuts; PR-42 traced that to the objective's raw magnitude and
+# fixed it by solving in millions of R$ (MONEY_SCALE). Measured after that
+# change: both policies complete 4000 iterations with 0 and 2 numeric
+# issues respectively, against 51 and 40 before.
+#
+# 4000 is a measured-safe value, NOT a converged one - the bound was still
+# climbing at iteration 4000 (+7.7% from iteration 1000). Finding where it
+# actually flattens is real remaining work, not settled here.
 #
 # 1000 simulations (up from 100) because PR-39 checked whether the tail
 # statistics were sampling noise - they were not, but the larger sample is
 # cheap and makes P90 figures meaningfully steadier.
-# See docs/handoffs/PR-39-*.md for the measurements behind both numbers.
-SDDP_ITERATION_LIMIT = 1000
+# See docs/handoffs/PR-39-*.md and PR-42-*.md for the measurements.
+SDDP_ITERATION_LIMIT = 4000
 SDDP_N_SIMULATIONS = 1000
 
 

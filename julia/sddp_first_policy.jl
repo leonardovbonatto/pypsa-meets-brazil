@@ -50,6 +50,48 @@ using Parquet2
 const SUBSYSTEMS = ["N", "NE", "S", "SE_CO"]
 const LOAD_SHED_COST = 10_000.0  # matches scripts/build_network.py::LOAD_SHED_COST (T0)
 
+# Hours per calendar month, non-leap year (sums to exactly 8760 h/year).
+#
+# PR-42 fix. Without this the stage objective is
+# `marginal_cost [R$/MWh] * generation [MW]`, which is R$/HOUR, not R$ -
+# so every "expected annual cost" this epic reported from PR-31 to PR-41
+# was short by roughly 730x. LOAD_SHED_COST was correctly copied from
+# build_network.py, but PyPSA multiplies by its snapshot weightings
+# automatically and SDDP.jl does not: right constant, wrong unit context.
+#
+# Real month lengths rather than a flat 8760/12: a month's energy is its
+# mean MW times ITS OWN hours, and January genuinely costs more to serve
+# than February at equal average load. This does mildly reweight the
+# stages relative to each other, so it is not a pure rescaling - the
+# policy itself shifts slightly, which is correct, not a side effect to
+# suppress. Note the mild tension with the MWmes storage convention,
+# which treats every month as one normalized "month" unit regardless of
+# length; that tension is inherent to Brazil's own NEWAVE unit
+# convention, not introduced here (see KNOWN_LIMITATIONS).
+const HOURS_PER_MONTH =
+    [31.0, 28.0, 31.0, 30.0, 31.0, 30.0, 31.0, 31.0, 30.0, 31.0, 30.0, 31.0] .* 24.0
+
+# The LP is solved in MILLIONS of R$; every reported figure is converted
+# back to R$ before it leaves this file.
+#
+# This is not cosmetic and it is not optional - measured, not predicted.
+# Applying the HOURS_PER_MONTH fix alone pushed objective magnitudes from
+# ~7e8 to ~5e11 against constraint-matrix coefficients of 1, and training
+# went from crashing at iteration 2277 (PR-39's measured ceiling) to
+# crashing at ~600, with HiGHS degrading from "OPTIMAL with an
+# INFEASIBLE_POINT" to "OTHER_ERROR" - i.e. failing outright. The correct
+# units are simply not trainable at raw R$ scale, so PR-39's assumption
+# that the unit fix and the conditioning fix were independent is false.
+#
+# Dividing the objective by 1e6 restores cut intercepts and dual
+# magnitudes to comfortable size while leaving the POLICY unchanged (a
+# uniform positive scaling of a minimisation objective cannot change its
+# argmin). CAUTION for the eventual PyPSA/linopy coupling: the exported
+# cuts in cuts.parquet are therefore in MILLIONS of R$ per MWmes, and must
+# be multiplied by MONEY_SCALE before being added to a PyPSA objective
+# expressed in R$.
+const MONEY_SCALE = 1.0e6
+
 function known_limitations(risk_kind::String)
     limitations = [
         "AR(1) temporal persistence (PR-38) starts every simulated year from " *
@@ -69,20 +111,21 @@ function known_limitations(risk_kind::String)
         "single digits at 300) - a real, unresolved signal that this model's LP " *
         "conditioning may degrade as cuts accumulate, worth investigating directly " *
         "rather than raising the cap indefinitely.",
-        "REPORTED COSTS ARE A RATE (R\$/h summed over 12 monthly stages), NOT " *
-        "an annual R\$ total - a real unit error found in PR-39 and NOT yet " *
-        "fixed. The stage objective is marginal_cost [R\$/MWh] * generation " *
-        "[MW], which is R\$/h; converting to R\$ needs a hours-in-month factor " *
-        "(~730) that appears nowhere. Verified exactly, not inferred: " *
-        "sum_s(cost_s * thermal_gen_s) + LOAD_SHED_COST * load_shed " *
-        "reproduces the reported figure to a ratio of 1.0000000000000018. " *
-        "LOAD_SHED_COST=10,000 was correctly copied from build_network.py, but " *
-        "PyPSA applies snapshot weightings automatically and SDDP.jl does not - " *
-        "right constant, wrong unit context. Every \"expected annual cost in " *
-        "R\$\" this epic has reported since PR-31 is therefore short by ~730x. " *
-        "Policy and load-shed statistics are essentially unaffected (near-" *
-        "uniform scaling), so comparisons between runs remain valid; only the " *
-        "absolute R\$ labels are wrong.",
+        "Costs are real R\$ only since PR-42, which multiplied the stage " *
+        "objective by HOURS_PER_MONTH. Before that the objective was " *
+        "marginal_cost [R\$/MWh] * generation [MW] = R\$/HOUR, so every " *
+        "\"expected annual cost\" reported from PR-31 to PR-41 was short by " *
+        "roughly 730x - do not compare this run's cost figures against those " *
+        "in PR-31 through PR-41 handoffs without applying that factor. " *
+        "Load-shed statistics (MW-months) were never affected and remain " *
+        "directly comparable across all of those PRs.",
+        "The MWmes storage convention treats every month as one normalized " *
+        "\"month\" unit regardless of its actual length, while PR-42's cost " *
+        "conversion uses each month's real hours (28-31 days). That mild " *
+        "inconsistency is inherent to Brazil's own NEWAVE unit convention " *
+        "rather than introduced here, but it does mean a MWmes of storage " *
+        "carried into February buys slightly fewer real MWh than one carried " *
+        "into January, which this model does not represent.",
         "1000 Monte Carlo simulation realizations back every reported statistic " *
         "(raised from 100 in PR-39, after checking the tail statistics actually " *
         "move) - real sampling noise remains, but PR-38's " *
@@ -113,22 +156,15 @@ function known_limitations(risk_kind::String)
         "came out HIGHER than expectation's - backwards from theory, the same " *
         "direction PR-32 found and PR-33 only partly resolved by raising " *
         "iterations.",
-        "TRAINING HAS A HARD CEILING WELL SHORT OF CONVERGENCE (PR-39, measured " *
-        "not assumed): with seed 0, training CRASHES at iteration 2277 " *
-        "(expectation) and 1569 (CVaR) with HiGHS reporting " *
-        "\"Termination status: OPTIMAL, Primal status: INFEASIBLE_POINT\" - the " *
-        "LP becomes ill-conditioned as cuts accumulate. This is PR-33's " *
-        "\"numeric issues rose to 57\" warning turning into a hard failure now " *
-        "that PR-38 doubled the state space. Two consequences, both real: " *
-        "(1) iteration_limit=1000 is NOT a converged policy - the bound was " *
-        "still climbing at the crash (7.292e8 at iteration 1000 -> 7.901e8 at " *
-        "2277, +8.3%); it is simply the largest round number safely below the " *
-        "observed breakdown. (2) PR-38's open question \"does CVaR's backwards " *
-        "P90 close with more iterations?\" CANNOT be answered by training " *
-        "longer - and CVaR, the policy that would most need the extra " *
-        "iterations, breaks 708 iterations EARLIER than expectation does. " *
-        "Fixing the conditioning (cut pruning, coefficient scaling) is the real " *
-        "prerequisite, not a larger cap - deliberately not attempted here.",
+        "PR-39's hard training ceiling (crashes at iteration 2277 expectation / " *
+        "1569 CVaR, HiGHS reporting OPTIMAL alongside INFEASIBLE_POINT) was " *
+        "REMOVED in PR-42 by solving in millions of R\$ - it was caused by the " *
+        "objective's raw magnitude, not by cut count as PR-39 suspected. " *
+        "Measured after the change: both policies complete 4000 iterations, " *
+        "with 0 (expectation) and 2 (CVaR) numeric issues against 51 and 40 " *
+        "before. The model is nonetheless STILL NOT CONVERGED at 4000 - the " *
+        "bound was continuing to climb (+7.7% from iteration 1000 to 4000). " *
+        "Where it actually flattens is unmeasured and is real remaining work.",
     ]
     if risk_kind == "expectation"
         push!(
@@ -276,9 +312,12 @@ function build_model(inputs)
             inputs.demand_by_month[(month, s)]
         )
 
+        # HOURS_PER_MONTH converts the R$/h rate into real R$ for this
+        # stage - see the constant's own comment for why this was missing
+        # until PR-42 and what it means for every previously reported cost.
         SDDP.@stageobjective(
             subproblem,
-            sum(
+            (HOURS_PER_MONTH[month] / MONEY_SCALE) * sum(
                 inputs.thermal_marginal_cost[s] * thermal_generation[s] +
                 LOAD_SHED_COST * load_shed[s] for s in SUBSYSTEMS
             )
@@ -363,7 +402,9 @@ function main()
         run_numerical_stability_report = false,
     )
 
-    risk_adjusted_bound = SDDP.calculate_bound(model; risk_measure = risk_measure)
+    # Converted out of the solver's millions-of-R$ working unit (see
+    # MONEY_SCALE) so everything reported below is real R$.
+    risk_adjusted_bound = SDDP.calculate_bound(model; risk_measure = risk_measure) * MONEY_SCALE
     println("Trained. Risk-adjusted bound (R\$): ", risk_adjusted_bound)
 
     # :stage_objective is not requested here - SDDP.simulate() always
@@ -377,9 +418,10 @@ function main()
     # across risk_kind runs the way a plain expectation is. Computed the
     # same way regardless of which risk measure trained the policy, so
     # expectation-vs-cvar comparisons in the handoff are apples to apples.
-    expected_cost = sum(
-        sum(stage[:stage_objective] for stage in realization) for realization in simulations
-    ) / length(simulations)
+    expected_cost =
+        MONEY_SCALE * sum(
+            sum(stage[:stage_objective] for stage in realization) for realization in simulations
+        ) / length(simulations)
     println("Simulated mean total system cost (R\$): ", expected_cost)
 
     per_realization_load_shed = [
@@ -432,6 +474,10 @@ function main()
         "seed" => seed,
         "iteration_limit" => iteration_limit,
         "n_simulations" => n_simulations,
+        # Cost fields below are real R$. The exported cuts are NOT - they
+        # are in the solver's working unit, R$ / MONEY_SCALE per MWmes.
+        "cuts_money_scale" => MONEY_SCALE,
+        "cuts_units" => "millions of R\$ per MWmes; multiply by cuts_money_scale for R\$",
         "risk_kind" => risk_kind,
         "risk_lambda" => risk_kind == "cvar" ? lambda : nothing,
         "risk_alpha" => risk_kind == "cvar" ? alpha : nothing,
