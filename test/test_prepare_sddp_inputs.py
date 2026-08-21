@@ -97,64 +97,52 @@ class TestInitialStorage:
         assert storage0.set_index("subsystem")["initial_storage_mwmes"]["S"] == pytest.approx(250.0)
 
 
-class TestSampleMonthScenarios:
+class TestSampleMonthShocks:
     def test_shape(self):
-        params = pd.DataFrame(
-            [
-                {"subsystem": s, "month": m, "mu": 5.0, "sigma": 1.0, "phi": 0.5}
-                for s in ["A", "B"]
-                for m in range(1, 13)
-            ]
-        )
         corr_matrix = pd.DataFrame([[1.0, 0.3], [0.3, 1.0]], index=["A", "B"], columns=["A", "B"])
 
-        scenarios = prep.sample_month_scenarios(
-            params, corr_matrix, n_scenarios=5, rng=np.random.default_rng(0)
-        )
+        shocks = prep.sample_month_shocks(corr_matrix, n_scenarios=5, rng=np.random.default_rng(0))
 
-        assert len(scenarios) == 12 * 5 * 2
-        assert set(scenarios["subsystem"]) == {"A", "B"}
-        assert set(scenarios["month"]) == set(range(1, 13))
-        assert (scenarios["inflow_mwmed"] > 0).all()
+        assert len(shocks) == 12 * 5 * 2
+        assert set(shocks["subsystem"]) == {"A", "B"}
+        assert set(shocks["month"]) == set(range(1, 13))
 
     def test_probabilities_sum_to_one_within_each_month(self):
-        params = pd.DataFrame(
-            [
-                {"subsystem": "A", "month": m, "mu": 5.0, "sigma": 1.0, "phi": 0.0}
-                for m in range(1, 13)
-            ]
-        )
         corr_matrix = pd.DataFrame([[1.0]], index=["A"], columns=["A"])
 
-        scenarios = prep.sample_month_scenarios(
-            params, corr_matrix, n_scenarios=4, rng=np.random.default_rng(1)
-        )
+        shocks = prep.sample_month_shocks(corr_matrix, n_scenarios=4, rng=np.random.default_rng(1))
 
-        for _month, group in scenarios.groupby("month"):
+        for _month, group in shocks.groupby("month"):
             assert group["probability"].sum() == pytest.approx(1.0)
 
     def test_induces_the_target_cross_subsystem_correlation(self):
         """Correctness check, not just shape: draws with a strong target
         correlation should show it when re-estimated from a large sample -
         the same discipline as PR-28/29's known-parameter recovery tests."""
-        params = pd.DataFrame(
-            [
-                {"subsystem": s, "month": m, "mu": 5.0, "sigma": 1.0, "phi": 0.0}
-                for s in ["A", "B"]
-                for m in range(1, 13)
-            ]
-        )
         corr_matrix = pd.DataFrame([[1.0, 0.8], [0.8, 1.0]], index=["A", "B"], columns=["A", "B"])
 
-        scenarios = prep.sample_month_scenarios(
-            params, corr_matrix, n_scenarios=2000, rng=np.random.default_rng(2)
+        shocks = prep.sample_month_shocks(
+            corr_matrix, n_scenarios=2000, rng=np.random.default_rng(2)
         )
-        wide = scenarios.pivot_table(
-            index=["month", "scenario"], columns="subsystem", values="inflow_mwmed"
-        )
-        recovered = np.log(wide["A"]).corr(np.log(wide["B"]))
+        wide = shocks.pivot_table(index=["month", "scenario"], columns="subsystem", values="shock")
+        recovered = wide["A"].corr(wide["B"])
 
         assert recovered == pytest.approx(0.8, abs=0.05)
+
+    def test_shocks_are_standardized_not_transformed(self):
+        """Real semantic change (PR-38): this function used to return
+        exp(mu + sigma*shock) inflow LEVELS; now it returns the raw shock
+        itself, since the exp() transform moved into Julia after the AR(1)
+        recursion. A single-subsystem draw's shocks should look like
+        standard normal samples, not like log-normal inflow levels."""
+        corr_matrix = pd.DataFrame([[1.0]], index=["A"], columns=["A"])
+
+        shocks = prep.sample_month_shocks(
+            corr_matrix, n_scenarios=500, rng=np.random.default_rng(3)
+        )
+        assert shocks["shock"].mean() == pytest.approx(0.0, abs=0.1)
+        assert shocks["shock"].std() == pytest.approx(1.0, abs=0.1)
+        assert (shocks["shock"] < 0).any()
 
 
 class TestWriteParquet:

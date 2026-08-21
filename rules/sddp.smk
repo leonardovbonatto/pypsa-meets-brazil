@@ -83,12 +83,18 @@ rule prepare_sddp_inputs:
     Assemble every real input the first SDDP policy needs (ADR-0005 stage
     1f) into Parquet files julia/sddp_first_policy.jl reads: monthly
     demand, hydro/thermal capacity, thermal cost, initial reservoir
-    storage, and correlated monthly inflow scenarios.
+    storage, PAR(1) parameters, and correlated monthly inflow shocks.
 
     Python, not Julia. Joins T0 data (already real) with the PAR(1) fit
     (PR-28/29) and reservoir capacity (PR-30) - see the module docstring
     in scripts/prepare_sddp_inputs.py for the full reasoning, including
     why monthly MWmed/MWmes/MW units are directly commensurable here.
+
+    Outputs `shocks` (raw correlated standardized shocks) and
+    `inflow_params` (mu/sigma/phi) instead of pre-computed inflow levels
+    since PR-38 - the AR(1) recursion and exp(mu+sigma*z) transform now
+    happen in julia/sddp_first_policy.jl, where a state variable can carry
+    the previous month's anomaly forward.
     """
     input:
         demand="resources/demand_t0.csv",
@@ -104,7 +110,8 @@ rule prepare_sddp_inputs:
         cost="resources/sddp_inputs/cost.parquet",
         reservoir_capacity="resources/sddp_inputs/reservoir_capacity.parquet",
         initial_storage="resources/sddp_inputs/initial_storage.parquet",
-        scenarios="resources/sddp_inputs/scenarios.parquet",
+        inflow_params="resources/sddp_inputs/inflow_params.parquet",
+        shocks="resources/sddp_inputs/shocks.parquet",
     params:
         n_scenarios=10,
         seed=0,
@@ -118,8 +125,10 @@ rule sddp_first_policy:
     """
     ADR-0005 stage 1f: train the first expectation-only SDDP policy on
     real Brazilian data - see julia/sddp_first_policy.jl's module
-    docstring and docs/handoffs/PR-31-*.md for scope and named
-    simplifications (KNOWN_LIMITATIONS in both files).
+    docstring and docs/handoffs/PR-31-*.md/PR-38-*.md for scope and named
+    simplifications (KNOWN_LIMITATIONS in both files). Since PR-38, the
+    policy carries real PAR(1) temporal persistence via a state-augmented
+    AR(1) inflow anomaly, not just i.i.d.-per-month draws.
     """
     input:
         "resources/sddp_inputs/demand.parquet",
@@ -127,7 +136,8 @@ rule sddp_first_policy:
         "resources/sddp_inputs/cost.parquet",
         "resources/sddp_inputs/reservoir_capacity.parquet",
         "resources/sddp_inputs/initial_storage.parquet",
-        "resources/sddp_inputs/scenarios.parquet",
+        "resources/sddp_inputs/inflow_params.parquet",
+        "resources/sddp_inputs/shocks.parquet",
     output:
         cuts="results/sddp_first_policy/cuts.parquet",
         summary="results/sddp_first_policy/summary.json",
@@ -154,7 +164,8 @@ rule sddp_cvar_policy:
         "resources/sddp_inputs/cost.parquet",
         "resources/sddp_inputs/reservoir_capacity.parquet",
         "resources/sddp_inputs/initial_storage.parquet",
-        "resources/sddp_inputs/scenarios.parquet",
+        "resources/sddp_inputs/inflow_params.parquet",
+        "resources/sddp_inputs/shocks.parquet",
     output:
         cuts="results/sddp_cvar_policy/cuts.parquet",
         summary="results/sddp_cvar_policy/summary.json",

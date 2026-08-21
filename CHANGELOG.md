@@ -471,6 +471,42 @@ code without touching this file, unless it carries the `no-changelog` label.
   of the 66 REE-pair correlations within 0.06 of the historical value
   (PR-37).
 - `docs/handoffs/PR-37-par1-ree-refit.md`.
+- **Temporal persistence wired into the SDDP policy** (`julia/sddp_first_policy.jl`,
+  `scripts/prepare_sddp_inputs.py`) - PR-31/33's own most-implicated gap:
+  inflow scenarios were i.i.d. per month, so the policy could never see a
+  drought coming from consecutive dry months. Now a state-augmented AR(1)
+  log-inflow anomaly (`z`) carries persistence month-to-month, using the
+  real fitted phi (PR-28/29). SDDP.jl's experimental `add_objective_state`
+  mechanism was investigated first and REJECTED - its own docs require the
+  price/objective state to never appear in a `@constraint`, and `inflow`
+  must (the storage balance). Verified instead, via a real standalone
+  Julia smoke test, that an ordinary `SDDP.State`'s incoming value is
+  queryable via `JuMP.fix_value` inside `parameterize`, letting the AR(1)
+  recursion and `exp(mu+sigma*z)` transform run in plain Julia (not a
+  nonlinear JuMP expression) and then `fix()` both `z.out` and the real
+  `inflow` variable. Two real bugs caught and fixed while verifying end to
+  end against real data, neither left as silent workarounds: (1) SDDP.jl's
+  pre-training `numerical_stability_report` probes `parameterize` without
+  the real state-fixing sequence, crashing on `fix_value` - fixed by
+  disabling that specific (purely informational) report, which doesn't
+  affect the separately-tracked per-iteration numeric-issue count; (2) the
+  AR(1) shock was missing its `sqrt(1-phi^2)` variance-normalizing scale
+  (present in the Python fit's own simulator but omitted here), which
+  first showed up as implausibly large cost/load-shed numbers before being
+  traced to the real cause and fixed, not accepted as a genuine result.
+  `prepare_sddp_inputs.py`'s `sample_month_scenarios` is renamed
+  `sample_month_shocks` and now emits raw correlated standardized shocks,
+  not pre-computed inflow levels. Trained and compared against real data:
+  expected annual cost and P90 load shed both roughly doubled versus the
+  i.i.d. baseline (PR-31/33) - plausible, since consecutive-dry-month
+  years are now representable for the first time, not fully confirmed
+  beyond direct verification. Expectation and CVaR are no longer
+  near-identical (resolving PR-33's own headline finding), but CVaR's P90
+  load shed came out HIGHER than expectation's - backwards from theory,
+  the same direction PR-32 found and PR-33 only partly resolved by raising
+  iterations; untested here whether more iterations closes it, named as a
+  real next step rather than chased in this PR (PR-38).
+- `docs/handoffs/PR-38-sddp-temporal-persistence.md`.
 
 ### Changed
 

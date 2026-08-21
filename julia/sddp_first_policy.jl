@@ -6,10 +6,15 @@
 # hydro-thermal model - reservoir storage bounded by real capacity
 # (PR-30), demand and hydro/thermal capacity/cost from T0 (already real),
 # inflow uncertainty from the real fitted PAR(1) model (PR-28/29),
-# correlated across subsystems within each month. See
+# correlated across subsystems within each month AND, since PR-38,
+# autocorrelated month-to-month via a state-augmented AR(1) log-inflow
+# anomaly (see build_model's `z` state and PR-38's own handoff for the
+# investigation that led here - SDDP.jl's experimental `add_objective_state`
+# was checked and rejected first, since its own docs require the state to
+# never appear in a `@constraint`, which inflow must). See
 # scripts/prepare_sddp_inputs.py's module docstring and
-# docs/handoffs/PR-31-*.md / PR-32-*.md for what is and is not yet real
-# here (known_limitations() at the bottom of this file).
+# docs/handoffs/PR-31-*.md / PR-32-*.md / PR-38-*.md for what is and is
+# not yet real here (known_limitations() at the bottom of this file).
 #
 # Run: julia --project=julia julia/sddp_first_policy.jl <inputs_dir> <output_dir> [risk_kind] [lambda] [alpha] [seed]
 #   risk_kind: "expectation" (default) or "cvar"
@@ -32,8 +37,10 @@ const LOAD_SHED_COST = 10_000.0  # matches scripts/build_network.py::LOAD_SHED_C
 
 function known_limitations(risk_kind::String)
     limitations = [
-        "Inflow scenarios are i.i.d. per month, not autocorrelated month-to-month " *
-        "within the policy - PAR(1)'s fitted phi (PR-28) is not yet wired into SDDP's state.",
+        "AR(1) temporal persistence (PR-38) starts every simulated year from " *
+        "z=0 for every subsystem at the root node - the unconditional mean " *
+        "log-inflow anomaly, not a real observed prior December. SDDP.jl's " *
+        "root node must be one deterministic starting point.",
         "12 monthly stages, one annual cycle - not an infinite-horizon cyclic policy graph.",
         "No inter-subsystem transmission in this reduced hydro-thermal subproblem - " *
         "real network coupling belongs in PyPSA/linopy once cuts are consumed there.",
@@ -49,6 +56,22 @@ function known_limitations(risk_kind::String)
         "rather than raising the cap indefinitely.",
         "100 Monte Carlo simulation realizations back every reported statistic - " *
         "still real sampling noise, especially for tail (P90) statistics.",
+        "PR-38's AR(1) state doubled the state-variable count (4 -> 8: z per " *
+        "subsystem alongside storage per subsystem) - a real, checked increase " *
+        "in mean/P90 load shed and cost versus PR-31/33's i.i.d.-inflow baseline " *
+        "(expected annual cost ~R\$500m here vs ~R\$263m there; P90 load shed " *
+        "~58,000-63,000 MW-months here vs ~30,090 there), plausible given " *
+        "consecutive-dry-month runs are now representable at all (physically " *
+        "real for a system where S cannot meet its own peak demand without " *
+        "transmission, itself outside this subproblem), not confirmed as fully " *
+        "correct beyond the direct Julia-level verification in PR-38's handoff. " *
+        "The now-larger state space also makes the SAME PR-33-named convergence " *
+        "concern more visible, not new: expectation and CVaR are no longer " *
+        "near-identical (PR-33's own headline finding) but CVaR's P90 load shed " *
+        "came out HIGHER than expectation's - backwards from theory, the same " *
+        "direction PR-32 found and PR-33 only partly resolved by raising " *
+        "iterations. Whether more iterations closes this gap (as it partly did " *
+        "then) is untested here - a real next step, not chased in this PR.",
     ]
     if risk_kind == "expectation"
         push!(
@@ -96,7 +119,8 @@ function load_inputs(inputs_dir::String)
     cost = read_parquet_df(joinpath(inputs_dir, "cost.parquet"))
     reservoir_capacity = read_parquet_df(joinpath(inputs_dir, "reservoir_capacity.parquet"))
     initial_storage = read_parquet_df(joinpath(inputs_dir, "initial_storage.parquet"))
-    scenarios = read_parquet_df(joinpath(inputs_dir, "scenarios.parquet"))
+    inflow_params = read_parquet_df(joinpath(inputs_dir, "inflow_params.parquet"))
+    shocks = read_parquet_df(joinpath(inputs_dir, "shocks.parquet"))
 
     hydro_cap = Dict(row.subsystem => row.hydro_mw for row in eachrow(capacity))
     thermal_cap = Dict(row.subsystem => row.thermal_mw for row in eachrow(capacity))
@@ -105,19 +129,27 @@ function load_inputs(inputs_dir::String)
     storage0 = Dict(row.subsystem => row.initial_storage_mwmes for row in eachrow(initial_storage))
     demand_by_month = Dict((row.month, row.subsystem) => row.demand_mw for row in eachrow(demand))
 
-    scenarios_by_month = Dict{Int,Vector{Dict{String,Float64}}}()
+    # (month, subsystem) -> (mu, sigma, phi) - the PAR(1) fit (PR-28/29),
+    # used inside build_model's parameterize callback to run the AR(1)
+    # recursion in plain Julia (not a JuMP expression - see module header).
+    inflow_param_by_month = Dict(
+        (row.month, row.subsystem) => (mu = row.mu, sigma = row.sigma, phi = row.phi) for
+        row in eachrow(inflow_params)
+    )
+
+    shocks_by_month = Dict{Int,Vector{Dict{String,Float64}}}()
     probs_by_month = Dict{Int,Vector{Float64}}()
     for month in 1:12
-        month_rows = filter(r -> r.month == month, scenarios)
+        month_rows = filter(r -> r.month == month, shocks)
         by_scenario = Dict{Int,Dict{String,Float64}}()
         prob_by_scenario = Dict{Int,Float64}()
         for row in eachrow(month_rows)
             d = get!(by_scenario, row.scenario, Dict{String,Float64}())
-            d[row.subsystem] = row.inflow_mwmed
+            d[row.subsystem] = row.shock
             prob_by_scenario[row.scenario] = row.probability
         end
         ids = sort(collect(keys(by_scenario)))
-        scenarios_by_month[month] = [by_scenario[i] for i in ids]
+        shocks_by_month[month] = [by_scenario[i] for i in ids]
         probs_by_month[month] = [prob_by_scenario[i] for i in ids]
     end
 
@@ -128,7 +160,8 @@ function load_inputs(inputs_dir::String)
         max_storage,
         storage0,
         demand_by_month,
-        scenarios_by_month,
+        inflow_param_by_month,
+        shocks_by_month,
         probs_by_month,
     )
 end
@@ -146,6 +179,15 @@ function build_model(inputs)
             SDDP.State,
             initial_value = inputs.storage0[s]
         )
+        # Standardized log-inflow anomaly (PR-38) - an ordinary SDDP.State,
+        # NOT SDDP.jl's experimental add_objective_state mechanism (checked
+        # and rejected: objective states cannot appear in a @constraint,
+        # and `inflow` must, via the storage balance below). z.out is
+        # computed entirely in plain Julia inside `parameterize` (below)
+        # and then fix()-ed - never a free JuMP decision variable - which
+        # is what lets a log-space AR(1) recursion (nonlinear if it were a
+        # JuMP constraint) coexist with an LP subproblem.
+        @variable(subproblem, z[s in SUBSYSTEMS], SDDP.State, initial_value = 0.0)
         @variable(subproblem, 0 <= hydro_generation[s in SUBSYSTEMS] <= inputs.hydro_cap[s])
         @variable(subproblem, 0 <= thermal_generation[s in SUBSYSTEMS] <= inputs.thermal_cap[s])
         @variable(subproblem, spill[s in SUBSYSTEMS] >= 0)
@@ -174,11 +216,25 @@ function build_model(inputs)
 
         SDDP.parameterize(
             subproblem,
-            inputs.scenarios_by_month[month],
+            inputs.shocks_by_month[month],
             inputs.probs_by_month[month],
         ) do omega
             for s in SUBSYSTEMS
-                JuMP.fix(inflow[s], omega[s])
+                par = inputs.inflow_param_by_month[(month, s)]
+                z_in = JuMP.fix_value(z[s].in)
+                # shock_sd keeps z's OWN unconditional variance at 1 despite
+                # phi varying by month - the same PAR(1) approximation
+                # scripts/fit_inflow_par1.py's simulate_par1_correlated
+                # already uses in Python (PR-28/29). Omitting it (a real
+                # bug caught while verifying this PR against real data,
+                # not assumed to be a genuine persistence effect) inflates
+                # z's stationary variance to 1/(1-phi^2) - for S's phi up
+                # to 0.81, nearly 3x too wide - and roughly doubled every
+                # downstream cost/load-shed statistic.
+                shock_sd = sqrt(max(1 - par.phi^2, 1e-6))
+                z_out = par.phi * z_in + omega[s] * shock_sd
+                JuMP.fix(z[s].out, z_out)
+                JuMP.fix(inflow[s], exp(par.mu + par.sigma * z_out))
             end
         end
     end
@@ -221,6 +277,18 @@ function main()
         print_level = 1,
         log_file = "/dev/null",
         risk_measure = risk_measure,
+        # SDDP.jl's pre-training numerical_stability_report probes
+        # `parameterize` WITHOUT going through the real state-fixing
+        # sequence that actual training/simulation branches use - a real,
+        # checked incompatibility (not assumed): `z[s].in`'s `fix_value`
+        # (PR-38's AR(1) state, see build_model) genuinely requires a
+        # concrete antecedent the generic probe never provides, unlike the
+        # coefficient-range analysis it's designed for, which doesn't need
+        # one. Disabling it loses only that static, purely informational
+        # report - the per-iteration numeric-issue count PR-33's own
+        # findings rely on is tracked separately, during real solves, and
+        # is unaffected.
+        run_numerical_stability_report = false,
     )
 
     risk_adjusted_bound = SDDP.calculate_bound(model; risk_measure = risk_measure)

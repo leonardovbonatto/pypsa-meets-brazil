@@ -11,17 +11,34 @@ correlated monthly inflow scenarios.
 `resources/costs_t0.csv` (T0), `resources/reservoir_ear_capacity.csv` and
 `_history.csv` (PR-30), `resources/inflow_par1_params.csv` and
 `_correlation.csv` (PR-28/29). Nothing here is fabricated; the one
-genuinely new judgement call is scenario sampling (below).
+genuinely new judgement call is shock sampling (below).
 
-**A real, named simplification**: inflow scenarios are drawn i.i.d. per
-month from each month's fitted marginal distribution, correlated ACROSS
-subsystems within a month (PR-29's matrix, via Cholesky) but NOT
-autocorrelated month-to-month WITHIN the policy. PR-28's fitted phi
-(temporal persistence) is real and validated, but wiring it into an SDDP
-policy graph needs state augmentation (carrying the previous month's
-standardized shock as an extra state variable) - a real, separately
-scoped follow-up, not attempted in this first policy. Named explicitly in
-KNOWN_LIMITATIONS, not silently dropped.
+**Temporal persistence (PR-38): this module emits SHOCKS, not inflow
+levels.** Earlier (PR-31-36), `sample_month_scenarios` drew i.i.d. inflow
+LEVELS directly (`exp(mu + sigma*shock)`) - the fitted phi went along for
+the ride in `par1_params.csv` but was never applied, so the SDDP policy
+saw no autocorrelation month-to-month (named explicitly in
+KNOWN_LIMITATIONS at the time). Wiring phi in needs a state variable that
+carries the previous month's standardized log-inflow anomaly forward - the
+AR(1) recursion `z_t = phi*z_{t-1} + shock_t` and the `exp(mu+sigma*z_t)`
+transform now both happen in Julia (`julia/sddp_first_policy.jl`), inside
+`SDDP.parameterize`, using a plain (non-experimental) `SDDP.State` for `z`
+- verified directly (a real Julia smoke test, not assumed) that a normal
+state's incoming value is queryable via `JuMP.fix_value` inside
+`parameterize`, letting `z.out` and the real `inflow` variable (which must
+enter the storage-balance CONSTRAINT, not just the objective) both be
+`fix()`-ed to plain-Julia-computed numbers with no nonlinear JuMP
+expression involved. SDDP.jl's own `add_objective_state` mechanism was
+investigated and REJECTED first: its own docs state the price/objective
+state "cannot appear in any @constraint" - inflow must, by definition, so
+that mechanism does not apply here (see docs/handoffs/PR-38-*.md for the
+full investigation).
+
+This module's job is now only to supply the CORRELATED STANDARDIZED SHOCKS
+per (month, scenario) - `sample_month_shocks`, Cholesky-correlated across
+subsystems exactly as before, just without the now-relocated `exp(mu +
+sigma*.)` transform - plus a straight pass-through of `par1_params.csv`
+(mu/sigma/phi) for Julia to apply the AR(1) recursion with.
 
 Units, checked not assumed (see docs/handoffs/PR-31-*.md for the full
 reasoning): at monthly granularity, ENA (MWmed), EAR (MWmes), and MW-based
@@ -41,10 +58,16 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 KNOWN_LIMITATIONS = [
-    "Inflow scenarios are i.i.d. per month, NOT autocorrelated month-to-month "
-    "within the policy - PAR(1)'s fitted phi (PR-28) is real and validated but "
-    "not yet wired into SDDP's state, which would need carrying the previous "
-    "month's standardized shock as an extra state variable per subsystem.",
+    "The AR(1) root node (start of the annual cycle) uses z=0 for every "
+    "subsystem - the unconditional mean anomaly, not a real observed "
+    "December's actual wet/dry state. SDDP.jl's root node must be a single "
+    "deterministic starting point; a deployment that starts from a known "
+    "real (e.g. severely dry) prior month would need a different, "
+    "scenario-conditioned root, not attempted here.",
+    "The discrete shock set per month (n_scenarios, currently 10) is drawn "
+    "once and reused across all years of the annual cycle - the same "
+    "finite-scenario discretization PR-31 already used for i.i.d. levels, "
+    "now applied to the raw shocks that feed the AR(1) recursion instead.",
     "12 monthly stages, one annual cycle - not the infinite-horizon cyclic "
     "policy graph SDDP.jl also supports and Brazil's real planning uses.",
     "No CVaR - expectation-only (ADR-0005 names this as this stage's explicit "
@@ -110,39 +133,38 @@ def initial_storage(reservoir_history: pd.DataFrame) -> pd.DataFrame:
     )
 
 
-def sample_month_scenarios(
-    params: pd.DataFrame,
+def sample_month_shocks(
     corr_matrix: pd.DataFrame,
     *,
     n_scenarios: int,
     rng: np.random.Generator,
 ) -> pd.DataFrame:
     """
-    (month, scenario, subsystem) -> a sampled inflow (MWmed), drawn i.i.d.
-    across months and scenarios but CORRELATED across subsystems within
-    each (month, scenario) draw - see module docstring for why not
-    autocorrelated across months too. Each scenario within a month is
-    equally likely (1/n_scenarios) - a real, named simplification;
-    unequal historically-weighted probabilities are a possible refinement,
-    not attempted here.
+    (month, scenario, subsystem) -> a standardized-normal SHOCK (mean 0,
+    unit variance before phi/sigma are applied), drawn i.i.d. across
+    months and scenarios but CORRELATED across subsystems within each
+    (month, scenario) draw via Cholesky decomposition of `corr_matrix` -
+    the same cross-subsystem correlation mechanism as before (PR-29), just
+    stopping short of the `exp(mu + sigma*.)` transform, which now happens
+    in Julia after the AR(1) recursion (see module docstring). Each
+    scenario within a month is equally likely (1/n_scenarios) - a real,
+    named simplification; unequal historically-weighted probabilities are
+    a possible refinement, not attempted here.
     """
     subsystems = list(corr_matrix.columns)
     cholesky_factor = np.linalg.cholesky(corr_matrix.loc[subsystems, subsystems].to_numpy())
 
     rows = []
     for month in range(1, 13):
-        month_params = params[params["month"] == month].set_index("subsystem")
         for scenario in range(n_scenarios):
             correlated_unit = cholesky_factor @ rng.normal(size=len(subsystems))
             for i, subsystem in enumerate(subsystems):
-                row = month_params.loc[subsystem]
-                inflow = float(np.exp(row["mu"] + row["sigma"] * correlated_unit[i]))
                 rows.append(
                     {
                         "month": month,
                         "scenario": scenario,
                         "subsystem": subsystem,
-                        "inflow_mwmed": inflow,
+                        "shock": float(correlated_unit[i]),
                         "probability": 1.0 / n_scenarios,
                     }
                 )
@@ -169,16 +191,15 @@ def main() -> None:
         index="subsystem_a", columns="subsystem_b", values="correlation"
     )
     rng = np.random.default_rng(int(snake.params.seed))
-    scenarios = sample_month_scenarios(
-        par1_params, corr_matrix, n_scenarios=int(snake.params.n_scenarios), rng=rng
-    )
+    shocks = sample_month_shocks(corr_matrix, n_scenarios=int(snake.params.n_scenarios), rng=rng)
 
     write_parquet(demand, Path(snake.output.demand))
     write_parquet(capacity, Path(snake.output.capacity))
     write_parquet(cost, Path(snake.output.cost))
     write_parquet(reservoir_capacity, Path(snake.output.reservoir_capacity))
     write_parquet(storage0, Path(snake.output.initial_storage))
-    write_parquet(scenarios, Path(snake.output.scenarios))
+    write_parquet(par1_params, Path(snake.output.inflow_params))
+    write_parquet(shocks, Path(snake.output.shocks))
 
 
 if __name__ == "__main__":
