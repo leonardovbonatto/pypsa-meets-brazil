@@ -646,6 +646,22 @@ code without touching this file, unless it carries the `no-changelog` label.
   unchanged**, resting on PR-40's independently measured all-zero cut
   coefficients (PR-43).
 - `docs/handoffs/PR-43-cvar-nested-risk-measure.md`.
+- **`docs/DIAGNOSTICS.md`** - a standing "bucket chase" checklist of
+  measurements to take before believing any claim about the SDDP model,
+  written for a future session with no memory of this one. Seven buckets
+  (reproducibility, training health, reading the cuts, units, input
+  reality, scenario fidelity, policy comparison), each check paired with a
+  copy-pasteable command, what a healthy result looks like, and which past
+  failure it would have caught. Motivated by the three cases in this epic
+  where a sound measurement shipped with a wrong explanation attached
+  (PR-38's persistence claim, PR-39's cut-accumulation claim, PR-43's CVaR
+  claim) - each settled cheaply, but only after expensive speculation.
+  Every command was executed while writing the file, which immediately
+  caught a stale claim in the draft: cut coefficients now saturate at 7.44,
+  not 10,000, and that number reconciles exactly as
+  `LOAD_SHED_COST x 744 h / MONEY_SCALE` - a compact physical check that
+  both the hours factor and the money scale are applied. Records current
+  known-good baselines for regression comparison (PR-44).
 
 ### Changed
 
