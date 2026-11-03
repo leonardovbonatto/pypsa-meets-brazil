@@ -133,11 +133,17 @@ PY
 ```
 
 - [ ] **Does water value differ across regimes?** At identical storage,
-      water must be worth at least as much in the dry regime as in the wet
-      one. Compare the *slope* of the cost-to-go, not its level: a constant
-      gap changes no dispatch, and lower inflows raise the level almost by
-      construction. PR-45's first version compared levels and passed; the
-      slope test fails on the same cuts.
+      water must be worth at least as much when a subsystem's OWN region is
+      dry as when it is wet, with the other regions held at normal (ADR-0010;
+      never "dry everywhere" vs "wet everywhere"). Compare the *slope* of the
+      cost-to-go, not its level: a constant gap changes no dispatch, and
+      lower inflows raise the level almost by construction. PR-45's first
+      version compared levels and passed; the slope test failed on the same
+      cuts.
+- [ ] **One threaded run cannot settle a close pass or fail.** Two CVaR
+      lambda=0.5 runs with identical cost (R$240.3bn) gave opposite verdicts:
+      N's value at the reference point jumped from 0.18 to 7.44 (PR-46).
+      Repeat the run, or train serially, before believing a verdict.
 
 ```bash
 pixi run -e dev snakemake -j1 results/sddp_first_policy/regime_check.json
@@ -147,8 +153,8 @@ cat logs/check_sddp_regimes/sddp_first_policy.log
       Healthy: `passed: true`, and a `grid_counts` with few `wet_above_dry`.
       Water value sitting exactly on thermal cost x hours (N: 237.04 x 744
       / 1e6 = 0.17636) is a plateau; differences there can be month length
-      rather than regime. **Currently failing on N alone at K=5** — see the
-      PR-45 handoff.
+      rather than regime. With regional regimes the expectation policy
+      passes (threaded, PR-46); serial confirmation pending.
 
 ## Bucket 3 — Are the units right?
 
@@ -242,8 +248,21 @@ are structurally invisible at fixture scale.
 
 ## Current known-good baselines
 
-Current rule settings, K=5, seed 0, 4000 iterations, as of PR-45. Compare costs
-across K only on the PAR(1) rows.
+Regional regimes (ADR-0010, 3 regions at K=3), seed 0, 4000 iterations, 12
+threads, as of PR-46. Threaded runs vary about 0.5% in cost; serial baselines
+replace these once recorded.
+
+| | expectation | CVaR (λ=0.5, α=0.1) |
+|---|---|---|
+| PAR(1) paths, mean cost | R$ 233.7 bn | R$ 240.3 bn (two runs) |
+| PAR(1) paths, mean load shed | 22,429 MW-months | 23,707 MW-months |
+| PAR(1) paths, P90 load shed | 46,042 | 46,025 |
+| cuts | 1,191,267 | 1,191,267 |
+| numeric issues | 7 | 25 and 20 |
+| peak memory | 6.6 GB | 6.2 GB |
+
+National K=5, PR-45 (serial). Compare costs across designs only on the PAR(1)
+rows.
 
 | | expectation | CVaR (λ=0.5, α=0.1) |
 |---|---|---|

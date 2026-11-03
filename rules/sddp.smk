@@ -39,10 +39,14 @@ SDDP_N_SIMULATIONS = 1000
 # graph has 12*K nodes, so raising this multiplies training cost and
 # spreads cuts more thinly - ADR-0009 names that as its main risk.
 #
-# 5 since PR-45 measured K=3 losing persistence badly (N month-to-month
-# correlation 0.48 vs PAR(1)'s 0.88; 0.57 at K=5). Training stayed cheap, at
-# about 15 minutes per policy at K=3.
-SDDP_MARKOV_STATES = 5
+# Since ADR-0010 K is PER REGION, and the policy sees the joint regime:
+# 3 regions at K=3 is 27 states and 324 nodes. PR-45 measured one national
+# regime flattening every subsystem's persistence towards ~0.6, even at K=7.
+SDDP_MARKOV_STATES = 3
+
+# ADR-0010. S runs opposite to the north (-0.25, -0.26), N and NE move
+# together (+0.48), and SE_CO dominates storage.
+SDDP_REGIONS = {"N_NE": ["N", "NE"], "SE_CO": ["SE_CO"], "S": ["S"]}
 
 
 rule sddp_smoke_test:
@@ -126,7 +130,9 @@ rule prepare_sddp_inputs:
 
     Outputs `transitions` and `scenarios` since PR-45 (ADR-0009): the
     regime is a node of the policy graph, so inflow levels are computed
-    here and julia/sddp_first_policy.jl only fixes them as constants.
+    here and julia/sddp_first_policy.jl only fixes them as constants. Since
+    ADR-0010 both come from a seeded simulation of the PAR(1), with one
+    regime per region.
     """
     input:
         demand="resources/demand_t0.csv",
@@ -148,7 +154,9 @@ rule prepare_sddp_inputs:
     params:
         n_scenarios=10,
         n_par1_paths=1000,
+        n_simulated_years=200000,
         n_markov_states=SDDP_MARKOV_STATES,
+        regions=SDDP_REGIONS,
         seed=0,
     log:
         "logs/prepare_sddp_inputs/run.log",
@@ -241,6 +249,9 @@ rule check_sddp_regimes:
         "results/{policy}/regime_check.json",
     wildcard_constraints:
         policy="sddp_first_policy|sddp_cvar_policy",
+    params:
+        regions=SDDP_REGIONS,
+        n_markov_states=SDDP_MARKOV_STATES,
     log:
         "logs/check_sddp_regimes/{policy}.log",
     script:

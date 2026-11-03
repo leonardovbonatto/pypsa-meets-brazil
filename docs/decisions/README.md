@@ -34,6 +34,7 @@ Do **not** write one for routine implementation choices with an obvious default.
 | [0007](ADR-0007-hydro-backcast-interim.md) | Hydro constrained by observed generation (interim backcast) | Accepted |
 | [0008](ADR-0008-ree-level-individualization.md) | REE-level individualization (SDDP epic, stage 2) | Accepted |
 | [0009](ADR-0009-persistence-aware-policy.md) | Making the SDDP policy persistence-aware (Markovian policy graph) | Accepted |
+| [0010](ADR-0010-regional-hydrological-regimes.md) | Regional hydrological regimes in the SDDP policy graph | Proposed |
 
 ## Template
 

@@ -24,10 +24,16 @@ linear, and one cut's coefficient at a kink says little about its surroundings.
 **Pass criterion, fixed before looking at any full-run result:** at the
 reference point (stage 6, 50% storage), dry >= wet in every subsystem and
 strictly in at least one. The stage x storage grid is reported, not gated.
+
+**Regions are judged independently (ADR-0010).** Each subsystem is compared
+between its OWN region dry and its own region wet, with the other regions held
+at their middle regime; the grid adds every combination of the other regions.
+No comparison ever moves all regions at once.
 """
 
 # NOTE: no `from __future__ import annotations` - see write_manifest.py.
 
+import itertools
 import json
 from pathlib import Path
 
@@ -96,46 +102,90 @@ def compare_regimes(dry: np.ndarray, wet: np.ndarray) -> dict:
     }
 
 
-def regime_report(cuts: pd.DataFrame, capacity_by_subsystem: dict) -> dict:
-    """The acceptance verdict at the reference point, plus the grid."""
+def joint_state(digits: tuple[int, ...], n_states: int) -> int:
+    """Per-region regimes (0 = dry) -> joint state, first region most
+    significant, matching prepare_sddp_inputs.regional_states."""
+    state = 0
+    for digit in digits:
+        state = state * n_states + digit
+    return state + 1
+
+
+def regional_report(
+    cuts: pd.DataFrame, capacity_by_subsystem: dict, *, regions: dict, n_states: int
+) -> dict:
+    """The acceptance verdict with each subsystem judged on its own region."""
+    if n_states < 2:
+        raise ValueError(f"need at least two regimes to compare, got n_states={n_states}")
     subsystems = sorted(capacity_by_subsystem)
     capacity = np.array([capacity_by_subsystem[s] for s in subsystems], dtype=float)
     nodes = parse_cuts(cuts, subsystems)
-    regimes = sorted({regime for _, regime in nodes})
-    if len(regimes) < 2:
-        raise ValueError(f"need at least two regimes to compare, found {regimes}")
-    dry_regime, wet_regime = regimes[0], regimes[-1]
+    names = list(regions)
+    middle = n_states // 2
+    wet = n_states - 1
 
-    reference = {}
-    for regime in regimes:
-        node = nodes[(REFERENCE_STAGE, regime)]
-        reference[regime] = water_values(*node, capacity, REFERENCE_FRACTION)
-    verdict = compare_regimes(reference[dry_regime], reference[wet_regime])
+    def own_region_pair(region: int, others: tuple[int, ...]) -> tuple[int, int]:
+        dry_digits = list(others)
+        dry_digits.insert(region, 0)
+        wet_digits = list(others)
+        wet_digits.insert(region, wet)
+        return joint_state(tuple(dry_digits), n_states), joint_state(tuple(wet_digits), n_states)
 
-    # Every comparison the cuts support, so that one good reference point
-    # cannot speak for the whole value function.
+    comparison = {}
+    reference_dry, reference_wet = [], []
+    for subsystem in subsystems:
+        region = next(i for i, r in enumerate(names) if subsystem in regions[r])
+        i = subsystems.index(subsystem)
+        dry_state, wet_state = own_region_pair(region, (middle,) * (len(names) - 1))
+        dry = water_values(*nodes[(REFERENCE_STAGE, dry_state)], capacity, REFERENCE_FRACTION)[i]
+        wet_value = water_values(
+            *nodes[(REFERENCE_STAGE, wet_state)], capacity, REFERENCE_FRACTION
+        )[i]
+        reference_dry.append(dry)
+        reference_wet.append(wet_value)
+        comparison[subsystem] = {
+            "region": names[region],
+            "dry_state": dry_state,
+            "wet_state": wet_state,
+            "dry": float(dry),
+            "wet": float(wet_value),
+            # Levels are reported only; they decide nothing (see module docstring).
+            "dry_cost_to_go": cost_to_go(
+                *nodes[(REFERENCE_STAGE, dry_state)], REFERENCE_FRACTION * capacity
+            ),
+            "wet_cost_to_go": cost_to_go(
+                *nodes[(REFERENCE_STAGE, wet_state)], REFERENCE_FRACTION * capacity
+            ),
+        }
+    verdict = compare_regimes(np.array(reference_dry), np.array(reference_wet))
+
     counts = {"dry_above_wet": 0, "tied": 0, "wet_above_dry": 0}
-    for stage in sorted({stage for stage, _ in nodes}):
-        for fraction in GRID_FRACTIONS:
-            dry = water_values(*nodes[(stage, dry_regime)], capacity, fraction)
-            wet = water_values(*nodes[(stage, wet_regime)], capacity, fraction)
-            gap = dry - wet
-            counts["dry_above_wet"] += int(np.sum(gap > TIE_TOLERANCE))
-            counts["wet_above_dry"] += int(np.sum(gap < -TIE_TOLERANCE))
-            counts["tied"] += int(np.sum(np.abs(gap) <= TIE_TOLERANCE))
+    for subsystem in subsystems:
+        region = next(i for i, r in enumerate(names) if subsystem in regions[r])
+        i = subsystems.index(subsystem)
+        for others in itertools.product(range(n_states), repeat=len(names) - 1):
+            dry_state, wet_state = own_region_pair(region, others)
+            for stage in sorted({stage for stage, _ in nodes}):
+                for fraction in GRID_FRACTIONS:
+                    gap = (
+                        water_values(*nodes[(stage, dry_state)], capacity, fraction)[i]
+                        - water_values(*nodes[(stage, wet_state)], capacity, fraction)[i]
+                    )
+                    if gap > TIE_TOLERANCE:
+                        counts["dry_above_wet"] += 1
+                    elif gap < -TIE_TOLERANCE:
+                        counts["wet_above_dry"] += 1
+                    else:
+                        counts["tied"] += 1
 
     return {
         "passed": all(verdict.values()),
         **verdict,
+        "comparison": "own region dry vs own region wet, other regions at the middle regime",
         "reference_stage": REFERENCE_STAGE,
         "reference_fraction": REFERENCE_FRACTION,
-        "subsystems": subsystems,
         "units": "millions of R$ per MWmes, as exported in cuts.parquet",
-        "water_value_by_regime": {str(r): reference[r].tolist() for r in regimes},
-        "cost_to_go_by_regime": {
-            str(r): cost_to_go(*nodes[(REFERENCE_STAGE, r)], REFERENCE_FRACTION * capacity)
-            for r in regimes
-        },
+        "by_subsystem": comparison,
         "grid_counts": counts,
     }
 
@@ -144,9 +194,11 @@ def main() -> None:
     snake = globals()["snakemake"]
 
     capacity = pd.read_parquet(snake.input.reservoir_capacity)
-    report = regime_report(
+    report = regional_report(
         pd.read_parquet(snake.input.cuts),
         dict(zip(capacity["subsystem"], capacity["ear_max_mwmes"], strict=True)),
+        regions=dict(snake.params.regions),
+        n_states=int(snake.params.n_markov_states),
     )
 
     text = json.dumps(report, indent=2)

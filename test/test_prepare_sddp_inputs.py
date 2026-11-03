@@ -111,9 +111,8 @@ class TestMarkovBins:
     def test_bins_recover_the_standard_normal(self):
         """The bins must partition a standard normal exactly: probabilities
         sum to 1, the probability-weighted mean is 0, and the law of total
-        variance recovers 1. If any of these drift, the regime decomposition
-        in sample_markov_scenarios is silently changing the marginal inflow
-        distribution."""
+        variance recovers 1. If any of these drift, regimes no longer
+        partition the anomaly and their shares stop being 1/K."""
         bins = prep.markov_bins(3)
 
         assert bins["probability"].sum() == pytest.approx(1.0)
@@ -136,136 +135,175 @@ class TestMarkovBins:
             prep.markov_bins(1)
 
 
-class TestSystemPhiByMonth:
-    def test_weights_by_inflow_so_the_larger_subsystem_dominates(self):
-        """A single national persistence must be dominated by the biggest
-        basin, not averaged evenly - SE_CO is roughly 4x the others."""
-        params = pd.DataFrame(
-            [
-                {"subsystem": "big", "month": 1, "mu": 10.0, "sigma": 1.0, "phi": 0.9},
-                {"subsystem": "small", "month": 1, "mu": 1.0, "sigma": 1.0, "phi": 0.1},
-            ]
-        )
-        phi = prep.system_phi_by_month(params)
+def _corr(rho: float) -> pd.DataFrame:
+    return pd.DataFrame([[1.0, rho], [rho, 1.0]], index=["A", "B"], columns=["A", "B"])
 
-        # An unweighted mean would be 0.5; weighting by exp(mu) puts the
-        # result essentially on the large subsystem's own phi.
-        assert phi.loc[1] == pytest.approx(0.9, abs=0.01)
+
+TWO_REGIONS = {"a": ["A"], "b": ["B"]}
+
+
+def _simulate(phi: float, rho: float = 0.3, n_paths: int = 20000, seed: int = 0):
+    params = _params(phi)
+    z = prep.simulate_par1_anomalies(
+        params, _corr(rho), n_paths=n_paths, rng=np.random.default_rng(seed)
+    )
+    states = prep.regional_states(z, params, _corr(rho), regions=TWO_REGIONS, n_states=3)
+    return params, z, states
+
+
+class TestSimulatePar1Anomalies:
+    def test_recovers_phi_and_correlation(self):
+        _, z, _ = _simulate(0.9, rho=0.5)
+
+        assert np.corrcoef(z[:, 5, 0], z[:, 6, 0])[0, 1] == pytest.approx(0.9, abs=0.01)
+        assert np.corrcoef(z[:, 6, 0], z[:, 6, 1])[0, 1] == pytest.approx(0.5, abs=0.02)
+        assert z[:, 6].std(axis=0) == pytest.approx([1.0, 1.0], abs=0.02)
+
+
+class TestRegionalStates:
+    def test_joint_states_are_ordered_dry_to_wet(self):
+        """State 1 must be dry in every region and the last state wet in every
+        region: the acceptance test compares exactly those two."""
+        _, z, states = _simulate(0.5)
+        month = 6
+
+        driest = z[states[:, month - 1] == 1, month - 1]
+        wettest = z[states[:, month - 1] == 9, month - 1]
+        assert (driest.max(axis=0) < 0).all()
+        assert (wettest.min(axis=0) > 0).all()
+
+    def test_each_region_has_equal_probability_bins(self):
+        _, _, states = _simulate(0.5)
+        first_region = (states[:, 5] - 1) // 3
+
+        shares = np.bincount(first_region) / len(first_region)
+        assert shares == pytest.approx([1 / 3] * 3, abs=0.02)
+
+    def test_regions_can_disagree(self):
+        """The point of ADR-0010: with negatively correlated regions, one dry
+        while the other is wet must be common, not a rarity."""
+        _, _, opposed = _simulate(0.5, rho=-0.5)
+        _, _, aligned = _simulate(0.5, rho=0.9)
+
+        def dry_wet_share(states):
+            return float(np.mean(states[:, 5] == 3))
+
+        assert dry_wet_share(opposed) > 3 * dry_wet_share(aligned)
+
+    def test_regions_must_cover_every_subsystem_once(self):
+        params, z, _ = _simulate(0.5, n_paths=10)
+        with pytest.raises(ValueError, match="exactly once"):
+            prep.regional_states(z, params, _corr(0.3), regions={"a": ["A"]}, n_states=3)
+
+
+class TestJointTransitions:
+    def test_every_row_sums_to_one(self):
+        _, _, states = _simulate(0.7)
+        tm = prep.joint_transitions(states, n_joint=9)
+
+        row_sums = tm.groupby(["stage", "from_state"])["probability"].sum()
+        assert np.allclose(row_sums.to_numpy(), 1.0)
+        assert set(tm.loc[tm["stage"] == 1, "from_state"]) == {0}
+
+    def test_high_phi_is_more_persistent_than_low_phi(self):
+        def stay_dry(phi):
+            _, _, states = _simulate(phi)
+            tm = prep.joint_transitions(states, n_joint=9)
+            row = tm[(tm["stage"] == 7) & (tm["from_state"] == 1) & (tm["to_state"] == 1)]
+            return float(row["probability"].iloc[0])
+
+        assert stay_dry(0.95) > stay_dry(0.05)
+
+    def test_zero_phi_gives_state_independent_transitions(self):
+        """No persistence: the next joint state does not depend on this one."""
+        _, _, states = _simulate(0.0, n_paths=60000)
+        tm = prep.joint_transitions(states, n_joint=9)
+        matrix = tm[tm["stage"] == 7].pivot(
+            index="from_state", columns="to_state", values="probability"
+        )
+
+        assert np.allclose(matrix.to_numpy(), matrix.mean(axis=0).to_numpy(), atol=0.03)
+
+    def test_an_unvisited_state_raises(self):
+        states = np.ones((5, 12), dtype=int)
+        with pytest.raises(ValueError, match="never visited"):
+            prep.joint_transitions(states, n_joint=2)
+
+
+class TestSampleRegionalScenarios:
+    def _scenarios(self, n_scenarios: int = 20):
+        params, z, states = _simulate(0.5)
+        return prep.sample_regional_scenarios(
+            z,
+            states,
+            params,
+            _corr(0.3),
+            n_joint=9,
+            n_scenarios=n_scenarios,
+            rng=np.random.default_rng(1),
+        )
+
+    def test_shape_and_probabilities(self):
+        sc = self._scenarios(n_scenarios=5)
+
+        assert len(sc) == 12 * 9 * 5 * 2
+        assert (sc["inflow_mwmed"] > 0).all()
+        for _node, group in sc.groupby(["month", "markov_state"]):
+            assert group["probability"].sum() == pytest.approx(2.0)
+
+    def test_dry_everywhere_is_drier_than_wet_everywhere(self):
+        """The claim, not the mechanism: regimes only help a policy if they
+        differ in inflow, in every subsystem."""
+        sc = self._scenarios()
+        means = sc.groupby(["markov_state", "subsystem"])["inflow_mwmed"].mean().unstack()
+
+        assert (means.loc[1] < means.loc[9]).all()
+
+    def test_a_too_small_pool_raises(self):
+        params, z, states = _simulate(0.5, n_paths=30)
+        with pytest.raises(ValueError, match="simulated months"):
+            prep.sample_regional_scenarios(
+                z,
+                states,
+                params,
+                _corr(0.3),
+                n_joint=9,
+                n_scenarios=50,
+                rng=np.random.default_rng(0),
+            )
 
 
 class TestSamplePar1Paths:
-    @staticmethod
-    def _paths(phi: float, n_states: int = 3, n_paths: int = 4000) -> pd.DataFrame:
-        params = pd.DataFrame(
-            [
-                {"subsystem": s, "month": m, "mu": 5.0, "sigma": 0.5, "phi": phi}
-                for s in ("A", "B")
-                for m in range(1, 13)
-            ]
-        )
-        corr = pd.DataFrame([[1.0, 0.3], [0.3, 1.0]], index=["A", "B"], columns=["A", "B"])
+    def _paths(self, phi: float, regions=None, n_states: int = 3) -> pd.DataFrame:
         return prep.sample_par1_paths(
-            params, corr, n_states=n_states, n_paths=n_paths, rng=np.random.default_rng(0)
+            _params(phi),
+            _corr(0.3),
+            regions=regions or TWO_REGIONS,
+            n_states=n_states,
+            n_paths=4000,
+            rng=np.random.default_rng(0),
         )
 
     def test_keeps_the_fitted_persistence(self):
-        """The reason these paths exist: within-regime Markov scenarios lose
+        """The reason these paths exist: training scenarios lose
         persistence, and this test set must not."""
         wide = self._paths(0.9).query("subsystem == 'A'")
         anomaly = np.log(wide.pivot(index="path", columns="month", values="inflow_mwmed"))
 
         assert anomaly[6].corr(anomaly[7]) == pytest.approx(0.9, abs=0.02)
 
-    def test_regimes_are_equally_likely_and_ordered(self):
-        paths = self._paths(0.5).query("month == 6")
+    def test_inflows_do_not_depend_on_the_regime_design(self):
+        """Every design must be scored on the same world."""
+        regional = self._paths(0.5)
+        national = self._paths(0.5, regions={"all": ["A", "B"]}, n_states=5)
 
-        shares = paths["markov_state"].value_counts(normalize=True)
-        assert shares.to_numpy() == pytest.approx([1 / 3] * 3, abs=0.03)
-        means = paths.groupby("markov_state")["inflow_mwmed"].mean()
-        assert means.is_monotonic_increasing
+        assert np.array_equal(regional["inflow_mwmed"], national["inflow_mwmed"])
+        assert not np.array_equal(regional["markov_state"], national["markov_state"])
 
     def test_one_regime_per_path_and_month(self):
-        """The regime is national, so subsystems in a month must agree."""
         counts = self._paths(0.5).groupby(["path", "month"])["markov_state"].nunique()
 
         assert counts.max() == 1
-
-
-class TestTransitionMatrices:
-    def test_every_row_sums_to_one(self):
-        tm = prep.transition_matrices(_params(0.7), n_states=3)
-        row_sums = tm.groupby(["stage", "from_state"])["probability"].sum()
-        assert np.allclose(row_sums.to_numpy(), 1.0)
-
-    def test_root_stage_is_uniform_and_comes_from_state_zero(self):
-        tm = prep.transition_matrices(_params(0.7), n_states=3)
-        root = tm[tm["stage"] == 1]
-        assert set(root["from_state"]) == {0}
-        assert np.allclose(root["probability"].to_numpy(), 1 / 3)
-
-    def test_high_phi_is_more_persistent_than_low_phi(self):
-        """The whole point of the transition matrix: stronger fitted
-        persistence must make staying in the same regime more likely."""
-        sticky = prep.transition_matrices(_params(0.95), n_states=3)
-        loose = prep.transition_matrices(_params(0.05), n_states=3)
-
-        def stay_dry(tm):
-            row = tm[(tm["stage"] == 2) & (tm["from_state"] == 1) & (tm["to_state"] == 1)]
-            return float(row["probability"].iloc[0])
-
-        assert stay_dry(sticky) > stay_dry(loose)
-
-    def test_zero_phi_gives_regime_independent_transitions(self):
-        """With no persistence the next regime must be independent of the
-        current one - every entry 1/K. A known-answer check on the
-        numerical integration."""
-        tm = prep.transition_matrices(_params(0.0), n_states=3)
-        stage2 = tm[tm["stage"] == 2]
-        assert np.allclose(stage2["probability"].to_numpy(), 1 / 3, atol=1e-6)
-
-
-class TestSampleMarkovScenarios:
-    def test_shape_and_regime_coverage(self):
-        corr = pd.DataFrame([[1.0, 0.3], [0.3, 1.0]], index=["A", "B"], columns=["A", "B"])
-        sc = prep.sample_markov_scenarios(
-            _params(0.5), corr, n_states=3, n_scenarios=5, rng=np.random.default_rng(0)
-        )
-
-        assert len(sc) == 12 * 3 * 5 * 2
-        assert set(sc["markov_state"]) == {1, 2, 3}
-        assert (sc["inflow_mwmed"] > 0).all()
-
-    def test_dry_regime_really_is_drier(self):
-        """The claim, not the mechanism: a policy can only benefit from the
-        regime if the regimes actually differ in inflow."""
-        corr = pd.DataFrame([[1.0, 0.3], [0.3, 1.0]], index=["A", "B"], columns=["A", "B"])
-        sc = prep.sample_markov_scenarios(
-            _params(0.5), corr, n_states=3, n_scenarios=200, rng=np.random.default_rng(1)
-        )
-        by_state = sc.groupby("markov_state")["inflow_mwmed"].mean()
-
-        assert by_state.is_monotonic_increasing
-
-    def test_preserves_cross_subsystem_correlation_within_a_regime(self):
-        corr = pd.DataFrame([[1.0, 0.8], [0.8, 1.0]], index=["A", "B"], columns=["A", "B"])
-        sc = prep.sample_markov_scenarios(
-            _params(0.0), corr, n_states=3, n_scenarios=3000, rng=np.random.default_rng(2)
-        )
-        within = sc[sc["markov_state"] == 2]
-        wide = within.pivot_table(
-            index=["month", "scenario"], columns="subsystem", values="inflow_mwmed"
-        )
-        recovered = np.log(wide["A"]).corr(np.log(wide["B"]))
-
-        assert recovered == pytest.approx(0.8, abs=0.05)
-
-    def test_probabilities_sum_to_one_within_each_node(self):
-        corr = pd.DataFrame([[1.0]], index=["A"], columns=["A"])
-        sc = prep.sample_markov_scenarios(
-            _params(0.5), corr, n_states=3, n_scenarios=4, rng=np.random.default_rng(3)
-        )
-        for _node, group in sc.groupby(["month", "markov_state"]):
-            assert group["probability"].sum() == pytest.approx(1.0)
 
 
 class TestWriteParquet:

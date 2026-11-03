@@ -678,6 +678,25 @@ code without touching this file, unless it carries the `no-changelog` label.
   fails on N alone; on the PAR(1) paths cost barely moves from K=3 (R$238.9bn
   vs R$239.9bn, expectation) (PR-45).
 - `docs/handoffs/PR-45-markovian-policy-graph.md`.
+- **Regional hydrological regimes (ADR-0010, proposed).** N+NE, SE_CO and S
+  each have their own dry/normal/wet regime and the policy sees the joint
+  one: 27 regimes, 324 nodes. Transitions and scenarios are counted and
+  sampled from 200,000 simulated years of the fitted PAR(1), replacing
+  ADR-0009's analytic national matrices. The acceptance test now judges each
+  subsystem against its own region with the others at normal; no comparison
+  moves all regions at once. Threaded results on the same 1000 PAR(1) paths:
+  R$233.7bn expectation (national K=5: R$238.9bn), passing the test. Regional
+  regimes do NOT restore persistence (N 0.46 vs 0.88 fitted): the loss comes
+  from drawing months independently within a regime. `SDDP.Threaded()` is
+  used only when Julia starts with `--threads`; it is 9x faster and not
+  exactly repeatable, so rules stay serial (PR-46).
+- **CVaR lambda sweep on the regional model**: lambda=0 reproduces the
+  expectation policy exactly (serial check); cost rises with lambda (R$233.5bn
+  to R$256.6bn at 0.75). One lambda=0.5 run failed the acceptance test and a
+  rerun with identical cost passed: CVaR's water value at one reference point
+  jumps between N's thermal plateau (0.18) and the load-shed cap (7.44) from
+  run to run, so a single threaded run cannot decide pass or fail (PR-46).
+- `docs/handoffs/PR-46-regional-regimes.md`.
 - **`docs/DIAGNOSTICS.md`** - a standing "bucket chase" checklist of
   measurements to take before believing any claim about the SDDP model,
   written for a future session with no memory of this one. Seven buckets

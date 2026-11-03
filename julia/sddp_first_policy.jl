@@ -100,9 +100,9 @@ const MONEY_SCALE = 1.0e6
 
 function known_limitations(risk_kind::String)
     limitations = [
-        "The Markov root distribution is uniform across regimes (1/K), the " *
-        "unconditional distribution of the equal-probability bins - not a real " *
-        "observed prior December. A deployment starting from a known dry regime " *
+        "The Markov root distribution is the simulated stationary distribution " *
+        "of joint regimes - not a real observed prior December. A deployment " *
+        "starting from a known dry regime " *
         "would set the root distribution accordingly; SDDP.jl supports that " *
         "directly, it is simply not what an annual-cycle model represents.",
         "12 monthly stages, one annual cycle - not an infinite-horizon cyclic policy graph.",
@@ -138,18 +138,12 @@ function known_limitations(risk_kind::String)
         "move) - real sampling noise remains, but PR-38's " *
         "CVaR-P90-above-expectation finding was directly confirmed NOT to be an " *
         "artifact of the old 100-realization sample.",
-        "The hydrological regime is discretized into K states (default 3, " *
-        "dry/normal/wet) sharing ONE system-wide chain across all four " *
-        "subsystems. Both are real approximations: within a regime the anomaly " *
-        "is a single conditional mean plus spatially-correlated variation, so " *
-        "the dry edge of 'normal' is not distinguished from its wet edge; and a " *
-        "scenario where N is dry while S is wet is representable only through " *
-        "within-regime variation, not as its own regime. Per-subsystem chains " *
-        "would mean K^4 joint states (81 at K=3) - rejected in ADR-0009 against " *
-        "a model with a measured convergence history.",
-        "The system-wide phi is an inflow-weighted mean of the per-subsystem " *
-        "fitted values, so real spread in persistence (N 0.80-0.98, S 0.34-0.81, " *
-        "PR-28) collapses to one national figure per month.",
+        "Each region (N+NE, SE_CO, S) has its own regime in K states, and the " *
+        "policy sees the joint regime (ADR-0010). N and NE share one, and " *
+        "within a regime months are drawn independently, so some PAR(1) " *
+        "persistence is lost; the PAR(1) out-of-sample figures measure the cost.",
+        "Transitions and scenarios come from a finite seeded simulation of the " *
+        "PAR(1) and carry sampling noise.",
         "CVaR-trained policies score WORSE than expectation-trained ones on " *
         "plain annual-total statistics, monotonically in lambda (PR-43 sweep, " *
         "P90 load shed: 56,812 at lambda=0 rising to 63,947 at lambda=1). This " *
@@ -450,8 +444,14 @@ function main()
     # a guessed count. iteration_limit stays as a generous safety cap, not
     # the primary stopping mechanism, in case the simulation-based rule
     # never triggers for a pathological input.
+    # Threaded training only when Julia is started with `--threads N`. It is
+    # experimental upstream and may not repeat exactly from one seed, so the
+    # Snakemake rules stay serial (ADR-0010).
+    parallel_scheme = Threads.nthreads() > 1 ? SDDP.Threaded() : SDDP.Serial()
+    println("Parallel scheme: ", parallel_scheme, " with ", Threads.nthreads(), " threads")
     SDDP.train(
         model;
+        parallel_scheme = parallel_scheme,
         stopping_rules = [SDDP.SimulationStoppingRule()],
         iteration_limit = iteration_limit,
         print_level = 1,
