@@ -153,8 +153,10 @@ cat logs/check_sddp_regimes/sddp_first_policy.log
       Healthy: `passed: true`, and a `grid_counts` with few `wet_above_dry`.
       Water value sitting exactly on thermal cost x hours (N: 237.04 x 744
       / 1e6 = 0.17636) is a plateau; differences there can be month length
-      rather than regime. With regional regimes the expectation policy
-      passes (threaded, PR-46); serial confirmation pending.
+      rather than regime. Serially (PR-46), regional expectation FAILS on
+      SE_CO alone (dry 0.00087 < wet 0.00106) and CVaR lambda=0.5 passes;
+      threaded runs had said the opposite. SE_CO's value at the reference
+      point is about R$1/MWh, so its sign there is close to noise.
 
 ## Bucket 3 — Are the units right?
 
@@ -248,18 +250,21 @@ are structurally invisible at fixture scale.
 
 ## Current known-good baselines
 
-Regional regimes (ADR-0010, 3 regions at K=3), seed 0, 4000 iterations, 12
-threads, as of PR-46. Threaded runs vary about 0.5% in cost; serial baselines
-replace these once recorded.
+Regional regimes (ADR-0010, 3 regions at K=3), seed 0, 4000 iterations,
+serial through Snakemake, as of PR-46. Threaded runs land within about 0.5% of
+these costs but can flip acceptance verdicts.
 
 | | expectation | CVaR (λ=0.5, α=0.1) |
 |---|---|---|
-| PAR(1) paths, mean cost | R$ 233.7 bn | R$ 240.3 bn (two runs) |
-| PAR(1) paths, mean load shed | 22,429 MW-months | 23,707 MW-months |
-| PAR(1) paths, P90 load shed | 46,042 | 46,025 |
-| cuts | 1,191,267 | 1,191,267 |
-| numeric issues | 7 | 25 and 20 |
-| peak memory | 6.6 GB | 6.2 GB |
+| in-sample mean cost | R$ 207.6 bn | R$ 217.1 bn |
+| PAR(1) paths, mean cost | R$ 233.8 bn | R$ 240.5 bn |
+| PAR(1) paths, mean load shed | 22,438 MW-months | 23,749 MW-months |
+| PAR(1) paths, P90 load shed | 46,129 | 46,042 |
+| acceptance test | fail (SE_CO) | pass |
+| grid: wet above dry, of 1,188 | 164 | 97 |
+| cuts | 1,188,000 | 1,188,000 |
+| numeric issues | 3 | 11 |
+| training time | 2 h 31 | 2 h 36 |
 
 National K=5, PR-45 (serial). Compare costs across designs only on the PAR(1)
 rows.

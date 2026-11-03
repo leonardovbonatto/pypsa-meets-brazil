@@ -44,6 +44,26 @@ Grid: 146 of 1,188 comparisons backwards, so the pass at the reference point
 is not clean across the year. The N and NE gaps are small; S carries the
 signal.
 
+## Serial results reverse both verdicts
+
+Serial, 4000 iterations, through Snakemake (2026-11-03):
+
+| | cost on PAR(1) paths | test | backwards grid points |
+|---|---|---|---|
+| expectation | R$233.8bn | **fail** on SE_CO | 164 |
+| CVaR λ=0.5 | R$240.5bn | pass | 97 |
+
+Expectation, own region dry / wet: N 0.182 / 0.176, NE 0.509 / 0.477,
+S 6.46 / 4.69, SE_CO **0.00087 / 0.00106**. CVaR: N 0.184 / 0.177,
+NE 0.521 / 0.504, S 7.30 / 7.02, SE_CO 0.0148 / 0.0118.
+
+Costs reproduce the threaded runs within 0.1%; the verdicts do not. SE_CO's
+water value at the reference point is about R$1/MWh in both regimes, so the
+sign of its gap there is close to noise. The pass criterion was fixed in
+advance and is not relaxed here: whether the test should skip a subsystem
+whose water is nearly free, or move to a lower storage fraction, is the
+project owner's decision, and it belongs in ADR-0010 before acceptance.
+
 ## What did not work
 
 - **Regions do not restore persistence.** N's month-to-month correlation in
@@ -80,8 +100,8 @@ load-shed cap. Cost is stable; single-point slopes are not.
 
 ## Next PR needs
 
-- **Serial runs** of both rules to replace the threaded baselines (started
-  2026-11-03, about 2 h each).
+- **A decision on SE_CO in the acceptance test** (see "Serial results"),
+  before ADR-0010 is accepted.
 - **Within-regime persistence** is the open modelling gap; ideas include more
   bins per region or conditioning draws on the previous month.
 - Then step 4 of the plan: net load, transmission and curtailment in SDDP.

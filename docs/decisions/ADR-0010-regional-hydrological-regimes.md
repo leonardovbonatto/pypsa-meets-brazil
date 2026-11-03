@@ -108,8 +108,13 @@ Recorded here because they change what this ADR can claim.
   256.6 at 0.75; the acceptance test passes at 0, 0.25 and 0.75. An earlier draft
   compared "dry everywhere" with "wet everywhere", which is the national
   question again; it failed on NE and is not the test this ADR adopts.
+- **Serial runs reverse both verdicts.** Expectation R$233.8bn, **fails on
+  SE_CO** (0.00087 dry / 0.00106 wet, others pass); CVaR lambda=0.5
+  R$240.5bn, passes. SE_CO's water value there is about R$1/MWh, so its sign
+  is close to noise. Open before acceptance: whether the test should exempt a
+  subsystem whose water is nearly free, or use a lower storage fraction.
 - **Cost of the larger graph**: 1.19 million cuts, 6.6 GB peak RAM, about 13
-  minutes with 12 threads against an estimated 2 hours serial.
+  minutes with 12 threads against 2 h 31 serial.
 
 ## Alternatives considered
 

@@ -718,6 +718,12 @@ code without touching this file, unless it carries the `no-changelog` label.
   where a sound measurement shipped with a wrong explanation attached
   (PR-38's persistence claim, PR-39's cut-accumulation claim, PR-43's CVaR
   claim) - each settled cheaply, but only after expensive speculation.
+- **Serial baselines for regional regimes.** Serial 4000-iteration runs
+  reverse the threaded verdicts: expectation (R$233.8bn on PAR(1) paths)
+  fails the acceptance test on SE_CO alone, whose water value is about
+  R$1/MWh in both regimes; CVaR lambda=0.5 (R$240.5bn) passes. The earlier
+  "passing the test" for expectation was a threaded result. Whether the test
+  should exempt nearly free water is left to ADR-0010's acceptance (PR-46).
   Every command was executed while writing the file, which immediately
   caught a stale claim in the draft: cut coefficients now saturate at 7.44,
   not 10,000, and that number reconciles exactly as
