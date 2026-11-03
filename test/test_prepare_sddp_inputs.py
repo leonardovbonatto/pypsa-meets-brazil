@@ -97,52 +97,175 @@ class TestInitialStorage:
         assert storage0.set_index("subsystem")["initial_storage_mwmes"]["S"] == pytest.approx(250.0)
 
 
-class TestSampleMonthShocks:
-    def test_shape(self):
-        corr_matrix = pd.DataFrame([[1.0, 0.3], [0.3, 1.0]], index=["A", "B"], columns=["A", "B"])
+def _params(phi: float, subsystems=("A", "B")) -> pd.DataFrame:
+    return pd.DataFrame(
+        [
+            {"subsystem": s, "month": m, "mu": 5.0, "sigma": 1.0, "phi": phi}
+            for s in subsystems
+            for m in range(1, 13)
+        ]
+    )
 
-        shocks = prep.sample_month_shocks(corr_matrix, n_scenarios=5, rng=np.random.default_rng(0))
 
-        assert len(shocks) == 12 * 5 * 2
-        assert set(shocks["subsystem"]) == {"A", "B"}
-        assert set(shocks["month"]) == set(range(1, 13))
+class TestMarkovBins:
+    def test_bins_recover_the_standard_normal(self):
+        """The bins must partition a standard normal exactly: probabilities
+        sum to 1, the probability-weighted mean is 0, and the law of total
+        variance recovers 1. If any of these drift, the regime decomposition
+        in sample_markov_scenarios is silently changing the marginal inflow
+        distribution."""
+        bins = prep.markov_bins(3)
 
-    def test_probabilities_sum_to_one_within_each_month(self):
-        corr_matrix = pd.DataFrame([[1.0]], index=["A"], columns=["A"])
+        assert bins["probability"].sum() == pytest.approx(1.0)
+        assert (bins["probability"] * bins["mean"]).sum() == pytest.approx(0.0, abs=1e-12)
+        total_variance = (bins["probability"] * (bins["sd"] ** 2 + bins["mean"] ** 2)).sum()
+        assert total_variance == pytest.approx(1.0, abs=1e-9)
 
-        shocks = prep.sample_month_shocks(corr_matrix, n_scenarios=4, rng=np.random.default_rng(1))
+    def test_states_are_ordered_dry_to_wet(self):
+        bins = prep.markov_bins(5)
+        assert list(bins["markov_state"]) == [1, 2, 3, 4, 5]
+        assert bins["mean"].is_monotonic_increasing
 
-        for _month, group in shocks.groupby("month"):
-            assert group["probability"].sum() == pytest.approx(1.0)
+    def test_outer_bins_are_unbounded(self):
+        bins = prep.markov_bins(3)
+        assert np.isneginf(bins["lower"].iloc[0])
+        assert np.isposinf(bins["upper"].iloc[-1])
 
-    def test_induces_the_target_cross_subsystem_correlation(self):
-        """Correctness check, not just shape: draws with a strong target
-        correlation should show it when re-estimated from a large sample -
-        the same discipline as PR-28/29's known-parameter recovery tests."""
-        corr_matrix = pd.DataFrame([[1.0, 0.8], [0.8, 1.0]], index=["A", "B"], columns=["A", "B"])
+    def test_rejects_a_degenerate_state_count(self):
+        with pytest.raises(ValueError, match="at least 2"):
+            prep.markov_bins(1)
 
-        shocks = prep.sample_month_shocks(
-            corr_matrix, n_scenarios=2000, rng=np.random.default_rng(2)
+
+class TestSystemPhiByMonth:
+    def test_weights_by_inflow_so_the_larger_subsystem_dominates(self):
+        """A single national persistence must be dominated by the biggest
+        basin, not averaged evenly - SE_CO is roughly 4x the others."""
+        params = pd.DataFrame(
+            [
+                {"subsystem": "big", "month": 1, "mu": 10.0, "sigma": 1.0, "phi": 0.9},
+                {"subsystem": "small", "month": 1, "mu": 1.0, "sigma": 1.0, "phi": 0.1},
+            ]
         )
-        wide = shocks.pivot_table(index=["month", "scenario"], columns="subsystem", values="shock")
-        recovered = wide["A"].corr(wide["B"])
+        phi = prep.system_phi_by_month(params)
+
+        # An unweighted mean would be 0.5; weighting by exp(mu) puts the
+        # result essentially on the large subsystem's own phi.
+        assert phi.loc[1] == pytest.approx(0.9, abs=0.01)
+
+
+class TestSamplePar1Paths:
+    @staticmethod
+    def _paths(phi: float, n_states: int = 3, n_paths: int = 4000) -> pd.DataFrame:
+        params = pd.DataFrame(
+            [
+                {"subsystem": s, "month": m, "mu": 5.0, "sigma": 0.5, "phi": phi}
+                for s in ("A", "B")
+                for m in range(1, 13)
+            ]
+        )
+        corr = pd.DataFrame([[1.0, 0.3], [0.3, 1.0]], index=["A", "B"], columns=["A", "B"])
+        return prep.sample_par1_paths(
+            params, corr, n_states=n_states, n_paths=n_paths, rng=np.random.default_rng(0)
+        )
+
+    def test_keeps_the_fitted_persistence(self):
+        """The reason these paths exist: within-regime Markov scenarios lose
+        persistence, and this test set must not."""
+        wide = self._paths(0.9).query("subsystem == 'A'")
+        anomaly = np.log(wide.pivot(index="path", columns="month", values="inflow_mwmed"))
+
+        assert anomaly[6].corr(anomaly[7]) == pytest.approx(0.9, abs=0.02)
+
+    def test_regimes_are_equally_likely_and_ordered(self):
+        paths = self._paths(0.5).query("month == 6")
+
+        shares = paths["markov_state"].value_counts(normalize=True)
+        assert shares.to_numpy() == pytest.approx([1 / 3] * 3, abs=0.03)
+        means = paths.groupby("markov_state")["inflow_mwmed"].mean()
+        assert means.is_monotonic_increasing
+
+    def test_one_regime_per_path_and_month(self):
+        """The regime is national, so subsystems in a month must agree."""
+        counts = self._paths(0.5).groupby(["path", "month"])["markov_state"].nunique()
+
+        assert counts.max() == 1
+
+
+class TestTransitionMatrices:
+    def test_every_row_sums_to_one(self):
+        tm = prep.transition_matrices(_params(0.7), n_states=3)
+        row_sums = tm.groupby(["stage", "from_state"])["probability"].sum()
+        assert np.allclose(row_sums.to_numpy(), 1.0)
+
+    def test_root_stage_is_uniform_and_comes_from_state_zero(self):
+        tm = prep.transition_matrices(_params(0.7), n_states=3)
+        root = tm[tm["stage"] == 1]
+        assert set(root["from_state"]) == {0}
+        assert np.allclose(root["probability"].to_numpy(), 1 / 3)
+
+    def test_high_phi_is_more_persistent_than_low_phi(self):
+        """The whole point of the transition matrix: stronger fitted
+        persistence must make staying in the same regime more likely."""
+        sticky = prep.transition_matrices(_params(0.95), n_states=3)
+        loose = prep.transition_matrices(_params(0.05), n_states=3)
+
+        def stay_dry(tm):
+            row = tm[(tm["stage"] == 2) & (tm["from_state"] == 1) & (tm["to_state"] == 1)]
+            return float(row["probability"].iloc[0])
+
+        assert stay_dry(sticky) > stay_dry(loose)
+
+    def test_zero_phi_gives_regime_independent_transitions(self):
+        """With no persistence the next regime must be independent of the
+        current one - every entry 1/K. A known-answer check on the
+        numerical integration."""
+        tm = prep.transition_matrices(_params(0.0), n_states=3)
+        stage2 = tm[tm["stage"] == 2]
+        assert np.allclose(stage2["probability"].to_numpy(), 1 / 3, atol=1e-6)
+
+
+class TestSampleMarkovScenarios:
+    def test_shape_and_regime_coverage(self):
+        corr = pd.DataFrame([[1.0, 0.3], [0.3, 1.0]], index=["A", "B"], columns=["A", "B"])
+        sc = prep.sample_markov_scenarios(
+            _params(0.5), corr, n_states=3, n_scenarios=5, rng=np.random.default_rng(0)
+        )
+
+        assert len(sc) == 12 * 3 * 5 * 2
+        assert set(sc["markov_state"]) == {1, 2, 3}
+        assert (sc["inflow_mwmed"] > 0).all()
+
+    def test_dry_regime_really_is_drier(self):
+        """The claim, not the mechanism: a policy can only benefit from the
+        regime if the regimes actually differ in inflow."""
+        corr = pd.DataFrame([[1.0, 0.3], [0.3, 1.0]], index=["A", "B"], columns=["A", "B"])
+        sc = prep.sample_markov_scenarios(
+            _params(0.5), corr, n_states=3, n_scenarios=200, rng=np.random.default_rng(1)
+        )
+        by_state = sc.groupby("markov_state")["inflow_mwmed"].mean()
+
+        assert by_state.is_monotonic_increasing
+
+    def test_preserves_cross_subsystem_correlation_within_a_regime(self):
+        corr = pd.DataFrame([[1.0, 0.8], [0.8, 1.0]], index=["A", "B"], columns=["A", "B"])
+        sc = prep.sample_markov_scenarios(
+            _params(0.0), corr, n_states=3, n_scenarios=3000, rng=np.random.default_rng(2)
+        )
+        within = sc[sc["markov_state"] == 2]
+        wide = within.pivot_table(
+            index=["month", "scenario"], columns="subsystem", values="inflow_mwmed"
+        )
+        recovered = np.log(wide["A"]).corr(np.log(wide["B"]))
 
         assert recovered == pytest.approx(0.8, abs=0.05)
 
-    def test_shocks_are_standardized_not_transformed(self):
-        """Real semantic change (PR-38): this function used to return
-        exp(mu + sigma*shock) inflow LEVELS; now it returns the raw shock
-        itself, since the exp() transform moved into Julia after the AR(1)
-        recursion. A single-subsystem draw's shocks should look like
-        standard normal samples, not like log-normal inflow levels."""
-        corr_matrix = pd.DataFrame([[1.0]], index=["A"], columns=["A"])
-
-        shocks = prep.sample_month_shocks(
-            corr_matrix, n_scenarios=500, rng=np.random.default_rng(3)
+    def test_probabilities_sum_to_one_within_each_node(self):
+        corr = pd.DataFrame([[1.0]], index=["A"], columns=["A"])
+        sc = prep.sample_markov_scenarios(
+            _params(0.5), corr, n_states=3, n_scenarios=4, rng=np.random.default_rng(3)
         )
-        assert shocks["shock"].mean() == pytest.approx(0.0, abs=0.1)
-        assert shocks["shock"].std() == pytest.approx(1.0, abs=0.1)
-        assert (shocks["shock"] < 0).any()
+        for _node, group in sc.groupby(["month", "markov_state"]):
+            assert group["probability"].sum() == pytest.approx(1.0)
 
 
 class TestWriteParquet:

@@ -243,6 +243,23 @@ Full national OpenDSS is not a project, it's a career. BDGD covers every distrib
 
 **Suggested first three moves:** Phase 0 → Phase 1 → Phase 3. Getting the hydro *physics* right early matters more than getting the network wide, because every downstream tier depends on hydro, and hydro is where Brazil differs most from the European models PyPSA was built around.
 
+### Source integration plan (added 2026-11-02)
+
+Aimed at the Phase 7 gate: T0, SDDP, cuts in PyPSA, backtest. Starts once ADR-0009's acceptance test is resolved (see `docs/handoffs/PR-45-markovian-policy-graph.md`).
+
+| Step | Work | Source |
+|---|---|---|
+| 1 | Connect CMO Semanal and CMO Semi-Horário | [ONS Dados Abertos](https://dados.ons.org.br/) |
+| 2 | Local read-only loader for `interc` and `minterc004`, pinned to one commit, with an ADR | [EPE base G+T](https://www.epe.gov.br/pt/areas-de-atuacao/energia-eletrica/estudos-integrados-de-geracao-e-transmissao/base-de-dados-integrada-de-geracao-e-transmissao), [repo](https://github.com/EPE-GOV-BR/BaseDadosGT) |
+| 3 | Compare EPE against our interchange limits, thermal and hydro totals, and inflows | EPE, ONS |
+| 4 | Give SDDP net load and transmission limits, with an ADR; add curtailment back to generation for renewable availability | ONS, EPE as cross-check |
+| 5 | Load the cuts into PyPSA, with an ADR | Own cuts |
+| 6 | Backtest 2024 against EAR and CMO, checking prices in high-curtailment months | ONS |
+
+After the gate: the nodal network from `dbus`, `dcirc` and `dtrans` (ADR-0003); inflows from 1931; ONS availability and TEIF data if the backtest calls for them. [awesome-ONS](https://github.com/ONSBR/awesome-ONS) has nothing to integrate directly; its [DadosAbertos](https://github.com/ONSBR/DadosAbertos) notebooks are a reference only.
+
+**EPE data stays local for now.** The repository has no licence file and EPE's CC BY 4.0 notice does not explicitly cover the database. Until that is confirmed, raw files, parsed outputs and samples stay out of git, CI uses synthetic fixtures, and only code plus provenance (repo URL and commit SHA) are committed. Published inputs come from ONS-derived figures.
+
 ---
 
 ## 9. Risks

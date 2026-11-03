@@ -14,7 +14,7 @@ measurement was shipped with a *wrong explanation attached*:
 
 | PR | The measurement (sound) | The explanation (wrong) | What it actually was |
 |---|---|---|---|
-| 38 | AR(1) recursion computes and the state carries | "the policy is persistence-aware" | policy blind — every cut coefficient on `z` exactly 0 (PR-40) |
+| 38 | AR(1) recursion computes and the state carries | "the policy is persistence-aware" | policy blind — every cut coefficient on `z` exactly 0 (PR-40); fixed by ADR-0009 in PR-45 |
 | 39 | training crashes at iteration 2277 / 1569 | "the LP degrades as cuts accumulate" | objective *magnitude*; scaling removed the ceiling (PR-42) |
 | 32/33/39/40 | CVaR scores worse on tail statistics | "backwards from theory" (convergence, then persistence) | nested risk measure — the comparison metric was wrong (PR-43) |
 
@@ -84,6 +84,16 @@ grep -E "^ +[0-9]+ +[0-9]" logs/sddp_first_policy/run.log | tail -5
       `model_infeasible_node_*.cuts.json`, `subproblem_*.mof.json` and
       `SDDP.log`. These are **not** gitignored (`reuse lint` catches them
       at commit). Run experimental Julia from a scratch cwd, or clean up.
+- [ ] **A killed Snakemake leaves a directory lock.** The next run fails
+      with `LockException`; clear it with `snakemake --unlock`. Note the
+      failure is easy to miss — appending a cleanup command
+      (`... ; rm -f ...`) after the run **masks the exit code as 0**, and
+      stale results from the previous run look plausible. Never append
+      cleanup to a command whose exit status matters.
+- [ ] **Cut count should equal `iterations x (stages - 1) x K`.** The
+      terminal stage carries no cost-to-go and therefore no cuts. A count
+      matching `iterations x stages x K` would mean something unexpected is
+      being written.
 
 ## Bucket 2 — Is the policy what you think it is? (read the cuts)
 
@@ -104,7 +114,10 @@ grep -E "^ +[0-9]+ +[0-9]" logs/sddp_first_policy/run.log | tail -5
 - [ ] **A state that only enters via `JuMP.fix_value` in `parameterize`
       is not in the LP** and will always have zero duals. If a quantity is
       supposed to inform the policy, it must appear in a `@constraint` or
-      the objective.
+      the objective. (This was PR-38's `z`, removed in PR-45.)
+- [ ] **For the Markovian formulation (ADR-0009), the regime is a NODE, not
+      a state column** — so Bucket 2's zero-coefficient check does not apply
+      to it. The equivalent claim-level test is below.
 
 ```bash
 python3 - <<'PY'
@@ -119,10 +132,23 @@ print('intercepts:', df['intercept'].min(), '->', df['intercept'].max())
 PY
 ```
 
-- [ ] **For any regime/Markov formulation (ADR-0009): does the value
-      function differ across regimes?** At identical storage, water must
-      be worth more in the dry state than the wet one. "The transition
-      matrix is wired up" is *not* this check.
+- [ ] **Does water value differ across regimes?** At identical storage,
+      water must be worth at least as much in the dry regime as in the wet
+      one. Compare the *slope* of the cost-to-go, not its level: a constant
+      gap changes no dispatch, and lower inflows raise the level almost by
+      construction. PR-45's first version compared levels and passed; the
+      slope test fails on the same cuts.
+
+```bash
+pixi run -e dev snakemake -j1 results/sddp_first_policy/regime_check.json
+cat logs/check_sddp_regimes/sddp_first_policy.log
+```
+
+      Healthy: `passed: true`, and a `grid_counts` with few `wet_above_dry`.
+      Water value sitting exactly on thermal cost x hours (N: 237.04 x 744
+      / 1e6 = 0.17636) is a plateau; differences there can be month length
+      rather than regime. **Currently failing on N alone at K=5** — see the
+      PR-45 handoff.
 
 ## Bucket 3 — Are the units right?
 
@@ -180,8 +206,13 @@ are structurally invisible at fixture scale.
 - [ ] **AR shock variance.** A log-space AR(1) needs `sqrt(1 - phi^2)`
       scaling or `z`'s stationary variance inflates to `1/(1-phi^2)` —
       omitting it roughly doubled every downstream statistic (PR-38).
-- [ ] **Root-node assumption.** Every simulated year currently starts from
-      `z = 0` (unconditional mean), not a real observed prior December.
+- [ ] **Regime scenarios must keep PAR(1)'s persistence, not just its
+      means.** Compare month-to-month log correlation and annual inflow
+      spread against a PAR(1) simulation of the same parameters. At K=3, N
+      gives 0.48 vs 0.88 and annual sd 20,794 vs 31,036 (PR-45), so droughts
+      are milder than the fit.
+- [ ] **Root-node assumption.** Every simulated year starts from a uniform
+      draw across regimes, not a real observed prior December.
 
 ## Bucket 6 — Comparing two policies
 
@@ -211,8 +242,36 @@ are structurally invisible at fixture scale.
 
 ## Current known-good baselines
 
-Regenerate and compare when something looks off. Seed 0, 4000 iterations,
-1000 simulations, as of PR-43.
+Current rule settings, K=5, seed 0, 4000 iterations, as of PR-45. Compare costs
+across K only on the PAR(1) rows.
+
+| | expectation | CVaR (λ=0.5, α=0.1) |
+|---|---|---|
+| in-sample mean cost | R$ 225.2 bn | R$ 238.4 bn |
+| PAR(1) paths, mean cost | R$ 238.9 bn | R$ 249.0 bn |
+| PAR(1) paths, mean load shed | 22,966 MW-months | 24,782 MW-months |
+| PAR(1) paths, P90 load shed | 46,530 | 46,851 |
+| cuts | 220,000 | 220,000 |
+| numeric issues | 1 | 34 |
+
+The same at K=3 (seed 0, 4000 iterations, 1000 simulations), PR-45's first
+full run. These reproduce the model, but they are
+**not** a known-good policy: ADR-0009's acceptance test fails on them, and the
+regime scenarios have milder droughts than PR-43's, so do not compare the two
+tables as an improvement.
+
+| | expectation | CVaR (λ=0.5, α=0.1) |
+|---|---|---|
+| simulated mean cost | R$ 213,402,633,724 | R$ 225,649,810,589 |
+| risk-adjusted bound | R$ 206,588,973,290 | R$ 533,775,062,498 |
+| mean load shed | 19,922 MW-months | 22,114 MW-months |
+| P50 load shed | 15,932 | 18,091 |
+| P90 load shed | 46,919 | 47,080 |
+| cuts | 132,000 | 132,000 |
+| numeric issues | 2 | 4 |
+| training time | 934 s | 850 s |
+
+PR-43's figures, before the Markovian graph (blind policy, PAR(1) scenarios):
 
 | | expectation | CVaR (λ=0.5, α=0.1) |
 |---|---|---|
@@ -224,8 +283,8 @@ Regenerate and compare when something looks off. Seed 0, 4000 iterations,
 | cuts | 44,000 | 44,000 |
 | numeric issues | 0 | 2 |
 
-λ sweep (1500 iterations, 2000 simulations — a *different* setting, do not
-mix with the table above):
+λ sweep from PR-43 (1500 iterations, 2000 simulations — a *different* setting,
+do not mix with the tables above):
 
 | λ | mean shed | P90 shed | cost |
 |---|---|---|---|
@@ -235,7 +294,9 @@ mix with the table above):
 | 0.75 | 40,644 | 57,776 | R$ 359.9 bn |
 | 1.00 | 45,872 | 63,947 | R$ 395.2 bn |
 
-Cut structure, from the 4000-iteration expectation run (44,000 cuts):
+Cut structure, from PR-43's 4000-iteration expectation run (44,000 cuts). In
+PR-45 the `z` rows no longer exist and storage coefficients top out at 7.44
+(NE, N), 7.33 (S) and 7.31 (SE_CO):
 
 | state | max abs coefficient | nonzero |
 |---|---|---|
@@ -259,10 +320,8 @@ The all-zero `z` row is the known persistence-blindness ADR-0009 addresses
 
 ## Open items this checklist does not yet cover
 
-- No automated regression test asserts the cut-sensitivity check in
-  Bucket 2. It would have caught PR-38 on day one and costs almost
-  nothing — worth adding alongside ADR-0009's implementation, where it is
-  already named as the acceptance test.
+- Bucket 5's persistence check for regime scenarios is still a manual
+  measurement, not an automated test.
 - Whether PRIMER Sec 4.4's `(1-λ)E + λCVaR` intends a nested or
   end-of-horizon measure is unresolved, and matters for any eventual
   comparison against official ONS CMO figures.

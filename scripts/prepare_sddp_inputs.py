@@ -13,43 +13,40 @@ correlated monthly inflow scenarios.
 `_correlation.csv` (PR-28/29). Nothing here is fabricated; the one
 genuinely new judgement call is shock sampling (below).
 
-**Temporal persistence (PR-38, corrected by PR-40): this module emits
-SHOCKS, not inflow levels.**
+**Temporal persistence reaches the policy through a MARKOV STATE
+(ADR-0009), not through an augmented continuous state.**
 
-PR-40 correction, read this before trusting anything below: the AR(1)
-recursion described here does make the sampled SCENARIOS autocorrelated
-(real and working), but it does NOT make the SDDP policy aware of that
-autocorrelation. `z` never enters the Julia model's LP - it is read with
-`fix_value`, used in plain-Julia arithmetic, and fixed back as a constant -
-so its dual is identically zero and every exported cut coefficient on it is
-exactly 0.0 (measured across all 22,000 cuts). The policy is
-persistence-blind; fixing that needs a different formulation and its own
-ADR. See docs/handoffs/PR-40-*.md.
- Earlier (PR-31-36), `sample_month_scenarios` drew i.i.d. inflow
-LEVELS directly (`exp(mu + sigma*shock)`) - the fitted phi went along for
-the ride in `par1_params.csv` but was never applied, so the SDDP policy
-saw no autocorrelation month-to-month (named explicitly in
-KNOWN_LIMITATIONS at the time). Wiring phi in needs a state variable that
-carries the previous month's standardized log-inflow anomaly forward - the
-AR(1) recursion `z_t = phi*z_{t-1} + shock_t` and the `exp(mu+sigma*z_t)`
-transform now both happen in Julia (`julia/sddp_first_policy.jl`), inside
-`SDDP.parameterize`, using a plain (non-experimental) `SDDP.State` for `z`
-- verified directly (a real Julia smoke test, not assumed) that a normal
-state's incoming value is queryable via `JuMP.fix_value` inside
-`parameterize`, letting `z.out` and the real `inflow` variable (which must
-enter the storage-balance CONSTRAINT, not just the objective) both be
-`fix()`-ed to plain-Julia-computed numbers with no nonlinear JuMP
-expression involved. SDDP.jl's own `add_objective_state` mechanism was
-investigated and REJECTED first: its own docs state the price/objective
-state "cannot appear in any @constraint" - inflow must, by definition, so
-that mechanism does not apply here (see docs/handoffs/PR-38-*.md for the
-full investigation).
+History worth knowing before reading the code. PR-38 tried carrying the
+standardized log-inflow anomaly `z` as an ordinary `SDDP.State`, running
+the AR(1) recursion in plain Julia inside `parameterize`. PR-40 measured
+that this leaves the POLICY blind: because `exp(mu + sigma*z)` is
+nonlinear, `z` could never appear in a `@constraint`, so the LP never saw
+it, its dual was identically zero, and **every exported cut coefficient on
+`z` was exactly 0.0**. Persistent scenarios, persistence-blind policy.
+SDDP.jl's `add_objective_state` does not rescue this either - its own docs
+forbid the state appearing in a constraint, and inflow must.
 
-This module's job is now only to supply the CORRELATED STANDARDIZED SHOCKS
-per (month, scenario) - `sample_month_shocks`, Cholesky-correlated across
-subsystems exactly as before, just without the now-relocated `exp(mu +
-sigma*.)` transform - plus a straight pass-through of `par1_params.csv`
-(mu/sigma/phi) for Julia to apply the AR(1) recursion with.
+ADR-0009's fix, implemented here: discretise the hydrological regime into
+a small number of **Markov states** (dry / normal / wet) and let SDDP.jl
+maintain a separate value function per state. The regime is then something
+the policy genuinely sees, because the value function is indexed by it.
+
+This module therefore emits two things instead of shocks-plus-parameters:
+
+1. `transition_matrices` - one per stage, derived ANALYTICALLY from
+   PR-28/29's already-fitted `phi_m`. No new estimation: given
+   `z_t = phi_m*z_{t-1} + eps`, the probability of moving between
+   quantile bins of the standard normal follows directly.
+2. `scenarios` - inflow levels per (month, markov_state, scenario,
+   subsystem). Within a regime, cross-subsystem spatial correlation is
+   preserved exactly as before via Cholesky (PR-29).
+
+One SHARED, system-wide regime is used rather than one per subsystem:
+four independent chains would mean `K^4` joint states (81 at K=3) against
+a model with a measured convergence ceiling. The system-wide `phi_m` is an
+inflow-weighted mean of the per-subsystem values, weighted by each
+subsystem's own lognormal mean inflow so that SE_CO (roughly four times
+the others) dominates the national regime as it does in reality.
 
 Units, checked not assumed (see docs/handoffs/PR-31-*.md for the full
 reasoning): at monthly granularity, ENA (MWmed), EAR (MWmes), and MW-based
@@ -60,25 +57,42 @@ conversion.
 
 # NOTE: no `from __future__ import annotations` - see write_manifest.py.
 
+import math
 import sys
 from pathlib import Path
+from statistics import NormalDist
 
 import numpy as np
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+# scipy is present in this environment only transitively (via pypsa) and is
+# not a declared dependency of this project, so the normal CDF is built from
+# the standard library instead of importing it.
+_ERF = np.vectorize(math.erf)
+_SQRT2 = math.sqrt(2.0)
+
 KNOWN_LIMITATIONS = [
-    "The AR(1) root node (start of the annual cycle) uses z=0 for every "
-    "subsystem - the unconditional mean anomaly, not a real observed "
-    "December's actual wet/dry state. SDDP.jl's root node must be a single "
-    "deterministic starting point; a deployment that starts from a known "
-    "real (e.g. severely dry) prior month would need a different, "
-    "scenario-conditioned root, not attempted here.",
-    "The discrete shock set per month (n_scenarios, currently 10) is drawn "
-    "once and reused across all years of the annual cycle - the same "
-    "finite-scenario discretization PR-31 already used for i.i.d. levels, "
-    "now applied to the raw shocks that feed the AR(1) recursion instead.",
+    "The Markov root distribution is uniform across regimes (1/K each), the "
+    "unconditional distribution of the standardized anomaly by construction "
+    "of the equal-probability bins - not a real observed prior December. A "
+    "deployment starting from a known dry regime would set the root "
+    "distribution accordingly; SDDP.jl supports that directly, it is simply "
+    "not what this annual-cycle model represents.",
+    "The hydrological regime is discretized into K states (5 in rules/sddp.smk). "
+    "Discretization is a real approximation and a coarse one: within a "
+    "regime the anomaly is treated as a single conditional mean plus "
+    "spatially-correlated variation, so a month at the dry edge of 'normal' "
+    "and one at the wet edge are not distinguished.",
+    "ONE system-wide regime is shared by all four subsystems, rather than a "
+    "per-subsystem chain, to avoid K^4 joint states. Cross-subsystem "
+    "correlation is preserved within a regime (PR-29's Cholesky), but a "
+    "scenario where N is dry while S is wet is representable only through "
+    "that within-regime variation, not as a distinct regime.",
+    "The system-wide phi is an inflow-weighted mean of the per-subsystem "
+    "fitted values. Real subsystem persistence varies widely (N 0.80-0.98, "
+    "S 0.34-0.81, PR-28) and a single national figure cannot capture that.",
     "12 monthly stages, one annual cycle - not the infinite-horizon cyclic "
     "policy graph SDDP.jl also supports and Brazil's real planning uses.",
     "No CVaR - expectation-only (ADR-0005 names this as this stage's explicit "
@@ -144,39 +158,251 @@ def initial_storage(reservoir_history: pd.DataFrame) -> pd.DataFrame:
     )
 
 
-def sample_month_shocks(
+def _norm_cdf(x):
+    """Standard normal CDF, built from stdlib `math.erf` - see the note at
+    the import block for why not scipy."""
+    return 0.5 * (1.0 + _ERF(np.asarray(x, dtype=float) / _SQRT2))
+
+
+def _norm_pdf(x):
+    x = np.asarray(x, dtype=float)
+    return np.exp(-0.5 * x**2) / math.sqrt(2.0 * math.pi)
+
+
+def markov_bins(n_states: int) -> pd.DataFrame:
+    """
+    Equal-probability quantile bins of the standard normal, one per
+    hydrological regime (state 1 = driest).
+
+    `z` is standard normal unconditionally by construction of PR-28/29's
+    standardization, so equal-probability bins need no data - they follow
+    from the distribution itself. Returns each bin's edges, its conditional
+    mean, and its conditional standard deviation:
+
+        E[Z | a<Z<b]   = (pdf(a) - pdf(b)) / p
+        Var[Z | a<Z<b] = 1 + (a*pdf(a) - b*pdf(b)) / p - mean^2
+
+    with p = 1/n_states and the infinite tails contributing 0 to both
+    `pdf(+-inf)` and `x*pdf(x)`.
+    """
+    if n_states < 2:
+        raise ValueError(f"n_states must be at least 2, got {n_states}")
+
+    standard_normal = NormalDist()
+    inner = [standard_normal.inv_cdf(k / n_states) for k in range(1, n_states)]
+    lower = [-np.inf, *inner]
+    upper = [*inner, np.inf]
+    p = 1.0 / n_states
+
+    rows = []
+    for state, (a, b) in enumerate(zip(lower, upper, strict=True), start=1):
+        pdf_a = 0.0 if np.isneginf(a) else float(_norm_pdf(a))
+        pdf_b = 0.0 if np.isposinf(b) else float(_norm_pdf(b))
+        a_pdf_a = 0.0 if np.isneginf(a) else a * pdf_a
+        b_pdf_b = 0.0 if np.isposinf(b) else b * pdf_b
+
+        mean = (pdf_a - pdf_b) / p
+        variance = 1.0 + (a_pdf_a - b_pdf_b) / p - mean**2
+        rows.append(
+            {
+                "markov_state": state,
+                "lower": a,
+                "upper": b,
+                "probability": p,
+                "mean": mean,
+                "sd": math.sqrt(max(variance, 0.0)),
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+def system_phi_by_month(params: pd.DataFrame) -> pd.Series:
+    """
+    month -> ONE national persistence coefficient, an inflow-weighted mean
+    of the per-subsystem fitted `phi_m`.
+
+    Weighted by each subsystem's own lognormal mean inflow
+    `exp(mu + sigma^2/2)` so that SE_CO - roughly four times the others -
+    dominates the national regime as it does in reality. An unweighted mean
+    would let the smallest subsystem move the national persistence as much
+    as the largest.
+    """
+    work = params.assign(weight=np.exp(params["mu"] + 0.5 * params["sigma"] ** 2))
+    weighted = work.groupby("month").apply(
+        lambda g: np.average(g["phi"], weights=g["weight"]), include_groups=False
+    )
+    return weighted.rename("phi")
+
+
+def transition_matrices(params: pd.DataFrame, *, n_states: int) -> pd.DataFrame:
+    """
+    (stage, from_state, to_state) -> transition probability, derived
+    ANALYTICALLY from the fitted `phi_m` rather than estimated afresh.
+
+    Given `z_t = phi_m * z_{t-1} + eps` with `eps ~ N(0, 1 - phi_m^2)`, and
+    `z_{t-1}` distributed as a standard normal truncated to bin `i`:
+
+        P(j | i) = (1/p) * integral over bin_i of
+                   pdf(x) * [Phi((b_j - phi*x)/s) - Phi((a_j - phi*x)/s)] dx
+
+    integrated numerically over a fine grid (infinite edges clipped at
+    +-6 standard deviations, beyond which the standard normal carries
+    ~1e-9 of its mass).
+
+    `stage == 1` carries the ROOT distribution and uses `from_state = 0`:
+    SDDP.jl requires the first transition matrix to be 1 x n_states. It is
+    uniform, the unconditional distribution of the equal-probability bins.
+    """
+    bins = markov_bins(n_states)
+    phi_by_month = system_phi_by_month(params)
+    lower = bins["lower"].to_numpy()
+    upper = bins["upper"].to_numpy()
+    p = 1.0 / n_states
+
+    rows = [
+        {"stage": 1, "from_state": 0, "to_state": int(state), "probability": p}
+        for state in bins["markov_state"]
+    ]
+
+    for stage in range(2, 13):
+        # The transition INTO this stage is governed by the persistence of
+        # the month being entered, matching how phi_m was fitted (this
+        # month's anomaly regressed on the preceding month's).
+        phi = float(np.clip(phi_by_month.loc[stage], -0.99, 0.99))
+        shock_sd = math.sqrt(max(1.0 - phi**2, 1e-12))
+
+        for i in range(n_states):
+            a_i = max(lower[i], -6.0)
+            b_i = min(upper[i], 6.0)
+            grid = np.linspace(a_i, b_i, 2001)
+            density = _norm_pdf(grid)
+
+            probabilities = []
+            for j in range(n_states):
+                hi = _norm_cdf((min(upper[j], 6.0) - phi * grid) / shock_sd)
+                lo = _norm_cdf((max(lower[j], -6.0) - phi * grid) / shock_sd)
+                probabilities.append(float(np.trapezoid(density * (hi - lo), grid) / p))
+
+            # Renormalize: the +-6 clipping and the quadrature both leave a
+            # small residual, and SDDP.jl requires each row to sum to 1.
+            total = sum(probabilities)
+            for j, prob in enumerate(probabilities):
+                rows.append(
+                    {
+                        "stage": stage,
+                        "from_state": i + 1,
+                        "to_state": j + 1,
+                        "probability": prob / total,
+                    }
+                )
+
+    return pd.DataFrame(rows)
+
+
+def sample_markov_scenarios(
+    params: pd.DataFrame,
     corr_matrix: pd.DataFrame,
     *,
+    n_states: int,
     n_scenarios: int,
     rng: np.random.Generator,
 ) -> pd.DataFrame:
     """
-    (month, scenario, subsystem) -> a standardized-normal SHOCK (mean 0,
-    unit variance before phi/sigma are applied), drawn i.i.d. across
-    months and scenarios but CORRELATED across subsystems within each
-    (month, scenario) draw via Cholesky decomposition of `corr_matrix` -
-    the same cross-subsystem correlation mechanism as before (PR-29), just
-    stopping short of the `exp(mu + sigma*.)` transform, which now happens
-    in Julia after the AR(1) recursion (see module docstring). Each
-    scenario within a month is equally likely (1/n_scenarios) - a real,
-    named simplification; unequal historically-weighted probabilities are
-    a possible refinement, not attempted here.
+    (month, markov_state, scenario, subsystem) -> inflow in MWmed.
+
+    The anomaly is decomposed into a regime level plus within-regime
+    variation:
+
+        z_s = regime_mean + regime_sd * u_s
+
+    where `regime_mean`/`regime_sd` are the conditional moments of the bin
+    (shared by all subsystems - this is the national regime) and `u_s` is a
+    Cholesky-correlated standard normal draw preserving PR-29's real
+    cross-subsystem correlation. Constructed this way, `z_s` recovers its
+    unconditional N(0,1) distribution when averaged over regimes, so the
+    marginal inflow distribution is unchanged from PR-31's - only its
+    conditioning on an observable regime is new.
     """
     subsystems = list(corr_matrix.columns)
     cholesky_factor = np.linalg.cholesky(corr_matrix.loc[subsystems, subsystems].to_numpy())
+    bins = markov_bins(n_states).set_index("markov_state")
 
     rows = []
     for month in range(1, 13):
-        for scenario in range(n_scenarios):
-            correlated_unit = cholesky_factor @ rng.normal(size=len(subsystems))
+        month_params = params[params["month"] == month].set_index("subsystem")
+        for state in bins.index:
+            regime_mean = float(bins.loc[state, "mean"])
+            regime_sd = float(bins.loc[state, "sd"])
+            for scenario in range(n_scenarios):
+                correlated_unit = cholesky_factor @ rng.normal(size=len(subsystems))
+                for i, subsystem in enumerate(subsystems):
+                    row = month_params.loc[subsystem]
+                    z = regime_mean + regime_sd * correlated_unit[i]
+                    rows.append(
+                        {
+                            "month": month,
+                            "markov_state": int(state),
+                            "scenario": scenario,
+                            "subsystem": subsystem,
+                            "inflow_mwmed": float(np.exp(row["mu"] + row["sigma"] * z)),
+                            "probability": 1.0 / n_scenarios,
+                        }
+                    )
+    return pd.DataFrame(rows)
+
+
+def sample_par1_paths(
+    params: pd.DataFrame,
+    corr_matrix: pd.DataFrame,
+    *,
+    n_states: int,
+    n_paths: int,
+    rng: np.random.Generator,
+) -> pd.DataFrame:
+    """
+    (path, month, subsystem) -> inflow in MWmed and the regime a policy would
+    observe, simulated directly from the fitted PAR(1).
+
+    An out-of-sample test set. `sample_markov_scenarios` draws independently
+    within a regime, so it loses much of PAR(1)'s month-to-month persistence
+    (PR-45 measured 0.48 vs 0.88 for N at K=3), and a policy scored on those
+    scenarios is scored on milder droughts than the fit describes. These paths
+    keep the full AR(1) and per-subsystem `phi`, so every K can be scored on
+    the same world.
+
+    The regime is read from the path itself: the inflow-weighted national
+    anomaly, standardized and placed in the same bins as training.
+    """
+    subsystems = list(corr_matrix.columns)
+    correlation = corr_matrix.loc[subsystems, subsystems].to_numpy()
+    cholesky_factor = np.linalg.cholesky(correlation)
+    upper = markov_bins(n_states)["upper"].to_numpy()
+    lookup = params.set_index(["month", "subsystem"])
+
+    rows = []
+    z = rng.normal(size=(n_paths, len(subsystems))) @ cholesky_factor.T
+    for month in range(1, 13):
+        month_params = lookup.loc[month].loc[subsystems]
+        mu = month_params["mu"].to_numpy()
+        sigma = month_params["sigma"].to_numpy()
+        if month > 1:
+            phi = np.clip(month_params["phi"].to_numpy(), -0.99, 0.99)
+            shock = rng.normal(size=(n_paths, len(subsystems))) @ cholesky_factor.T
+            z = phi * z + np.sqrt(1.0 - phi**2) * shock
+
+        weights = np.exp(mu + 0.5 * sigma**2)
+        national = (z @ weights) / math.sqrt(weights @ correlation @ weights)
+        states = np.searchsorted(upper, national) + 1
+        inflow = np.exp(mu + sigma * z)
+        for path in range(n_paths):
             for i, subsystem in enumerate(subsystems):
                 rows.append(
                     {
+                        "path": path,
                         "month": month,
-                        "scenario": scenario,
                         "subsystem": subsystem,
-                        "shock": float(correlated_unit[i]),
-                        "probability": 1.0 / n_scenarios,
+                        "markov_state": int(states[path]),
+                        "inflow_mwmed": float(inflow[path, i]),
                     }
                 )
     return pd.DataFrame(rows)
@@ -201,16 +427,34 @@ def main() -> None:
     corr_matrix = pd.read_csv(snake.input.par1_correlation).pivot(
         index="subsystem_a", columns="subsystem_b", values="correlation"
     )
+    n_states = int(snake.params.n_markov_states)
     rng = np.random.default_rng(int(snake.params.seed))
-    shocks = sample_month_shocks(corr_matrix, n_scenarios=int(snake.params.n_scenarios), rng=rng)
+    transitions = transition_matrices(par1_params, n_states=n_states)
+    scenarios = sample_markov_scenarios(
+        par1_params,
+        corr_matrix,
+        n_states=n_states,
+        n_scenarios=int(snake.params.n_scenarios),
+        rng=rng,
+    )
+    # A generator of its own, so that the inflows do not depend on how many
+    # draws the scenarios above consumed: every K is scored on the same paths.
+    par1_paths = sample_par1_paths(
+        par1_params,
+        corr_matrix,
+        n_states=n_states,
+        n_paths=int(snake.params.n_par1_paths),
+        rng=np.random.default_rng(int(snake.params.seed) + 1),
+    )
 
     write_parquet(demand, Path(snake.output.demand))
     write_parquet(capacity, Path(snake.output.capacity))
     write_parquet(cost, Path(snake.output.cost))
     write_parquet(reservoir_capacity, Path(snake.output.reservoir_capacity))
     write_parquet(storage0, Path(snake.output.initial_storage))
-    write_parquet(par1_params, Path(snake.output.inflow_params))
-    write_parquet(shocks, Path(snake.output.shocks))
+    write_parquet(transitions, Path(snake.output.transitions))
+    write_parquet(scenarios, Path(snake.output.scenarios))
+    write_parquet(par1_paths, Path(snake.output.par1_paths))
 
 
 if __name__ == "__main__":

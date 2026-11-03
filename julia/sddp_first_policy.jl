@@ -8,23 +8,29 @@
 # inflow uncertainty from the real fitted PAR(1) model (PR-28/29),
 # correlated across subsystems within each month.
 #
-# !! PR-38's temporal-persistence claim is only HALF true - corrected in
-# PR-40, do not read PR-38's handoff without this correction. The AR(1)
-# recursion added in PR-38 makes the sampled SCENARIOS autocorrelated
-# month-to-month (real, working), but it does NOT make the POLICY aware of
-# that autocorrelation. `z` is declared an SDDP.State yet appears in no
-# @constraint and in no objective term - the recursion runs in plain Julia
-# inside `parameterize` and its result is fix()-ed as a constant - so the
-# LP never sees `z`, its dual is identically zero, and the cost-to-go
-# function is FLAT in it. Measured, not theorised: all 22,000 exported cut
-# coefficients on z[*] are exactly 0.0 across both policies (PR-40).
-# The policy therefore cannot reason "water is worth more this month
-# because last month was dry", which is the entire point of modelling
-# persistence. See docs/handoffs/PR-40-*.md.
+# Temporal persistence reaches the policy through a MARKOVIAN POLICY GRAPH
+# (ADR-0009, implemented PR-45): each node is (stage, hydrological regime)
+# and SDDP.jl maintains a separate value function per node, so the regime
+# is something the policy genuinely sees.
 #
-# See scripts/prepare_sddp_inputs.py's module docstring and
-# docs/handoffs/PR-31-*.md / PR-32-*.md / PR-38-*.md / PR-39-*.md /
-# PR-40-*.md for what is and is not real here (known_limitations() below).
+# The history is worth knowing, because it is why this is not simpler.
+# PR-38 first tried carrying the standardized anomaly as an ordinary
+# continuous SDDP.State, running the AR(1) recursion in plain Julia inside
+# `parameterize`. PR-40 measured that this left the policy BLIND: because
+# exp(mu + sigma*z) is nonlinear, `z` could never appear in a @constraint,
+# so the LP never saw it, its dual was identically zero, and all 22,000
+# exported cut coefficients on z[*] were exactly 0.0. Persistent
+# scenarios, persistence-blind policy. SDDP.jl's `add_objective_state`
+# does not rescue it either - its own docs forbid the state appearing in a
+# constraint, and inflow must appear in the storage balance.
+#
+# There is no `z` state here at all: the regime IS the node index, so the
+# model is back to 4 continuous states (storage only). ADR-0009's acceptance
+# test reads the exported cuts afterwards, in scripts/check_sddp_regimes.py.
+#
+# See scripts/prepare_sddp_inputs.py's module docstring, docs/DIAGNOSTICS.md,
+# and docs/handoffs/PR-31-*.md / PR-38-*.md / PR-39-*.md / PR-40-*.md /
+# PR-42-*.md / PR-43-*.md / PR-45-*.md (known_limitations() below).
 #
 # Run: julia --project=julia julia/sddp_first_policy.jl <inputs_dir> <output_dir> [risk_kind] [lambda] [alpha] [seed] [iteration_limit] [n_simulations]
 #   risk_kind: "expectation" (default) or "cvar"
@@ -94,10 +100,11 @@ const MONEY_SCALE = 1.0e6
 
 function known_limitations(risk_kind::String)
     limitations = [
-        "AR(1) temporal persistence (PR-38) starts every simulated year from " *
-        "z=0 for every subsystem at the root node - the unconditional mean " *
-        "log-inflow anomaly, not a real observed prior December. SDDP.jl's " *
-        "root node must be one deterministic starting point.",
+        "The Markov root distribution is uniform across regimes (1/K), the " *
+        "unconditional distribution of the equal-probability bins - not a real " *
+        "observed prior December. A deployment starting from a known dry regime " *
+        "would set the root distribution accordingly; SDDP.jl supports that " *
+        "directly, it is simply not what an annual-cycle model represents.",
         "12 monthly stages, one annual cycle - not an infinite-horizon cyclic policy graph.",
         "No inter-subsystem transmission in this reduced hydro-thermal subproblem - " *
         "real network coupling belongs in PyPSA/linopy once cuts are consumed there.",
@@ -131,25 +138,18 @@ function known_limitations(risk_kind::String)
         "move) - real sampling noise remains, but PR-38's " *
         "CVaR-P90-above-expectation finding was directly confirmed NOT to be an " *
         "artifact of the old 100-realization sample.",
-        "THE POLICY IS BLIND TO TEMPORAL PERSISTENCE, despite PR-38's claim " *
-        "(corrected in PR-40, measured not theorised): all 22,000 exported cut " *
-        "coefficients on z[*] are exactly 0.0 across both policies, because z " *
-        "appears in no constraint and no objective term - the LP never sees it, " *
-        "so the cost-to-go is flat in it. PR-38 delivered persistent SCENARIOS " *
-        "with a persistence-BLIND policy. This most likely explains the ~2x " *
-        "cost/load-shed increase PR-38 reported and attributed to persistence " *
-        "being priced correctly: the simulated world got harder while the " *
-        "policy did not improve. It is also a strong candidate explanation for " *
-        "the CVaR comparison below - though PR-43 later REFUTED that link, see " *
-        "that entry. Fixing it needs a different formulation (Markovian policy " *
-        "graph, or a levels-space AR that can enter the balance constraint " *
-        "linearly), pending ADR-0009.",
-        "PR-38's AR(1) state doubled the state-variable count (4 -> 8: z per " *
-        "subsystem alongside storage per subsystem) - a real, checked increase " *
-        "in mean/P90 load shed and cost versus PR-31/33's i.i.d.-inflow baseline " *
-        "(P90 load shed ~58,000-63,000 MW-months here vs ~30,090 there), but see " *
-        "the persistence-blindness entry above for why this is NOT evidence that " *
-        "persistence is being priced correctly. " *
+        "The hydrological regime is discretized into K states (default 3, " *
+        "dry/normal/wet) sharing ONE system-wide chain across all four " *
+        "subsystems. Both are real approximations: within a regime the anomaly " *
+        "is a single conditional mean plus spatially-correlated variation, so " *
+        "the dry edge of 'normal' is not distinguished from its wet edge; and a " *
+        "scenario where N is dry while S is wet is representable only through " *
+        "within-regime variation, not as its own regime. Per-subsystem chains " *
+        "would mean K^4 joint states (81 at K=3) - rejected in ADR-0009 against " *
+        "a model with a measured convergence history.",
+        "The system-wide phi is an inflow-weighted mean of the per-subsystem " *
+        "fitted values, so real spread in persistence (N 0.80-0.98, S 0.34-0.81, " *
+        "PR-28) collapses to one national figure per month.",
         "CVaR-trained policies score WORSE than expectation-trained ones on " *
         "plain annual-total statistics, monotonically in lambda (PR-43 sweep, " *
         "P90 load shed: 56,812 at lambda=0 rising to 63,947 at lambda=1). This " *
@@ -225,8 +225,9 @@ function load_inputs(inputs_dir::String)
     cost = read_parquet_df(joinpath(inputs_dir, "cost.parquet"))
     reservoir_capacity = read_parquet_df(joinpath(inputs_dir, "reservoir_capacity.parquet"))
     initial_storage = read_parquet_df(joinpath(inputs_dir, "initial_storage.parquet"))
-    inflow_params = read_parquet_df(joinpath(inputs_dir, "inflow_params.parquet"))
-    shocks = read_parquet_df(joinpath(inputs_dir, "shocks.parquet"))
+    transitions = read_parquet_df(joinpath(inputs_dir, "transitions.parquet"))
+    scenarios = read_parquet_df(joinpath(inputs_dir, "scenarios.parquet"))
+    par1_paths = read_parquet_df(joinpath(inputs_dir, "par1_paths.parquet"))
 
     hydro_cap = Dict(row.subsystem => row.hydro_mw for row in eachrow(capacity))
     thermal_cap = Dict(row.subsystem => row.thermal_mw for row in eachrow(capacity))
@@ -235,28 +236,51 @@ function load_inputs(inputs_dir::String)
     storage0 = Dict(row.subsystem => row.initial_storage_mwmes for row in eachrow(initial_storage))
     demand_by_month = Dict((row.month, row.subsystem) => row.demand_mw for row in eachrow(demand))
 
-    # (month, subsystem) -> (mu, sigma, phi) - the PAR(1) fit (PR-28/29),
-    # used inside build_model's parameterize callback to run the AR(1)
-    # recursion in plain Julia (not a JuMP expression - see module header).
-    inflow_param_by_month = Dict(
-        (row.month, row.subsystem) => (mu = row.mu, sigma = row.sigma, phi = row.phi) for
-        row in eachrow(inflow_params)
-    )
+    # ADR-0009's transition matrices, built in Python from the fitted phi_m
+    # (scripts/prepare_sddp_inputs.py). Stage 1 carries the ROOT row and is
+    # 1 x n_states; stages 2-12 are n_states x n_states. SDDP.jl requires
+    # exactly this shape.
+    n_states = maximum(transitions.to_state)
+    transition_matrices = Matrix{Float64}[]
+    for stage in 1:12
+        stage_rows = filter(r -> r.stage == stage, transitions)
+        n_from = stage == 1 ? 1 : n_states
+        matrix = zeros(n_from, n_states)
+        for row in eachrow(stage_rows)
+            i = stage == 1 ? 1 : row.from_state
+            matrix[i, row.to_state] = row.probability
+        end
+        push!(transition_matrices, matrix)
+    end
 
-    shocks_by_month = Dict{Int,Vector{Dict{String,Float64}}}()
-    probs_by_month = Dict{Int,Vector{Float64}}()
-    for month in 1:12
-        month_rows = filter(r -> r.month == month, shocks)
+    # (month, markov_state) -> the inflow realizations for that regime.
+    scenarios_by_node = Dict{Tuple{Int,Int},Vector{Dict{String,Float64}}}()
+    probs_by_node = Dict{Tuple{Int,Int},Vector{Float64}}()
+    for month in 1:12, state in 1:n_states
+        node_rows = filter(r -> r.month == month && r.markov_state == state, scenarios)
         by_scenario = Dict{Int,Dict{String,Float64}}()
         prob_by_scenario = Dict{Int,Float64}()
-        for row in eachrow(month_rows)
+        for row in eachrow(node_rows)
             d = get!(by_scenario, row.scenario, Dict{String,Float64}())
-            d[row.subsystem] = row.shock
+            d[row.subsystem] = row.inflow_mwmed
             prob_by_scenario[row.scenario] = row.probability
         end
         ids = sort(collect(keys(by_scenario)))
-        shocks_by_month[month] = [by_scenario[i] for i in ids]
-        probs_by_month[month] = [prob_by_scenario[i] for i in ids]
+        scenarios_by_node[(month, state)] = [by_scenario[i] for i in ids]
+        probs_by_node[(month, state)] = [prob_by_scenario[i] for i in ids]
+    end
+
+    # The out-of-sample test set, as SDDP.Historical wants it: one vector per
+    # path of ((month, regime), inflows).
+    out_of_sample_paths = Vector{Tuple{Tuple{Int,Int},Dict{String,Float64}}}[]
+    for path_rows in groupby(par1_paths, :path)
+        stages = Tuple{Tuple{Int,Int},Dict{String,Float64}}[]
+        for month_rows in groupby(sort(DataFrame(path_rows), :month), :month)
+            node = (Int(month_rows.month[1]), Int(month_rows.markov_state[1]))
+            inflow = Dict(r.subsystem => r.inflow_mwmed for r in eachrow(month_rows))
+            push!(stages, (node, inflow))
+        end
+        push!(out_of_sample_paths, stages)
     end
 
     return (;
@@ -266,47 +290,39 @@ function load_inputs(inputs_dir::String)
         max_storage,
         storage0,
         demand_by_month,
-        inflow_param_by_month,
-        shocks_by_month,
-        probs_by_month,
+        n_states,
+        transition_matrices,
+        scenarios_by_node,
+        probs_by_node,
+        out_of_sample_paths,
     )
 end
 
 function build_model(inputs)
-    return SDDP.LinearPolicyGraph(
-        stages = 12,
+    # ADR-0009: a MARKOVIAN policy graph, not a linear one. Each node is
+    # (stage, markov_state) and SDDP.jl maintains a SEPARATE value function
+    # per node - which is the actual mechanism by which the policy can know
+    # that water is worth more in a dry regime.
+    #
+    # This replaces PR-38's attempt to carry the anomaly as an ordinary
+    # continuous SDDP.State. That failed measurably (PR-40): because
+    # exp(mu + sigma*z) is nonlinear, `z` could never enter a @constraint,
+    # so the LP never saw it and every cut coefficient on it was exactly
+    # zero. There is no `z` state here at all - the regime IS the node
+    # index, so the model is back to 4 continuous states (storage only).
+    return SDDP.MarkovianPolicyGraph(
+        transition_matrices = inputs.transition_matrices,
         sense = :Min,
         lower_bound = 0.0,
         optimizer = HiGHS.Optimizer,
-    ) do subproblem, month
+    ) do subproblem, node
+        month, markov_state = node
         @variable(
             subproblem,
             0 <= storage[s in SUBSYSTEMS] <= inputs.max_storage[s],
             SDDP.State,
             initial_value = inputs.storage0[s]
         )
-        # Standardized log-inflow anomaly (PR-38), CORRECTED IN PR-40.
-        #
-        # What this does: carries last month's anomaly forward so the
-        # sampled inflow SCENARIOS are autocorrelated (real and working).
-        #
-        # What it does NOT do, contrary to PR-38's claim: make the POLICY
-        # persistence-aware. `z` appears in no @constraint and no objective
-        # term - the AR(1) recursion runs in plain Julia inside
-        # `parameterize` and its result is fix()-ed as a constant. The LP
-        # therefore never sees `z`; its dual is identically zero and every
-        # cut coefficient on it is exactly 0.0 (measured across all 22,000
-        # exported cuts, PR-40). The cost-to-go is FLAT in z.
-        #
-        # This is not a bug to patch here - it is inherent to doing a
-        # LOG-space AR in Julia arithmetic. exp(mu + sigma*z) is nonlinear,
-        # so it cannot be a linear constraint, which is exactly why the
-        # recursion was moved outside the LP in the first place. Making the
-        # policy see persistence needs a different formulation (a Markovian
-        # policy graph, or a levels-space AR that CAN enter the balance
-        # constraint linearly) - a real modelling decision, deliberately
-        # left to its own ADR rather than improvised here.
-        @variable(subproblem, z[s in SUBSYSTEMS], SDDP.State, initial_value = 0.0)
         @variable(subproblem, 0 <= hydro_generation[s in SUBSYSTEMS] <= inputs.hydro_cap[s])
         @variable(subproblem, 0 <= thermal_generation[s in SUBSYSTEMS] <= inputs.thermal_cap[s])
         @variable(subproblem, spill[s in SUBSYSTEMS] >= 0)
@@ -336,31 +352,71 @@ function build_model(inputs)
             )
         )
 
+        # Inflow realizations are now conditioned on the regime: the same
+        # month in a dry node draws from a different (lower) set than in a
+        # wet node. Python builds both the levels and the regime-conditional
+        # correlation (scripts/prepare_sddp_inputs.py), so nothing nonlinear
+        # happens here - each realization is just a constant to fix.
         SDDP.parameterize(
             subproblem,
-            inputs.shocks_by_month[month],
-            inputs.probs_by_month[month],
+            inputs.scenarios_by_node[(month, markov_state)],
+            inputs.probs_by_node[(month, markov_state)],
         ) do omega
             for s in SUBSYSTEMS
-                par = inputs.inflow_param_by_month[(month, s)]
-                z_in = JuMP.fix_value(z[s].in)
-                # shock_sd keeps z's OWN unconditional variance at 1 despite
-                # phi varying by month - the same PAR(1) approximation
-                # scripts/fit_inflow_par1.py's simulate_par1_correlated
-                # already uses in Python (PR-28/29). Omitting it (a real
-                # bug caught while verifying this PR against real data,
-                # not assumed to be a genuine persistence effect) inflates
-                # z's stationary variance to 1/(1-phi^2) - for S's phi up
-                # to 0.81, nearly 3x too wide - and roughly doubled every
-                # downstream cost/load-shed statistic.
-                shock_sd = sqrt(max(1 - par.phi^2, 1e-6))
-                z_out = par.phi * z_in + omega[s] * shock_sd
-                JuMP.fix(z[s].out, z_out)
-                JuMP.fix(inflow[s], exp(par.mu + par.sigma * z_out))
+                JuMP.fix(inflow[s], omega[s])
             end
         end
     end
 end
+
+"""
+Mean cost in real R\$ and annual load-shed statistics for a set of simulated
+years, in MW-months. Computed the same way for every policy and test set so
+that comparisons across them are like for like.
+"""
+function simulation_stats(simulations)
+    expected_cost =
+        MONEY_SCALE * sum(
+            sum(stage[:stage_objective] for stage in realization) for realization in simulations
+        ) / length(simulations)
+    per_realization_load_shed = [
+        sum(sum(stage[:load_shed][s] for s in SUBSYSTEMS) for stage in realization) for
+        realization in simulations
+    ]
+    sorted_load_shed = sort(per_realization_load_shed)
+    return (;
+        expected_cost,
+        mean_load_shed = sum(per_realization_load_shed) / length(simulations),
+        p50_load_shed = sorted_load_shed[ceil(Int, 0.50 * length(sorted_load_shed))],
+        p90_load_shed = sorted_load_shed[ceil(Int, 0.90 * length(sorted_load_shed))],
+        load_shed_by_subsystem = Dict(
+            s => sum(stage[:load_shed][s] for realization in simulations for stage in realization) /
+                 length(simulations) for s in SUBSYSTEMS
+        ),
+    )
+end
+
+"""
+Cut nodes for a Markovian graph serialize as the STRING `"(12, 3)"` -
+checked against the real written file, not assumed to be a JSON array
+(the first version of this function assumed an array and failed loudly on
+real output, which is why it errors rather than guessing). A plain integer
+is tolerated so this keeps working if the graph is ever linear again.
+"""
+function parse_cut_node(node)
+    if node isa AbstractString
+        matched = match(r"^\(\s*(\d+)\s*,\s*(\d+)\s*\)$", node)
+        matched !== nothing && return parse(Int, matched[1]), parse(Int, matched[2])
+        all_digits = match(r"^\d+$", node)
+        all_digits !== nothing && return parse(Int, node), 1
+    elseif node isa AbstractVector && length(node) == 2
+        return Int(node[1]), Int(node[2])
+    elseif node isa Integer
+        return Int(node), 1
+    end
+    error("unrecognised cut node format: $(repr(node))")
+end
+
 
 function main()
     inputs_dir = length(ARGS) >= 1 ? ARGS[1] : "resources"
@@ -401,17 +457,11 @@ function main()
         print_level = 1,
         log_file = "/dev/null",
         risk_measure = risk_measure,
-        # SDDP.jl's pre-training numerical_stability_report probes
-        # `parameterize` WITHOUT going through the real state-fixing
-        # sequence that actual training/simulation branches use - a real,
-        # checked incompatibility (not assumed): `z[s].in`'s `fix_value`
-        # (PR-38's AR(1) state, see build_model) genuinely requires a
-        # concrete antecedent the generic probe never provides, unlike the
-        # coefficient-range analysis it's designed for, which doesn't need
-        # one. Disabling it loses only that static, purely informational
-        # report - the per-iteration numeric-issue count PR-33's own
-        # findings rely on is tracked separately, during real solves, and
-        # is unaffected.
+        # Disabled in PR-38 because the report's probe of `parameterize`
+        # crashed on the `z` state's `fix_value`. `z` is gone, so that reason
+        # no longer applies, but this was not re-enabled here. Only a static
+        # informational report is lost; the per-iteration numeric-issue count
+        # PR-33's findings rely on is tracked separately.
         run_numerical_stability_report = false,
     )
 
@@ -431,48 +481,58 @@ function main()
     # across risk_kind runs the way a plain expectation is. Computed the
     # same way regardless of which risk measure trained the policy, so
     # expectation-vs-cvar comparisons in the handoff are apples to apples.
-    expected_cost =
-        MONEY_SCALE * sum(
-            sum(stage[:stage_objective] for stage in realization) for realization in simulations
-        ) / length(simulations)
-    println("Simulated mean total system cost (R\$): ", expected_cost)
-
-    per_realization_load_shed = [
-        sum(sum(stage[:load_shed][s] for s in SUBSYSTEMS) for stage in realization) for
-        realization in simulations
-    ]
-    mean_load_shed = sum(per_realization_load_shed) / length(simulations)
-    sorted_load_shed = sort(per_realization_load_shed)
-    p50_load_shed = sorted_load_shed[ceil(Int, 0.50 * length(sorted_load_shed))]
-    p90_load_shed = sorted_load_shed[ceil(Int, 0.90 * length(sorted_load_shed))]
+    in_sample = simulation_stats(simulations)
+    println("Simulated mean total system cost (R\$): ", in_sample.expected_cost)
     println(
         "Mean/P50/P90 annual load shed across simulations (MW-months): ",
-        mean_load_shed,
+        in_sample.mean_load_shed,
         " / ",
-        p50_load_shed,
+        in_sample.p50_load_shed,
         " / ",
-        p90_load_shed,
-    )
-
-    load_shed_by_subsystem = Dict(
-        s => sum(stage[:load_shed][s] for realization in simulations for stage in realization) /
-             length(simulations) for s in SUBSYSTEMS
+        in_sample.p90_load_shed,
     )
     for s in SUBSYSTEMS
-        println("  ", s, ": ", load_shed_by_subsystem[s], " MW-months/year")
+        println("  ", s, ": ", in_sample.load_shed_by_subsystem[s], " MW-months/year")
     end
+
+    # The same policy, scored on PAR(1) paths it never trained on. The
+    # regime scenarios above have milder droughts than the fit (PR-45), so
+    # these are the figures to compare across K and against PR-43.
+    out_of_sample = simulation_stats(
+        SDDP.simulate(
+            model,
+            length(inputs.out_of_sample_paths),
+            [:load_shed];
+            sampling_scheme = SDDP.Historical(inputs.out_of_sample_paths),
+        ),
+    )
+    println("PAR(1) out-of-sample mean cost (R\$): ", out_of_sample.expected_cost)
+    println(
+        "PAR(1) out-of-sample Mean/P50/P90 load shed (MW-months): ",
+        out_of_sample.mean_load_shed,
+        " / ",
+        out_of_sample.p50_load_shed,
+        " / ",
+        out_of_sample.p90_load_shed,
+    )
 
     cuts_json_path = joinpath(output_dir, "_cuts.json")
     SDDP.write_cuts_to_file(model, cuts_json_path)
     cuts = SDDP.JSON.parsefile(cuts_json_path)
     rows = NamedTuple[]
     for node in cuts
+        # Nodes are (stage, markov_state) tuples since ADR-0009 - split
+        # them into their own columns so the cut export stays queryable by
+        # regime, which is what docs/DIAGNOSTICS.md's Bucket 2 reads.
+        node_stage, node_state = parse_cut_node(node["node"])
         for cut in node["single_cuts"]
             state_names = collect(keys(cut["coefficients"]))
             push!(
                 rows,
                 (
-                    node = node["node"],
+                    node = string(node["node"]),
+                    stage = node_stage,
+                    markov_state = node_state,
                     intercept = cut["intercept"],
                     state_variable = join(state_names, ","),
                     coefficient = join([cut["coefficients"][k] for k in state_names], ","),
@@ -480,6 +540,7 @@ function main()
             )
         end
     end
+
     rm(cuts_json_path)
     Parquet2.writefile(joinpath(output_dir, "cuts.parquet"), DataFrame(rows))
 
@@ -495,12 +556,21 @@ function main()
         "risk_lambda" => risk_kind == "cvar" ? lambda : nothing,
         "risk_alpha" => risk_kind == "cvar" ? alpha : nothing,
         "risk_adjusted_bound_rs" => risk_adjusted_bound,
-        "expected_total_cost_rs" => expected_cost,
-        "mean_annual_load_shed_mw_months" => mean_load_shed,
-        "p50_annual_load_shed_mw_months" => p50_load_shed,
-        "p90_annual_load_shed_mw_months" => p90_load_shed,
-        "mean_annual_load_shed_by_subsystem" => load_shed_by_subsystem,
+        "expected_total_cost_rs" => in_sample.expected_cost,
+        "mean_annual_load_shed_mw_months" => in_sample.mean_load_shed,
+        "p50_annual_load_shed_mw_months" => in_sample.p50_load_shed,
+        "p90_annual_load_shed_mw_months" => in_sample.p90_load_shed,
+        "mean_annual_load_shed_by_subsystem" => in_sample.load_shed_by_subsystem,
+        "par1_out_of_sample" => Dict(
+            "n_paths" => length(inputs.out_of_sample_paths),
+            "expected_total_cost_rs" => out_of_sample.expected_cost,
+            "mean_annual_load_shed_mw_months" => out_of_sample.mean_load_shed,
+            "p50_annual_load_shed_mw_months" => out_of_sample.p50_load_shed,
+            "p90_annual_load_shed_mw_months" => out_of_sample.p90_load_shed,
+            "mean_annual_load_shed_by_subsystem" => out_of_sample.load_shed_by_subsystem,
+        ),
         "n_cuts" => length(rows),
+        "n_markov_states" => inputs.n_states,
         "known_limitations" => known_limitations(risk_kind),
     )
     open(joinpath(output_dir, "summary.json"), "w") do io

@@ -646,6 +646,38 @@ code without touching this file, unless it carries the `no-changelog` label.
   unchanged**, resting on PR-40's independently measured all-zero cut
   coefficients (PR-43).
 - `docs/handoffs/PR-43-cvar-nested-risk-measure.md`.
+- **ADR-0009 implemented: the SDDP policy is persistence-aware** (PR-45).
+  `julia/sddp_first_policy.jl` now builds an `SDDP.MarkovianPolicyGraph`
+  whose nodes are `(stage, hydrological regime)`, so SDDP.jl maintains a
+  separate value function per regime; `scripts/prepare_sddp_inputs.py` gains
+  `markov_bins`, `system_phi_by_month`, `transition_matrices` and
+  `sample_markov_scenarios`, emitting `transitions.parquet` +
+  `scenarios.parquet`. The `z` state PR-38 introduced is **removed
+  entirely** - the regime is the node index - returning the model to 4
+  continuous states. Transition matrices are derived **analytically** from
+  PR-28/29's already-fitted `phi_m` (no new estimation): equal-probability
+  quantile bins of the standardized anomaly, with bin-to-bin probabilities
+  integrated from `z_t = phi*z_{t-1} + eps`. Inflows are conditioned on the
+  regime while PR-29's cross-subsystem Cholesky correlation is preserved
+  within it, so the marginal inflow distribution is unchanged - only its
+  conditioning on an observable regime is new. One shared national regime is
+  used rather than four chains (`K^4` states), with `phi` an inflow-weighted
+  mean so SE_CO dominates as it does in reality. Cut exports gain `stage` and
+  `markov_state` columns (PR-45).
+- **`scripts/check_sddp_regimes.py`, ADR-0009's acceptance test, which
+  currently FAILS.** Rule `check_sddp_regimes` compares the marginal value of
+  water between regimes from `cuts.parquet`. At 4000 iterations S shows the
+  expected signal (6.93 dry vs 3.06 wet, R$ million per MWmes) but N, NE and
+  SE_CO are inverted, in both policies. The regime scenarios also lose
+  persistence against PAR(1) (N month-to-month correlation 0.48 vs 0.88), so
+  costs are not comparable with PR-43's baselines. Details in the PR-45
+  handoff (PR-45).
+- **`SDDP_MARKOV_STATES` raised to 5, and every policy is now scored on 1000
+  PAR(1) paths it did not train on** (`sample_par1_paths`, reported as
+  `par1_out_of_sample`). At K=5 NE, S and SE_CO behave correctly and the test
+  fails on N alone; on the PAR(1) paths cost barely moves from K=3 (R$238.9bn
+  vs R$239.9bn, expectation) (PR-45).
+- `docs/handoffs/PR-45-markovian-policy-graph.md`.
 - **`docs/DIAGNOSTICS.md`** - a standing "bucket chase" checklist of
   measurements to take before believing any claim about the SDDP model,
   written for a future session with no memory of this one. Seven buckets

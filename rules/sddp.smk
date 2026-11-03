@@ -34,6 +34,16 @@ Every rule here is requested explicitly.
 SDDP_ITERATION_LIMIT = 4000
 SDDP_N_SIMULATIONS = 1000
 
+# ADR-0009: hydrological regimes in the Markovian policy graph. K=3 is
+# dry/normal/wet, equal-probability bins of the standardized anomaly. The
+# graph has 12*K nodes, so raising this multiplies training cost and
+# spreads cuts more thinly - ADR-0009 names that as its main risk.
+#
+# 5 since PR-45 measured K=3 losing persistence badly (N month-to-month
+# correlation 0.48 vs PAR(1)'s 0.88; 0.57 at K=5). Training stayed cheap, at
+# about 15 minutes per policy at K=3.
+SDDP_MARKOV_STATES = 5
+
 
 rule sddp_smoke_test:
     """
@@ -106,18 +116,17 @@ rule prepare_sddp_inputs:
     Assemble every real input the first SDDP policy needs (ADR-0005 stage
     1f) into Parquet files julia/sddp_first_policy.jl reads: monthly
     demand, hydro/thermal capacity, thermal cost, initial reservoir
-    storage, PAR(1) parameters, and correlated monthly inflow shocks.
+    storage, regime transition matrices, and regime-conditional inflow
+    scenarios.
 
     Python, not Julia. Joins T0 data (already real) with the PAR(1) fit
     (PR-28/29) and reservoir capacity (PR-30) - see the module docstring
     in scripts/prepare_sddp_inputs.py for the full reasoning, including
     why monthly MWmed/MWmes/MW units are directly commensurable here.
 
-    Outputs `shocks` (raw correlated standardized shocks) and
-    `inflow_params` (mu/sigma/phi) instead of pre-computed inflow levels
-    since PR-38 - the AR(1) recursion and exp(mu+sigma*z) transform now
-    happen in julia/sddp_first_policy.jl, where a state variable can carry
-    the previous month's anomaly forward.
+    Outputs `transitions` and `scenarios` since PR-45 (ADR-0009): the
+    regime is a node of the policy graph, so inflow levels are computed
+    here and julia/sddp_first_policy.jl only fixes them as constants.
     """
     input:
         demand="resources/demand_t0.csv",
@@ -133,10 +142,13 @@ rule prepare_sddp_inputs:
         cost="resources/sddp_inputs/cost.parquet",
         reservoir_capacity="resources/sddp_inputs/reservoir_capacity.parquet",
         initial_storage="resources/sddp_inputs/initial_storage.parquet",
-        inflow_params="resources/sddp_inputs/inflow_params.parquet",
-        shocks="resources/sddp_inputs/shocks.parquet",
+        transitions="resources/sddp_inputs/transitions.parquet",
+        scenarios="resources/sddp_inputs/scenarios.parquet",
+        par1_paths="resources/sddp_inputs/par1_paths.parquet",
     params:
         n_scenarios=10,
+        n_par1_paths=1000,
+        n_markov_states=SDDP_MARKOV_STATES,
         seed=0,
     log:
         "logs/prepare_sddp_inputs/run.log",
@@ -149,9 +161,9 @@ rule sddp_first_policy:
     ADR-0005 stage 1f: train the first expectation-only SDDP policy on
     real Brazilian data - see julia/sddp_first_policy.jl's module
     docstring and docs/handoffs/PR-31-*.md/PR-38-*.md for scope and named
-    simplifications (KNOWN_LIMITATIONS in both files). Since PR-38, the
-    policy carries real PAR(1) temporal persistence via a state-augmented
-    AR(1) inflow anomaly, not just i.i.d.-per-month draws.
+    simplifications (KNOWN_LIMITATIONS in both files). Since PR-45 the
+    policy sees temporal persistence through a Markovian policy graph
+    (ADR-0009); check_sddp_regimes is its acceptance test.
     """
     input:
         "resources/sddp_inputs/demand.parquet",
@@ -159,8 +171,9 @@ rule sddp_first_policy:
         "resources/sddp_inputs/cost.parquet",
         "resources/sddp_inputs/reservoir_capacity.parquet",
         "resources/sddp_inputs/initial_storage.parquet",
-        "resources/sddp_inputs/inflow_params.parquet",
-        "resources/sddp_inputs/shocks.parquet",
+        "resources/sddp_inputs/transitions.parquet",
+        "resources/sddp_inputs/scenarios.parquet",
+        "resources/sddp_inputs/par1_paths.parquet",
     output:
         cuts="results/sddp_first_policy/cuts.parquet",
         summary="results/sddp_first_policy/summary.json",
@@ -196,8 +209,9 @@ rule sddp_cvar_policy:
         "resources/sddp_inputs/cost.parquet",
         "resources/sddp_inputs/reservoir_capacity.parquet",
         "resources/sddp_inputs/initial_storage.parquet",
-        "resources/sddp_inputs/inflow_params.parquet",
-        "resources/sddp_inputs/shocks.parquet",
+        "resources/sddp_inputs/transitions.parquet",
+        "resources/sddp_inputs/scenarios.parquet",
+        "resources/sddp_inputs/par1_paths.parquet",
     output:
         cuts="results/sddp_cvar_policy/cuts.parquet",
         summary="results/sddp_cvar_policy/summary.json",
@@ -210,3 +224,24 @@ rule sddp_cvar_policy:
         "pixi run -e sddp julia --project=julia julia/sddp_first_policy.jl "
         "resources/sddp_inputs results/sddp_cvar_policy cvar 0.5 0.1 0 "
         "{params.iteration_limit} {params.n_simulations} > {log} 2>&1"
+
+
+rule check_sddp_regimes:
+    """
+    ADR-0009's acceptance test: at identical storage, water must be worth
+    more in the dry regime than the wet one. Reads the exported cuts, so it
+    needs no Julia and no retraining, and fails the rule if the test fails.
+    See the module docstring in scripts/check_sddp_regimes.py for why this
+    compares the slope of the cost-to-go rather than its level.
+    """
+    input:
+        cuts="results/{policy}/cuts.parquet",
+        reservoir_capacity="resources/sddp_inputs/reservoir_capacity.parquet",
+    output:
+        "results/{policy}/regime_check.json",
+    wildcard_constraints:
+        policy="sddp_first_policy|sddp_cvar_policy",
+    log:
+        "logs/check_sddp_regimes/{policy}.log",
+    script:
+        "../scripts/check_sddp_regimes.py"
