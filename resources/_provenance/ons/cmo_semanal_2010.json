@@ -1,0 +1,10 @@
+{
+  "byte_size": 14173,
+  "dataset": "cmo_semanal_2010",
+  "format": "csv",
+  "retrieved": "2026-11-03T04:12:23+00:00",
+  "row_count": 212,
+  "sha256": "842b4ecf38fd785f35975bf38b81464196f8ef16ac746186d65deeba3db7d0e6",
+  "source": "ons",
+  "source_url": "https://ons-aws-prod-opendata.s3.amazonaws.com/dataset/cmo_se/CMO_SEMANAL_2010.csv"
+}

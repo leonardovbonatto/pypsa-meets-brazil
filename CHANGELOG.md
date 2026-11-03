@@ -697,6 +697,17 @@ code without touching this file, unless it carries the `no-changelog` label.
   jumps between N's thermal plateau (0.18) and the load-shed cap (7.44) from
   run to run, so a single threaded run cannot decide pass or fail (PR-46).
 - `docs/handoffs/PR-46-regional-regimes.md`.
+- **CMO connector, the backtest target** (`cmo_semanal` 2005-2024 from
+  DECOMP, `cmo_semi_horario` 2020-2024 from DESSEM; `build_cmo` ->
+  `resources/cmo_weekly.csv`, `resources/cmo_monthly.csv`). Measured on the
+  full volume: the weekly date ENDS the Saturday-to-Friday operating week
+  (2024 correlation with half-hourly means 0.920 vs 0.895); half-hourly files
+  miss whole days, 1 to 16 a year, always all subsystems together, so monthly
+  values carry `coverage` and partial days raise; negative CMO (mostly NE)
+  and one R$54,729.62/MWh half-hour are kept as published, with a monthly
+  median beside the mean. 2024 shows a wet first half and the drought spike
+  (SE_CO R$516/MWh in October) (PR-47).
+- `docs/handoffs/PR-47-cmo-connector.md`.
 - **`docs/DIAGNOSTICS.md`** - a standing "bucket chase" checklist of
   measurements to take before believing any claim about the SDDP model,
   written for a future session with no memory of this one. Seven buckets

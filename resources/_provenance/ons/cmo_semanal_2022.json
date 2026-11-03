@@ -1,0 +1,10 @@
+{
+  "byte_size": 12566,
+  "dataset": "cmo_semanal_2022",
+  "format": "csv",
+  "retrieved": "2026-11-03T04:12:23+00:00",
+  "row_count": 208,
+  "sha256": "a9ce0c858605301e7e26795cf4e95766f8d68640b328dafdf9aafdd018879e74",
+  "source": "ons",
+  "source_url": "https://ons-aws-prod-opendata.s3.amazonaws.com/dataset/cmo_se/CMO_SEMANAL_2022.csv"
+}

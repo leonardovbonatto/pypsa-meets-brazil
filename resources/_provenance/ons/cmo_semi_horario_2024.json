@@ -1,0 +1,10 @@
+{
+  "byte_size": 2420627,
+  "dataset": "cmo_semi_horario_2024",
+  "format": "csv",
+  "retrieved": "2026-11-03T04:12:25+00:00",
+  "row_count": 69504,
+  "sha256": "73a6e3a792e148d9b2b5022a72a629fa94745d9d3bcee3382bb252d9641d8a44",
+  "source": "ons",
+  "source_url": "https://ons-aws-prod-opendata.s3.amazonaws.com/dataset/cmo_tm/CMO_SEMIHORARIO_2024.csv"
+}

@@ -1,0 +1,68 @@
+dataset: cmo_semi_horario
+source: ons
+source_url: https://ons-aws-prod-opendata.s3.amazonaws.com/dataset/cmo_tm/CMO_SEMIHORARIO_{year}.csv
+retrieved: '2026-11-03T04:12:22+00:00'
+format: csv
+encoding: utf-8
+delimiter: ;
+decimal: .
+row_count: 343680
+schema_hash: sha256:c4bb9c40becafb674c1829a6c2212248e7d1ffa20a73b4170548126e44a6cc31
+columns:
+- name: id_subsistema
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: Subsystem code, N/NE/S/SE; goes through _ons.map_subsystems().
+  sample:
+  - NE
+  - N
+  - SE
+- name: nom_subsistema
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: Subsystem name in Portuguese.
+  sample:
+  - NORDESTE
+  - NORTE
+  - SUDESTE
+- name: din_instante
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: Start of the half-hour, YYYY-MM-DD HH:MM:SS, 48 per day.
+  sample:
+  - '2020-01-01 00:00:00'
+  - '2020-01-01 00:00:00'
+  - '2020-01-01 00:00:00'
+- name: val_cmo
+  dtype: float64
+  unit: R$/MWh
+  nullable: false
+  null_rate: 0.0
+  description: Half-hourly CMO from DESSEM. Per ONS, the load-weighted mean of
+    nodal CMOs over the subsystem's buses. Can be negative (see notes).
+  sample:
+  - 286.87
+  - 286.68
+  - 285.76
+notes:
+- 'Source of monthly mean CMO for the 2024 backtest (resources/cmo_monthly.csv),
+  and the finer target for PyPSA''s hourly prices once water values are coupled.'
+- 'WHOLE days are missing every year, always for all four subsystems at once,
+  never partial days: 2020: 1 (2020-05-17); 2021: 2; 2022: 16; 2023: 14;
+  2024: 4 (2024-02-08, 02-17, 07-13, 12-29). Most likely DESSEM runs never
+  published. build_cmo.py reports monthly coverage and raises on any
+  partial-day gap or on subsystems missing different days.'
+- 'Negative CMO is real and kept: 2 rows in 2020 (N), 20 in 2021 (N, NE), 114
+  in 2022 (NE, SE), none in 2023, 77 in 2024 (all NE, August-September,
+  minimum -10.44). NE''s cluster coincides with its wind surplus and curtailment
+  season; a lead for the curtailment work, not investigated here.'
+- 'One extreme half-hour: N on 2020-10-10 22:30 at 54,729.62 R$/MWh, while the
+  other subsystems sat near 300 that day. It lifts N''s October 2020 mean to
+  261.9 against a median of 211.9. Kept as published; the monthly output
+  carries the median beside the mean.'

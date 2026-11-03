@@ -236,3 +236,42 @@ rule fetch_ons_reservatorio:
         "logs/fetch_ons_reservatorio/run.log",
     script:
         "../scripts/fetch_dataset.py"
+
+
+rule fetch_ons_cmo_semanal:
+    """
+    ONS weekly marginal operating cost (CMO) per subsystem, from DECOMP, one
+    file per calendar year from 2005. The backtest target for the SDDP
+    policy (roadmap Phase 7 gate). Year range via inflow_history_years(),
+    which reads any dataset's own `years` key.
+    """
+    output:
+        raw="resources/ons/CMO_SEMANAL_{year}.csv",
+        provenance="resources/_provenance/ons/cmo_semanal_{year}.json",
+    params:
+        url=lambda wc: config["sources"]["ons"]["cmo_semanal"]["url"].format(year=wc.year),
+        source="ons",
+        dataset=lambda wc: f"cmo_semanal_{wc.year}",
+    log:
+        "logs/fetch_ons_cmo_semanal/{year}.log",
+    script:
+        "../scripts/fetch_dataset.py"
+
+
+rule fetch_ons_cmo_semi_horario:
+    """
+    ONS half-hourly CMO per subsystem, from DESSEM, one file per calendar
+    year from 2020. Source of monthly mean CMO for the backtest, and the
+    finer target for PyPSA's hourly prices.
+    """
+    output:
+        raw="resources/ons/CMO_SEMIHORARIO_{year}.csv",
+        provenance="resources/_provenance/ons/cmo_semi_horario_{year}.json",
+    params:
+        url=lambda wc: config["sources"]["ons"]["cmo_semi_horario"]["url"].format(year=wc.year),
+        source="ons",
+        dataset=lambda wc: f"cmo_semi_horario_{wc.year}",
+    log:
+        "logs/fetch_ons_cmo_semi_horario/{year}.log",
+    script:
+        "../scripts/fetch_dataset.py"

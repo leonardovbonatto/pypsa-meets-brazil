@@ -89,6 +89,14 @@ rule fetch_all:
             year=inflow_history_years(config, dataset="ear_ree"),
         ),
         "resources/ons/RESERVATORIOS.csv",
+        expand(
+            "resources/ons/CMO_SEMANAL_{year}.csv",
+            year=inflow_history_years(config, dataset="cmo_semanal"),
+        ),
+        expand(
+            "resources/ons/CMO_SEMIHORARIO_{year}.csv",
+            year=inflow_history_years(config, dataset="cmo_semi_horario"),
+        ),
 
 
 rule write_run_manifest:

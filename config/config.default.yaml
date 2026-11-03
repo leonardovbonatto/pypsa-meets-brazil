@@ -121,6 +121,24 @@ sources:
       # not requiring NEWAVE deck parsing via inewave. See
       # docs/data-dictionary/ons/reservatorio.yaml.
       url: https://ons-aws-prod-opendata.s3.amazonaws.com/dataset/reservatorio/RESERVATORIOS.csv
+    cmo_semanal:
+      # Weekly marginal operating cost (CMO) per subsystem from ONS's DECOMP
+      # run, by load block plus the weekly mean. The backtest target for the
+      # SDDP policy (roadmap Phase 7 gate). See
+      # docs/data-dictionary/ons/cmo_semanal.yaml.
+      url: https://ons-aws-prod-opendata.s3.amazonaws.com/dataset/cmo_se/CMO_SEMANAL_{year}.csv
+      # 2025 is not on the bucket as of 2026-11-02; 2024 is the latest year.
+      years:
+        start: 2005
+        end: 2024
+    cmo_semi_horario:
+      # Half-hourly CMO per subsystem from ONS's DESSEM run, the finer target
+      # for PyPSA's hourly prices and the source of monthly means. See
+      # docs/data-dictionary/ons/cmo_semi_horario.yaml.
+      url: https://ons-aws-prod-opendata.s3.amazonaws.com/dataset/cmo_tm/CMO_SEMIHORARIO_{year}.csv
+      years:
+        start: 2020
+        end: 2024
 
 paths:
   resources: resources

@@ -1,0 +1,103 @@
+dataset: cmo_semanal
+source: ons
+source_url: https://ons-aws-prod-opendata.s3.amazonaws.com/dataset/cmo_se/CMO_SEMANAL_{year}.csv
+retrieved: '2026-11-03T04:12:22+00:00'
+format: csv
+encoding: utf-8
+delimiter: ;
+decimal: .
+row_count: 4172
+schema_hash: sha256:1c246734abbaaa028c8d06392cd1d1212b31ecf70f66e86c1fd0fb5c714e9e3a
+columns:
+- name: id_subsistema
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: Subsystem code. N/NE/S/SE in every year 2005-2024; goes through
+    _ons.map_subsystems() (SE becomes SE_CO).
+  sample:
+  - N
+  - NE
+  - S
+- name: nom_subsistema
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: Subsystem name in Portuguese.
+  sample:
+  - NORTE
+  - NORDESTE
+  - SUL
+- name: din_instante
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: Reference date of the operating week, YYYY-MM-DD. Always a
+    Friday, and the END of the Saturday-to-Friday operating week (measured,
+    see notes); ONS's dictionary says only "reference date".
+  sample:
+  - '2005-01-07'
+  - '2005-01-07'
+  - '2005-01-07'
+- name: val_cmomediasemanal
+  dtype: float64
+  unit: R$/MWh
+  nullable: false
+  null_rate: 0.0
+  description: Weekly mean CMO from DECOMP. ONS's dictionary labels it "R$/MW",
+    almost certainly a typo for R$/MWh, the unit of the three block columns
+    it always lies between (checked on every row).
+  sample:
+  - 0.94
+  - 0.94
+  - 4.5
+- name: val_cmoleve
+  dtype: float64
+  unit: R$/MWh
+  nullable: false
+  null_rate: 0.0
+  description: CMO in the light load block (patamar leve).
+  sample:
+  - 0.94
+  - 0.94
+  - 4.39
+- name: val_cmomedia
+  dtype: float64
+  unit: R$/MWh
+  nullable: false
+  null_rate: 0.0
+  description: CMO in the medium load block (patamar medio). Not the weekly
+    mean, despite the name - that is val_cmomediasemanal.
+  sample:
+  - 0.94
+  - 0.94
+  - 4.59
+- name: val_cmopesada
+  dtype: float64
+  unit: R$/MWh
+  nullable: false
+  null_rate: 0.0
+  description: CMO in the heavy load block (patamar pesado). Never below the
+    light block on any row 2005-2024.
+  sample:
+  - 0.94
+  - 0.94
+  - 4.59
+notes:
+- 'Roadmap Phase 7 gate: the backtest target for the SDDP policy. CMO is the
+  marginal cost ONS''s own model chain computes, not a market price (PLD is
+  CCEE''s, and is capped and floored).'
+- 'Clean across the full 2005-2024 volume: 1,043 weeks per subsystem, every
+  week exactly 7 days after the previous one, no nulls, all four subsystems on
+  the same weeks. Built from the full volume per the PR-15 lesson.'
+- 'Week convention measured, not assumed: on 2024, weekly means correlate 0.920
+  with half-hourly DESSEM means over the seven days ENDING on din_instante,
+  against 0.895 for the seven starting on it (mean absolute gap 28.7 vs 40.7
+  R$/MWh). The two series come from different ONS models, so the evidence is
+  moderate, but it points one way and matches the Saturday-to-Friday operating
+  week.'
+- 'No 2025 file on the bucket as of 2026-11-02; config stops at 2024.'
+- 'Range: 0.0 (many wet weeks, e.g. January-May 2024) to 3,044.45 R$/MWh.'

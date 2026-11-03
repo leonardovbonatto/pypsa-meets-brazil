@@ -232,6 +232,35 @@ rule build_reservoir:
         "../scripts/build_reservoir.py"
 
 
+rule build_cmo:
+    """
+    Tidy ONS marginal operating cost (CMO): weekly per subsystem from DECOMP
+    and monthly from DESSEM's half-hourly values, the backtest target for
+    the SDDP policy (roadmap Phase 7 gate). See scripts/build_cmo.py and
+    docs/handoffs/PR-47-*.md for the week convention and the missing days.
+    """
+    input:
+        weekly=expand(
+            "resources/ons/CMO_SEMANAL_{year}.csv",
+            year=inflow_history_years(config, dataset="cmo_semanal"),
+        ),
+        weekly_dictionary="docs/data-dictionary/ons/cmo_semanal.yaml",
+        half_hourly=expand(
+            "resources/ons/CMO_SEMIHORARIO_{year}.csv",
+            year=inflow_history_years(config, dataset="cmo_semi_horario"),
+        ),
+        half_hourly_dictionary="docs/data-dictionary/ons/cmo_semi_horario.yaml",
+    output:
+        weekly="resources/cmo_weekly.csv",
+        monthly="resources/cmo_monthly.csv",
+    params:
+        subsystems=config["subsystems"],
+    log:
+        "logs/build_cmo/run.log",
+    script:
+        "../scripts/build_cmo.py"
+
+
 rule build_reservoir_registry:
     """
     Tidy per-reservoir physical registry and the REE-to-subsystem mapping
