@@ -11,7 +11,8 @@ SPDX-License-Identifier: CC-BY-4.0
 - **Supersedes:** ADR-0005 (the mechanism by which inflow persistence
   reaches the policy only - ADR-0005's inflow data source, its PAR(p)
   choice, and its Julia/Parquet coupling decision all stand unchanged)
-- **Superseded by:** —
+- **Superseded by:** ADR-0010 (decision 3, the single national Markov state,
+  and decision 2's analytic transition matrices only)
 
 ## Correction (PR-43)
 

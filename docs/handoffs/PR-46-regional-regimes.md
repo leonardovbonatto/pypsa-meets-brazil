@@ -7,8 +7,8 @@ SPDX-License-Identifier: CC-BY-4.0
 
 **Landed:**
 
-- `docs/decisions/ADR-0010-regional-hydrological-regimes.md`, **Proposed**:
-  waits for the project owner to accept it.
+- `docs/decisions/ADR-0010-regional-hydrological-regimes.md`, **Accepted** 2026-11-04;
+  the SE_CO materiality question stays open.
 - `scripts/prepare_sddp_inputs.py` — `simulate_par1_anomalies`,
   `regional_states`, `joint_transitions`, `sample_regional_scenarios`;
   `sample_par1_paths` takes `regions`. ADR-0009's analytic national functions

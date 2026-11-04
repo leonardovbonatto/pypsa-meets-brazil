@@ -5,7 +5,8 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # ADR-0010 — Regional hydrological regimes in the SDDP policy graph
 
-- **Status:** Proposed
+- **Status:** Accepted 2026-11-04 (the SE_CO materiality question in the
+  acceptance test is still open; see First measurements)
 - **Date:** 2026-11-02
 - **Supersedes:** ADR-0009 (decision 3, the single system-wide Markov state, and
   decision 2's analytic transition matrices only; the Markovian policy graph,

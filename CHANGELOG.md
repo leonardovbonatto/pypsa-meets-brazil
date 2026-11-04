@@ -723,7 +723,9 @@ code without touching this file, unless it carries the `no-changelog` label.
   fails the acceptance test on SE_CO alone, whose water value is about
   R$1/MWh in both regimes; CVaR lambda=0.5 (R$240.5bn) passes. The earlier
   "passing the test" for expectation was a threaded result. Whether the test
-  should exempt nearly free water is left to ADR-0010's acceptance (PR-46).
+  should exempt nearly free water is still open (PR-46).
+- **ADR-0010 accepted** (2026-11-04); ADR-0009's single national regime and
+  analytic transition matrices are marked superseded by it.
   Every command was executed while writing the file, which immediately
   caught a stale claim in the draft: cut coefficients now saturate at 7.44,
   not 10,000, and that number reconciles exactly as
