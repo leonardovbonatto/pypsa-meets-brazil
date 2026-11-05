@@ -742,6 +742,13 @@ code without touching this file, unless it carries the `no-changelog` label.
   test fails (dry = wet at the reference point in every subsystem, 59% of the
   grid tied, 0.6% backwards). Regional regimes stay the policy (PR-48).
 - `docs/handoffs/PR-48-inflow-memory-state.md`.
+- **EPE interchange loader, local only** (`epe_interc`, plan steps 2-3).
+  Parses `interc.dat` and `minterc004.dat` from a local BaseDadosGT copy at a
+  pinned commit; only a provenance record is committed. NE->SE agrees with
+  T0's 8,311 MW within 2% (EPE 8,500), but SE->NE is 6,000 MW, so the
+  symmetric T0 limit overstates that direction by 39%. The North and SE-S do
+  not map one to one (fictitious nodes, `99999`) (PR-53).
+- `docs/handoffs/PR-53-epe-interchange-loader.md`.
 
 ### Changed
 

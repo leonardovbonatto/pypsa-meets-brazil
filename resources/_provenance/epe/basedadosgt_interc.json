@@ -1,0 +1,9 @@
+{
+  "source": "https://github.com/EPE-GOV-BR/BaseDadosGT",
+  "commit": "5168bba0d702139dde233cf7d543ea037571a1ac",
+  "licence": "none stated in the repository; data kept local (plan \u00a78)",
+  "files": {
+    "interc.dat": "baf5a4394750724583e61c996e312671c56e863395477516c26f26068091f47b",
+    "minterc004.dat": "0c7069a61021c202871caeeb4538a2772098d721454e3ec8627bf19a52ee49e5"
+  }
+}

@@ -144,3 +144,11 @@ paths:
   resources: resources
   results: results
   provenance: resources/_provenance
+
+# EPE's integrated G+T base (Brazilian-Grid-in-PyPSA.md §8, steps 2-3). It has
+# no licence file, so it is read from a LOCAL copy outside the repository and
+# nothing derived from it is committed except provenance. Pinned to one commit.
+epe:
+  local_dir: ~/epe_local/raw
+  repository: https://github.com/EPE-GOV-BR/BaseDadosGT
+  commit: 5168bba0d702139dde233cf7d543ea037571a1ac

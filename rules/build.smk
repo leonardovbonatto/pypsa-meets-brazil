@@ -383,3 +383,28 @@ rule build_all:
         "resources/inflow_ena_ree.csv",
         "resources/reservoir_ear_history_ree.csv",
         "resources/reservoir_ear_capacity_ree.csv",
+
+
+rule epe_interc:
+    """
+    EPE interchange limits, read from a local BaseDadosGT copy at a pinned
+    commit, and cross-checked against T0's links (plan steps 2-3). Not part
+    of `all`: it needs the local files. Outputs under resources/epe/ are
+    git-ignored; only the provenance record is committed.
+    """
+    input:
+        interc=str(Path(config["epe"]["local_dir"]).expanduser() / "interc.dat"),
+        minterc=str(Path(config["epe"]["local_dir"]).expanduser() / "minterc004.dat"),
+        links="resources/links_t0.csv",
+    output:
+        interc="resources/epe/interc.csv",
+        minterc="resources/epe/minterc004.csv",
+        cross_check="resources/epe/interc_cross_check.json",
+        provenance="resources/_provenance/epe/basedadosgt_interc.json",
+    params:
+        repository=config["epe"]["repository"],
+        commit=config["epe"]["commit"],
+    log:
+        "logs/epe_interc/run.log",
+    script:
+        "../scripts/epe_interc.py"
