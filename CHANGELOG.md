@@ -742,6 +742,20 @@ code without touching this file, unless it carries the `no-changelog` label.
   test fails (dry = wet at the reference point in every subsystem, 59% of the
   grid tied, 0.6% backwards). Regional regimes stay the policy (PR-48).
 - `docs/handoffs/PR-48-inflow-memory-state.md`.
+- **Transmission in SDDP (ADR-0012).** The four T0 boundaries are transport
+  flows in both SDDP models, bounded by `links_t0.csv`. On the inflow-state
+  model and the same 1000 PAR(1) paths, cost falls from R$233.76bn to
+  R$55.97bn and shedding from 22,520 to 21 MW-months; boundaries are at
+  their limit in 28-48% of months (PR-49).
+- `docs/handoffs/PR-49-sddp-transmission.md`.
+- **Net load in SDDP (ADR-0013).** Wind, solar, rooftop solar and nuclear
+  (about 25 GW) enter both models from the T0 network with free
+  curtailment. Cost falls to R$0.47bn and the inflow-state acceptance test
+  passes, but thermal barely runs, which 2024 contradicts (PR-50).
+- `docs/handoffs/PR-50-sddp-net-load.md`.
+- **Lower bound in the acceptance tests.** `cost_to_go` takes max(0, cuts),
+  as both SDDP models are built with `lower_bound = 0.0`; the cuts alone
+  extrapolated to -5,902 (fix).
 - **EPE interchange loader, local only** (`epe_interc`, plan steps 2-3).
   Parses `interc.dat` and `minterc004.dat` from a local BaseDadosGT copy at a
   pinned commit; only a provenance record is committed. NE->SE agrees with
