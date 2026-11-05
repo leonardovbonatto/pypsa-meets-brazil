@@ -137,6 +137,27 @@ rule fetch_ons_geracao_usina:
         "../scripts/fetch_dataset.py"
 
 
+rule fetch_ons_geracao_termica_despacho:
+    """
+    ONS hourly thermal generation per plant by dispatch reason, one file per
+    (year, month). Its verified inflexible generation is the thermal floor
+    that runs whatever the price (ADR-0016).
+    """
+    output:
+        raw="resources/ons/GERACAO_TERMICA_DESPACHO_2_{year}_{month}.csv",
+        provenance="resources/_provenance/ons/geracao_termica_despacho_{year}_{month}.json",
+    params:
+        url=lambda wc: config["sources"]["ons"]["geracao_termica_despacho"]["url"].format(
+            year=wc.year, month=wc.month
+        ),
+        source="ons",
+        dataset=lambda wc: f"geracao_termica_despacho_{wc.year}_{wc.month}",
+    log:
+        "logs/fetch_ons_geracao_termica_despacho/{year}_{month}.log",
+    script:
+        "../scripts/fetch_dataset.py"
+
+
 rule fetch_ons_ena_subsistema:
     """
     ONS daily natural inflow energy (ENA) per subsystem, one file per

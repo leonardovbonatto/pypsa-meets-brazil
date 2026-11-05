@@ -749,6 +749,16 @@ code without touching this file, unless it carries the `no-changelog` label.
   symmetric T0 limit overstates that direction by 39%. The North and SE-S do
   not map one to one (fictitious nodes, `99999`) (PR-53).
 - `docs/handoffs/PR-53-epe-interchange-loader.md`.
+- **Thermal floor from ONS dispatch reasons (ADR-0016).** New connector
+  `geracao_termica_despacho` (hourly thermal per plant by dispatch reason,
+  2024, 846,984 rows, 153 plants) and `build_thermal_floor_t0`: per
+  subsystem-month, everything that ran for reasons other than price (total
+  verified minus merit order above inflexibility). Imposed as `p_min_pu` on
+  T0 thermal and as a lower bound in both SDDP models. Measured on 2024: 6.6
+  GW of thermal on average, 64% inflexible; merit order only rises in the
+  September-October drought. Without the floor, SDDP with net load costs
+  R$0.47bn a year on the PAR(1) paths; with it, R$22.5bn in a 200-iteration
+  smoke run (PR-54).
 
 ### Changed
 

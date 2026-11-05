@@ -1,0 +1,10 @@
+{
+  "byte_size": 20261255,
+  "dataset": "geracao_termica_despacho_2024_01",
+  "format": "csv",
+  "retrieved": "2026-11-05T02:52:49+00:00",
+  "row_count": 72024,
+  "sha256": "6f0584a6883ff56303cdfb4f959935cb9d955aee4ccc8a2e3c6b8388faa83688",
+  "source": "ons",
+  "source_url": "https://ons-aws-prod-opendata.s3.amazonaws.com/dataset/geracao_termica_despacho_2_ho/GERACAO_TERMICA_DESPACHO-2_2024_01.csv"
+}

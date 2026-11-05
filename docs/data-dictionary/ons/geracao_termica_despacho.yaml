@@ -1,0 +1,447 @@
+dataset: geracao_termica_despacho
+source: ons
+source_url: https://ons-aws-prod-opendata.s3.amazonaws.com/dataset/geracao_termica_despacho_2_ho/GERACAO_TERMICA_DESPACHO-2_{year}_{month}.csv
+retrieved: '2026-11-05T02:52:49+00:00'
+format: csv
+encoding: utf-8
+delimiter: ;
+decimal: .
+row_count: 846984
+schema_hash: sha256:255fbe1cb39210ee623a22c3d1fc777539a0a6ac1dc312c208acc065eb1d86d3
+columns:
+- name: din_instante
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: Start of the hour, YYYY-MM-DD HH:MM:SS.
+  sample:
+  - '2024-01-01 00:00:00'
+  - '2024-01-01 00:00:00'
+  - '2024-01-01 00:00:00'
+- name: nom_tipopatamar
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: 'Load block of the hour: LEVE, MEDIA or PESADA (light, medium, heavy).'
+  sample:
+  - LEVE
+  - LEVE
+  - LEVE
+- name: id_subsistema
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: Subsystem code, N/NE/S/SE; goes through _ons.map_subsystems().
+  sample:
+  - N
+  - N
+  - N
+- name: nom_subsistema
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: Subsystem name in Portuguese.
+  sample:
+  - NORTE
+  - NORTE
+  - NORTE
+- name: nom_usina
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: Plant name.
+  sample:
+  - Aparecida
+  - Geramar I
+  - Geramar II
+- name: cod_usinaplanejamento
+  dtype: int64
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: Plant code in ONS's planning and scheduling models.
+  sample:
+  - 201
+  - 73
+  - 70
+- name: ceg
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: ANEEL's unique plant identifier (CEG).
+  sample:
+  - UTE.GN.AM.027250-7.02
+  - UTE.PE.MA.029705-4.01
+  - UTE.PE.MA.029668-6.01
+- name: val_proggeracao
+  dtype: float64
+  unit: MWmed
+  nullable: false
+  null_rate: 0.0
+  description: Scheduled total generation.
+  sample:
+  - 75.0
+  - 0.0
+  - 0.0
+- name: val_progordemmerito
+  dtype: float64
+  unit: MWmed
+  nullable: false
+  null_rate: 0.0
+  description: Scheduled generation by merit order (CVU below CMO), including any inflexibility
+    embedded in it.
+  sample:
+  - 0.0
+  - 0.0
+  - 0.0
+- name: val_progordemdemeritoref
+  dtype: float64
+  unit: MWmed
+  nullable: false
+  null_rate: 0.0
+  description: Scheduled merit-order dispatch reference (nominal power, partial, or zero).
+  sample:
+  - 0.0
+  - 0.0
+  - 0.0
+- name: val_progordemdemeritoacimadainflex
+  dtype: float64
+  unit: MWmed
+  nullable: false
+  null_rate: 0.0
+  description: Scheduled merit-order generation above the plant's inflexibility, i.e. price-driven
+    only.
+  sample:
+  - 0.0
+  - 0.0
+  - 0.0
+- name: val_proginflexibilidade
+  dtype: float64
+  unit: MWmed
+  nullable: false
+  null_rate: 0.0
+  description: Scheduled generation by declared inflexibility (runs whatever the price).
+  sample:
+  - 75.0
+  - 0.0
+  - 0.0
+- name: val_proginflexembutmerito
+  dtype: float64
+  unit: MWmed
+  nullable: false
+  null_rate: 0.0
+  description: Scheduled inflexibility that the merit order would have dispatched anyway.
+  sample:
+  - 0.0
+  - 0.0
+  - 0.0
+- name: val_proginflexpura
+  dtype: float64
+  unit: MWmed
+  nullable: false
+  null_rate: 0.0
+  description: Scheduled inflexibility the merit order would not have dispatched.
+  sample:
+  - 75.0
+  - 0.0
+  - 0.0
+- name: val_prograzaoeletrica
+  dtype: float64
+  unit: MWmed
+  nullable: false
+  null_rate: 0.0
+  description: Scheduled generation for electrical (grid security) reasons.
+  sample:
+  - 0.0
+  - 0.0
+  - 0.0
+- name: val_proggarantiaenergetica
+  dtype: float64
+  unit: MWmed
+  nullable: false
+  null_rate: 0.0
+  description: Scheduled generation for energy security.
+  sample:
+  - 0.0
+  - 0.0
+  - 0.0
+- name: val_proggfom
+  dtype: float64
+  unit: MWmed
+  nullable: false
+  null_rate: 0.0
+  description: Scheduled out-of-merit generation by CMSE decision (GFOM).
+  sample:
+  - 0.0
+  - 0.0
+  - 0.0
+- name: val_progreposicaoperdas
+  dtype: float64
+  unit: MWmed
+  nullable: false
+  null_rate: 0.0
+  description: Scheduled generation to replace losses.
+  sample:
+  - 0.0
+  - 0.0
+  - 0.0
+- name: val_progexportacao
+  dtype: float64
+  unit: MWmed
+  nullable: false
+  null_rate: 0.0
+  description: Scheduled generation for export.
+  sample:
+  - 0.0
+  - 0.0
+  - 0.0
+- name: val_progreservapotencia
+  dtype: float64
+  unit: MWmed
+  nullable: false
+  null_rate: 0.0
+  description: Scheduled generation for power reserve.
+  sample:
+  - 0.0
+  - 0.0
+  - 0.0
+- name: val_proggsub
+  dtype: float64
+  unit: MWmed
+  nullable: false
+  null_rate: 0.0
+  description: Scheduled generation as a substitute (GSUB).
+  sample:
+  - 0.0
+  - 0.0
+  - 0.0
+- name: val_progunitcommitment
+  dtype: float64
+  unit: MWmed
+  nullable: false
+  null_rate: 0.0
+  description: Scheduled generation for unit commitment.
+  sample:
+  - 0.0
+  - 0.0
+  - 0.0
+- name: val_progconstrainedoff
+  dtype: float64
+  unit: MWmed
+  nullable: false
+  null_rate: 0.0
+  description: Scheduled constrained-off amount.
+  sample:
+  - 0.0
+  - 0.0
+  - 0.0
+- name: val_proginflexibilidadedessem
+  dtype: float64
+  unit: MWmed
+  nullable: true
+  null_rate: 0.0422
+  description: Scheduled inflexibility as represented in DESSEM.
+  sample:
+  - 75.0
+  - 0.0
+  - 0.0
+- name: val_verifgeracao
+  dtype: float64
+  unit: MWmed
+  nullable: false
+  null_rate: 0.0
+  description: Verified total generation.
+  sample:
+  - 76.581
+  - 0.0
+  - 0.0
+- name: val_verifordemmerito
+  dtype: float64
+  unit: MWmed
+  nullable: false
+  null_rate: 0.0
+  description: Verified generation by merit order (CVU below CMO), including any inflexibility
+    embedded in it.
+  sample:
+  - 0.0
+  - 0.0
+  - 0.0
+- name: val_verifordemdemeritoacimadainflex
+  dtype: float64
+  unit: MWmed
+  nullable: false
+  null_rate: 0.0
+  description: Verified merit-order generation above the plant's inflexibility, i.e. price-driven
+    only.
+  sample:
+  - 0.0
+  - 0.0
+  - 0.0
+- name: val_verifinflexibilidade
+  dtype: float64
+  unit: MWmed
+  nullable: false
+  null_rate: 0.0
+  description: Verified generation by declared inflexibility (runs whatever the price).
+  sample:
+  - 76.581
+  - 0.0
+  - 0.0
+- name: val_verifinflexembutmerito
+  dtype: float64
+  unit: MWmed
+  nullable: false
+  null_rate: 0.0
+  description: Verified inflexibility that the merit order would have dispatched anyway.
+  sample:
+  - 0.0
+  - 0.0
+  - 0.0
+- name: val_verifinflexpura
+  dtype: float64
+  unit: MWmed
+  nullable: false
+  null_rate: 0.0
+  description: Verified inflexibility the merit order would not have dispatched.
+  sample:
+  - 76.581
+  - 0.0
+  - 0.0
+- name: val_verifrazaoeletrica
+  dtype: float64
+  unit: MWmed
+  nullable: false
+  null_rate: 0.0
+  description: Verified generation for electrical (grid security) reasons.
+  sample:
+  - 0.0
+  - 0.0
+  - 0.0
+- name: val_verifgarantiaenergetica
+  dtype: float64
+  unit: MWmed
+  nullable: false
+  null_rate: 0.0
+  description: Verified generation for energy security.
+  sample:
+  - 0.0
+  - 0.0
+  - 0.0
+- name: val_verifgfom
+  dtype: float64
+  unit: MWmed
+  nullable: false
+  null_rate: 0.0
+  description: Verified out-of-merit generation by CMSE decision (GFOM).
+  sample:
+  - 0.0
+  - 0.0
+  - 0.0
+- name: val_verifreposicaoperdas
+  dtype: float64
+  unit: MWmed
+  nullable: false
+  null_rate: 0.0
+  description: Verified generation to replace losses.
+  sample:
+  - 0.0
+  - 0.0
+  - 0.0
+- name: val_verifexportacao
+  dtype: float64
+  unit: MWmed
+  nullable: false
+  null_rate: 0.0
+  description: Verified generation for export.
+  sample:
+  - 0.0
+  - 0.0
+  - 0.0
+- name: val_fdexp
+  dtype: float64
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: Export-related factor published by ONS alongside verified export dispatch;
+    meaning not stated in the ONS dictionary summary.
+  sample:
+  - 0.0
+  - 0.0
+  - 0.0
+- name: val_verifreservapotencia
+  dtype: float64
+  unit: MWmed
+  nullable: false
+  null_rate: 0.0
+  description: Verified generation for power reserve.
+  sample:
+  - 0.0
+  - 0.0
+  - 0.0
+- name: val_atendsatisfatoriorpo
+  dtype: float64
+  unit: MWmed
+  nullable: false
+  null_rate: 0.0
+  description: Satisfactory attendance of the power reserve requirement (RPO) indicator.
+  sample:
+  - 0.0
+  - 0.0
+  - 0.0
+- name: val_verifgsub
+  dtype: float64
+  unit: MWmed
+  nullable: false
+  null_rate: 0.0
+  description: Verified generation as a substitute (GSUB).
+  sample:
+  - 0.0
+  - 0.0
+  - 0.0
+- name: val_verifunitcommitment
+  dtype: float64
+  unit: MWmed
+  nullable: false
+  null_rate: 0.0
+  description: Verified generation for unit commitment.
+  sample:
+  - 0.0
+  - 0.0
+  - 0.0
+- name: val_verifconstrainedoff
+  dtype: float64
+  unit: MWmed
+  nullable: false
+  null_rate: 0.0
+  description: Verified constrained-off amount.
+  sample:
+  - 0.0
+  - 0.0
+  - 0.0
+- name: tip_restricaoeletrica
+  dtype: int64
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: Type of electrical constraint behind electrical-reason dispatch; 0 when none.
+  sample:
+  - 0
+  - 0
+  - 0
+notes:
+- 'Measured on all of 2024 (12 files, 846,984 rows, 153 plants): no nulls in the verified
+  columns.'
+- Hourly values are MWmed for that hour, per plant; sum over plants for a subsystem's total.
+- Verified inflexibility equals pure plus embedded inflexibility (val_verifinflexibilidade
+  = val_verifinflexpura + val_verifinflexembutmerito).
+- '2024 subsystem means (MWmed): verified thermal N 1,694, NE 279, S 844, SE 3,764; inflexibility
+  987 / 22 / 625 / 2,602. Merit-order dispatch rises sharply in September-October with the
+  drought (SE 5,553 in October).'
+- 'ADR-0016''s thermal floor is val_verifgeracao minus val_verifordemdemeritoacimadainflex:
+  everything that ran for reasons other than price.'

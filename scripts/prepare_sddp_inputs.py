@@ -494,6 +494,11 @@ def main() -> None:
     # ADR-0012: the T0 boundaries and capacities, unchanged, so SDDP and PyPSA
     # see one network.
     write_parquet(pd.read_csv(snake.input.links), Path(snake.output.links))
+    # ADR-0016: the same monthly thermal floor T0 uses.
+    write_parquet(
+        pd.read_csv(snake.input.thermal_floor)[["month", "subsystem", "floor_mw"]],
+        Path(snake.output.thermal_floor),
+    )
     write_parquet(
         network_renewables(Path(snake.input.network), subsystems=sorted(storage0["subsystem"])),
         Path(snake.output.renewables),

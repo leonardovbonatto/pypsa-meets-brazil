@@ -40,6 +40,7 @@ Do **not** write one for routine implementation choices with an obvious default.
 | [0013](ADR-0013-sddp-net-load.md) | Net load in the SDDP subproblem | Proposed |
 | [0014](ADR-0014-sddp-cuts-in-pypsa.md) | SDDP water values in the PyPSA T0 model | Proposed |
 | [0015](ADR-0015-backtest-2024.md) | The 2024 backtest and its pass criterion | Proposed |
+| [0016](ADR-0016-thermal-floor.md) | A thermal floor from ONS dispatch reasons | Proposed |
 
 ## Template
 

@@ -207,6 +207,26 @@ def attach_marginal_costs(n: pypsa.Network, costs: pd.DataFrame) -> pypsa.Networ
     return n
 
 
+def attach_thermal_floor(n: pypsa.Network, floor: pd.DataFrame) -> pypsa.Network:
+    """
+    ADR-0016: each subsystem's thermal must run at least its monthly floor -
+    what ONS dispatched for reasons other than price in the reference year -
+    as `p_min_pu` on `{s} thermal`, held for every hour of the month.
+    Mutates `n` in place and returns it for convenience.
+    """
+    names = floor["subsystem"] + " thermal"
+    unknown = set(names) - set(n.generators.index)
+    if unknown:
+        raise ValueError(f"floor row(s) have no matching generator: {sorted(unknown)}")
+    months = pd.DatetimeIndex(n.snapshots).month
+    for name, rows in floor.assign(name=names).groupby("name"):
+        by_month = rows.set_index("month")["floor_mw"] / n.generators.loc[name, "p_nom"]
+        if set(months) - set(by_month.index):
+            raise ValueError(f"{name}: floor missing for some snapshot months")
+        n.generators_t.p_min_pu[name] = by_month.reindex(months).to_numpy()
+    return n
+
+
 # Every bus gets an always-available slack generator so the network is
 # solvable at all despite having no transmission lines: with real 2024 data,
 # S's own generator capacity falls short of S's own peak demand in 2 of
@@ -292,6 +312,8 @@ def main() -> None:
 
     costs = load_costs(Path(snake.input.costs))
     attach_marginal_costs(n, costs)
+
+    attach_thermal_floor(n, pd.read_csv(Path(snake.input.thermal_floor)))
 
     attach_load_shedding(n, subsystems=list(snake.params.subsystems))
 

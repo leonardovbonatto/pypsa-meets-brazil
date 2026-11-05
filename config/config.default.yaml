@@ -73,6 +73,13 @@ sources:
       # Used to constrain hydro by BACKCASTING (ADR-0007) - observed output
       # as a model input. See docs/data-dictionary/ons/geracao_usina.yaml.
       url: https://ons-aws-prod-opendata.s3.amazonaws.com/dataset/geracao_usina_2_ho/GERACAO_USINA-2_{year}_{month}.csv
+    geracao_termica_despacho:
+      # Hourly thermal generation per plant split by dispatch reason (merit
+      # order, inflexibility, electrical constraint, energy security...),
+      # one file per (year, month) from 2022. Source of the inflexible
+      # thermal floor (ADR-0016). See
+      # docs/data-dictionary/ons/geracao_termica_despacho.yaml.
+      url: https://ons-aws-prod-opendata.s3.amazonaws.com/dataset/geracao_termica_despacho_2_ho/GERACAO_TERMICA_DESPACHO-2_{year}_{month}.csv
     ena_subsistema:
       # Daily natural inflow energy (ENA) per subsystem, one file per year,
       # published from 2000 onward. Feeds PAR(p) inflow fitting (ADR-0005,

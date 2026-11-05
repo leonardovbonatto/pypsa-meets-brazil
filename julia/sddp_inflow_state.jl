@@ -76,6 +76,7 @@ function load_inflow_state_inputs(sddp_inputs_dir::String, inflow_state_dir::Str
     return (;
         links = load_links(sddp_inputs_dir),
         renewables = load_renewables(sddp_inputs_dir),
+        thermal_floor = load_thermal_floor(sddp_inputs_dir),
         hydro_cap = Dict(r.subsystem => r.hydro_mw for r in eachrow(capacity)),
         thermal_cap = Dict(r.subsystem => r.thermal_mw for r in eachrow(capacity)),
         thermal_marginal_cost = Dict(r.subsystem => r.marginal_cost for r in eachrow(cost)),
@@ -107,7 +108,11 @@ function build_inflow_state_model(inputs)
         # recursion needs the raw value, not the topped-up one.
         @variable(subproblem, inflow[s in SUBSYSTEMS], SDDP.State, initial_value = inputs.inflow0[s])
         @variable(subproblem, 0 <= hydro_generation[s in SUBSYSTEMS] <= inputs.hydro_cap[s])
-        @variable(subproblem, 0 <= thermal_generation[s in SUBSYSTEMS] <= inputs.thermal_cap[s])
+        @variable(
+            subproblem,
+            inputs.thermal_floor[(month, s)] <= thermal_generation[s in SUBSYSTEMS] <=
+            inputs.thermal_cap[s]
+        )
         @variable(subproblem, spill[s in SUBSYSTEMS] >= 0)
         @variable(subproblem, load_shed[s in SUBSYSTEMS] >= 0)
         @variable(subproblem, deficit[s in SUBSYSTEMS] >= 0)

@@ -109,6 +109,8 @@ function known_limitations(risk_kind::String)
         "Transmission is the four T0 boundaries as transport flows (ADR-0012), " *
         "bounded by the hourly-maximum proxy of links_t0.csv applied to monthly " *
         "averages - generous; no losses, no load blocks.",
+        "Thermal runs at least its monthly floor, what ONS ran for reasons other " *
+        "than price in 2024 (ADR-0016); only merit-order thermal is a decision.",
         "Wind, solar, rooftop solar and nuclear are monthly-mean available MW " *
         "from the T0 network with free curtailment (ADR-0013); within-month " *
         "variability is averaged away.",
@@ -258,6 +260,15 @@ function load_renewables(inputs_dir::String)
 end
 
 """
+(month, subsystem) -> thermal floor MW (ADR-0016): what ONS ran in the
+reference year for reasons other than price, already capped at capacity.
+"""
+function load_thermal_floor(inputs_dir::String)
+    df = read_parquet_df(joinpath(inputs_dir, "thermal_floor.parquet"))
+    return Dict((Int(r.month), r.subsystem) => Float64(r.floor_mw) for r in eachrow(df))
+end
+
+"""
 ADR-0013: renewables and nuclear are given, not dispatched. Each subsystem
 gets its month's available MW minus a free `curtailment`, registered so
 simulations can record it. Returns the net renewable supply per subsystem.
@@ -358,6 +369,7 @@ function load_inputs(inputs_dir::String)
     return (;
         links = load_links(inputs_dir),
         renewables = load_renewables(inputs_dir),
+        thermal_floor = load_thermal_floor(inputs_dir),
         hydro_cap,
         thermal_cap,
         thermal_marginal_cost,
@@ -398,7 +410,11 @@ function build_model(inputs)
             initial_value = inputs.storage0[s]
         )
         @variable(subproblem, 0 <= hydro_generation[s in SUBSYSTEMS] <= inputs.hydro_cap[s])
-        @variable(subproblem, 0 <= thermal_generation[s in SUBSYSTEMS] <= inputs.thermal_cap[s])
+        @variable(
+            subproblem,
+            inputs.thermal_floor[(month, s)] <= thermal_generation[s in SUBSYSTEMS] <=
+            inputs.thermal_cap[s]
+        )
         @variable(subproblem, spill[s in SUBSYSTEMS] >= 0)
         @variable(subproblem, load_shed[s in SUBSYSTEMS] >= 0)
         @variable(subproblem, inflow[s in SUBSYSTEMS])

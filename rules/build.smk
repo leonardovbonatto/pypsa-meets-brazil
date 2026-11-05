@@ -332,6 +332,27 @@ rule build_reservoir_ree:
         "../scripts/build_reservoir_ree.py"
 
 
+rule build_thermal_floor_t0:
+    """
+    ADR-0016: monthly thermal floor per subsystem - what ONS ran in the
+    reference year for reasons other than price (inflexibility, electrical
+    reasons and other out-of-merit dispatch), capped at T0 thermal capacity.
+    """
+    input:
+        raw=[
+            f"resources/ons/GERACAO_TERMICA_DESPACHO_2_{year}_{month:02d}.csv"
+            for year, month in snapshot_year_months(config)
+        ],
+        dictionary="docs/data-dictionary/ons/geracao_termica_despacho.yaml",
+        generators="resources/generators_t0.csv",
+    output:
+        "resources/thermal_floor_t0.csv",
+    log:
+        "logs/build_thermal_floor_t0/run.log",
+    script:
+        "../scripts/build_thermal_floor.py"
+
+
 rule build_network_t0:
     """
     T0 network: one bus per subsystem, snapshots from config, the tidy demand
@@ -353,6 +374,7 @@ rule build_network_t0:
         hydro_availability="resources/hydro_availability_t0.csv",
         mmgd_availability="resources/mmgd_availability_t0.csv",
         costs="resources/costs_t0.csv",
+        thermal_floor="resources/thermal_floor_t0.csv",
     output:
         "resources/networks/t0.nc",
     params:
