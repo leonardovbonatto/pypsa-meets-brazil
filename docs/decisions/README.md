@@ -38,6 +38,8 @@ Do **not** write one for routine implementation choices with an obvious default.
 | [0011](ADR-0011-inflow-memory-state.md) | Last month's inflow as an SDDP state (levels PAR(1)) | Accepted; built, not adopted (PR-48) |
 | [0012](ADR-0012-sddp-transmission.md) | Inter-subsystem transmission in the SDDP subproblem | Proposed |
 | [0013](ADR-0013-sddp-net-load.md) | Net load in the SDDP subproblem | Proposed |
+| [0014](ADR-0014-sddp-cuts-in-pypsa.md) | SDDP water values in the PyPSA T0 model | Proposed |
+| [0015](ADR-0015-backtest-2024.md) | The 2024 backtest and its pass criterion | Proposed |
 
 ## Template
 
