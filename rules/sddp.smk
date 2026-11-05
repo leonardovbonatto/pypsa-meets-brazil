@@ -143,6 +143,7 @@ rule prepare_sddp_inputs:
         par1_params="resources/inflow_par1_params.csv",
         par1_correlation="resources/inflow_par1_correlation.csv",
         links="resources/links_t0.csv",
+        network="resources/networks/t0.nc",
     output:
         demand="resources/sddp_inputs/demand.parquet",
         capacity="resources/sddp_inputs/capacity.parquet",
@@ -153,6 +154,7 @@ rule prepare_sddp_inputs:
         scenarios="resources/sddp_inputs/scenarios.parquet",
         par1_paths="resources/sddp_inputs/par1_paths.parquet",
         links="resources/sddp_inputs/links.parquet",
+        renewables="resources/sddp_inputs/renewables.parquet",
     params:
         n_scenarios=10,
         n_par1_paths=1000,
@@ -185,6 +187,7 @@ rule sddp_first_policy:
         "resources/sddp_inputs/scenarios.parquet",
         "resources/sddp_inputs/par1_paths.parquet",
         "resources/sddp_inputs/links.parquet",
+        "resources/sddp_inputs/renewables.parquet",
     output:
         cuts="results/sddp_first_policy/cuts.parquet",
         summary="results/sddp_first_policy/summary.json",
@@ -224,6 +227,7 @@ rule sddp_cvar_policy:
         "resources/sddp_inputs/scenarios.parquet",
         "resources/sddp_inputs/par1_paths.parquet",
         "resources/sddp_inputs/links.parquet",
+        "resources/sddp_inputs/renewables.parquet",
     output:
         cuts="results/sddp_cvar_policy/cuts.parquet",
         summary="results/sddp_cvar_policy/summary.json",
@@ -304,6 +308,7 @@ rule sddp_inflow_state_policy:
         "resources/sddp_inputs/reservoir_capacity.parquet",
         "resources/sddp_inputs/initial_storage.parquet",
         "resources/sddp_inputs/links.parquet",
+        "resources/sddp_inputs/renewables.parquet",
         "resources/sddp_inflow_state/inflow_model.parquet",
         "resources/sddp_inflow_state/initial_inflow.parquet",
         "resources/sddp_inflow_state/noise.parquet",

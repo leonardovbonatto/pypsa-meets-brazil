@@ -75,6 +75,7 @@ function load_inflow_state_inputs(sddp_inputs_dir::String, inflow_state_dir::Str
 
     return (;
         links = load_links(sddp_inputs_dir),
+        renewables = load_renewables(sddp_inputs_dir),
         hydro_cap = Dict(r.subsystem => r.hydro_mw for r in eachrow(capacity)),
         thermal_cap = Dict(r.subsystem => r.thermal_mw for r in eachrow(capacity)),
         thermal_marginal_cost = Dict(r.subsystem => r.marginal_cost for r in eachrow(cost)),
@@ -112,6 +113,7 @@ function build_inflow_state_model(inputs)
         @variable(subproblem, deficit[s in SUBSYSTEMS] >= 0)
         @variable(subproblem, noise[s in SUBSYSTEMS])
         net_import = add_transmission(subproblem, inputs.links)
+        renewable = add_renewables(subproblem, inputs.renewables, month)
 
         @constraint(
             subproblem,
@@ -131,8 +133,8 @@ function build_inflow_state_model(inputs)
         @constraint(
             subproblem,
             [s in SUBSYSTEMS],
-            hydro_generation[s] + thermal_generation[s] + load_shed[s] + net_import[s] ==
-            inputs.demand_by_month[(month, s)]
+            hydro_generation[s] + thermal_generation[s] + load_shed[s] + net_import[s] +
+            renewable[s] == inputs.demand_by_month[(month, s)]
         )
 
         SDDP.@stageobjective(
@@ -189,7 +191,8 @@ function inflow_state_limitations()
         "The initial inflow state is the observed December 2025 mean, the same " *
         "date as the initial storage.",
         "12 monthly stages, one annual cycle; transmission as in " *
-        "sddp_first_policy.jl (ADR-0012); wind, solar and nuclear excluded.",
+        "sddp_first_policy.jl (ADR-0012); renewables and nuclear as monthly " *
+        "net load with free curtailment (ADR-0013).",
     ]
 end
 
@@ -219,7 +222,7 @@ function inflow_state_main()
     bound = SDDP.calculate_bound(model) * MONEY_SCALE
     println("Trained. Bound (R\$): ", bound)
 
-    recorded = [:storage, :inflow, :deficit, :load_shed, :flow]
+    recorded = [:storage, :inflow, :deficit, :load_shed, :flow, :curtailment]
     simulations = SDDP.simulate(model, n_simulations, recorded)
     in_sample = simulation_stats(simulations)
     in_sample_deficit = deficit_stats(simulations)

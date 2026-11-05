@@ -109,7 +109,9 @@ function known_limitations(risk_kind::String)
         "Transmission is the four T0 boundaries as transport flows (ADR-0012), " *
         "bounded by the hourly-maximum proxy of links_t0.csv applied to monthly " *
         "averages - generous; no losses, no load blocks.",
-        "Wind, solar and nuclear excluded from this reduced model.",
+        "Wind, solar, rooftop solar and nuclear are monthly-mean available MW " *
+        "from the T0 network with free curtailment (ADR-0013); within-month " *
+        "variability is averaged away.",
         "SimulationStoppingRule (SDDP.jl's own recommended default) is wired in, " *
         "but checked directly (PR-33) that it does NOT actually trigger within " *
         "iteration_limit=1000 - training still hits the safety cap in practice, " *
@@ -247,6 +249,32 @@ function add_transmission(subproblem, links)
 end
 
 """
+(month, subsystem) -> mean available MW of wind, solar, rooftop solar and
+nuclear, as prepare_sddp_inputs reads it from the T0 network (ADR-0013).
+"""
+function load_renewables(inputs_dir::String)
+    df = read_parquet_df(joinpath(inputs_dir, "renewables.parquet"))
+    return Dict((Int(r.month), r.subsystem) => Float64(r.renewable_mw) for r in eachrow(df))
+end
+
+"""
+ADR-0013: renewables and nuclear are given, not dispatched. Each subsystem
+gets its month's available MW minus a free `curtailment`, registered so
+simulations can record it. Returns the net renewable supply per subsystem.
+"""
+function add_renewables(subproblem, renewables, month)
+    curtailment = @variable(
+        subproblem,
+        [s in SUBSYSTEMS],
+        lower_bound = 0.0,
+        upper_bound = renewables[(month, s)],
+        base_name = "curtailment",
+    )
+    subproblem[:curtailment] = curtailment
+    return Dict(s => renewables[(month, s)] - curtailment[s] for s in SUBSYSTEMS)
+end
+
+"""
 Per boundary over a set of simulations: mean absolute flow (MW) and the
 share of months within 0.1% of the limit.
 """
@@ -329,6 +357,7 @@ function load_inputs(inputs_dir::String)
 
     return (;
         links = load_links(inputs_dir),
+        renewables = load_renewables(inputs_dir),
         hydro_cap,
         thermal_cap,
         thermal_marginal_cost,
@@ -374,6 +403,7 @@ function build_model(inputs)
         @variable(subproblem, load_shed[s in SUBSYSTEMS] >= 0)
         @variable(subproblem, inflow[s in SUBSYSTEMS])
         net_import = add_transmission(subproblem, inputs.links)
+        renewable = add_renewables(subproblem, inputs.renewables, month)
 
         @constraint(
             subproblem,
@@ -383,8 +413,8 @@ function build_model(inputs)
         @constraint(
             subproblem,
             [s in SUBSYSTEMS],
-            hydro_generation[s] + thermal_generation[s] + load_shed[s] + net_import[s] ==
-            inputs.demand_by_month[(month, s)]
+            hydro_generation[s] + thermal_generation[s] + load_shed[s] + net_import[s] +
+            renewable[s] == inputs.demand_by_month[(month, s)]
         )
 
         # HOURS_PER_MONTH converts the R$/h rate into real R$ for this
@@ -553,7 +583,7 @@ function main()
     scored = SDDP.simulate(
         model,
         length(inputs.out_of_sample_paths),
-        [:load_shed, :flow];
+        [:load_shed, :flow, :curtailment];
         sampling_scheme = SDDP.Historical(inputs.out_of_sample_paths),
     )
     out_of_sample = simulation_stats(scored)
@@ -620,6 +650,10 @@ function main()
             "p90_annual_load_shed_mw_months" => out_of_sample.p90_load_shed,
             "mean_annual_load_shed_by_subsystem" => out_of_sample.load_shed_by_subsystem,
             "transmission" => flow_stats(scored, inputs.links),
+            "mean_curtailment_mw_by_subsystem" => Dict(
+                s => sum(stage[:curtailment][s] for r in scored for stage in r) /
+                     (12 * length(scored)) for s in SUBSYSTEMS
+            ),
         ),
         "n_cuts" => length(rows),
         "n_markov_states" => inputs.n_states,

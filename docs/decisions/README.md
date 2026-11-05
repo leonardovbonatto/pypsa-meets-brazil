@@ -37,6 +37,7 @@ Do **not** write one for routine implementation choices with an obvious default.
 | [0010](ADR-0010-regional-hydrological-regimes.md) | Regional hydrological regimes in the SDDP policy graph | Accepted |
 | [0011](ADR-0011-inflow-memory-state.md) | Last month's inflow as an SDDP state (levels PAR(1)) | Accepted; built, not adopted (PR-48) |
 | [0012](ADR-0012-sddp-transmission.md) | Inter-subsystem transmission in the SDDP subproblem | Proposed |
+| [0013](ADR-0013-sddp-net-load.md) | Net load in the SDDP subproblem | Proposed |
 
 ## Template
 

@@ -312,3 +312,30 @@ class TestWriteParquet:
         out = prep.write_parquet(df, tmp_path / "test.parquet")
         reloaded = pd.read_parquet(out)
         assert len(reloaded) == 3
+
+
+class TestMonthlyRenewables:
+    def test_averages_available_mw_by_month_and_bus(self):
+        index = pd.to_datetime(["2024-01-01 00:00", "2024-01-01 01:00", "2024-02-01 00:00"])
+        available = pd.DataFrame(
+            {"NE wind": [100.0, 300.0, 50.0], "NE solar": [0.0, 100.0, 10.0]}, index=index
+        )
+        buses = pd.Series({"NE wind": "NE", "NE solar": "NE"})
+        out = prep.monthly_renewables(available, buses, subsystems=["N", "NE"]).set_index(
+            ["month", "subsystem"]
+        )["renewable_mw"]
+        assert out[(1, "NE")] == pytest.approx(250.0)
+        assert out[(2, "NE")] == pytest.approx(60.0)
+
+    def test_subsystem_without_carriers_gets_zero(self):
+        index = pd.to_datetime(["2024-01-01 00:00"])
+        available = pd.DataFrame({"NE wind": [10.0]}, index=index)
+        out = prep.monthly_renewables(
+            available, pd.Series({"NE wind": "NE"}), subsystems=["N", "NE"]
+        )
+        assert out.loc[out["subsystem"] == "N", "renewable_mw"].tolist() == [0.0]
+
+    def test_rejects_generators_without_a_bus(self):
+        available = pd.DataFrame({"X wind": [1.0]}, index=pd.to_datetime(["2024-01-01"]))
+        with pytest.raises(ValueError, match="without a bus"):
+            prep.monthly_renewables(available, pd.Series(dtype=str), subsystems=["N"])
