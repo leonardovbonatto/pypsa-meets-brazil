@@ -51,6 +51,11 @@ SLOPE_STEP_FRACTION = 0.05
 # R$ per MWmes, so 1e-6 is one R$ per MWmes.
 TIE_TOLERANCE = 1e-6
 
+# Both SDDP models are built with `lower_bound = 0.0`. SDDP.jl enforces it on
+# the cost-to-go variable but does not export it as a cut, so a value read
+# from the cuts alone can extrapolate below it where no cut was built.
+LOWER_BOUND = 0.0
+
 
 def parse_cuts(cuts: pd.DataFrame, subsystems: list[str]) -> dict:
     """(stage, markov_state) -> (intercepts, coefficients), with each row of
@@ -71,8 +76,8 @@ def parse_cuts(cuts: pd.DataFrame, subsystems: list[str]) -> dict:
 
 def cost_to_go(intercepts: np.ndarray, coefficients: np.ndarray, storage: np.ndarray) -> float:
     """The cut approximation of a minimisation's value function: the highest
-    cut at this storage."""
-    return float(np.max(intercepts + coefficients @ storage))
+    cut at this storage, never below the model's lower bound."""
+    return float(max(LOWER_BOUND, np.max(intercepts + coefficients @ storage)))
 
 
 def water_values(

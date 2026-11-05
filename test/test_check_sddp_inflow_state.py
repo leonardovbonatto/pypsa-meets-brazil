@@ -35,6 +35,10 @@ PAR1 = pd.DataFrame(
 OK_DEFICIT = {"S": {"share_of_inflow_energy": 0.001}}
 
 
+# Keeps every fixture cut above the models lower bound of 0 where tested.
+INTERCEPT_OFFSET = 1000.0
+
+
 def _cuts(rows: list[tuple[int, float, float, float]]) -> pd.DataFrame:
     """(stage, intercept, storage coefficient, inflow coefficient)."""
     return pd.DataFrame(
@@ -42,7 +46,7 @@ def _cuts(rows: list[tuple[int, float, float, float]]) -> pd.DataFrame:
             {
                 "stage": stage,
                 "markov_state": 1,
-                "intercept": intercept,
+                "intercept": intercept + INTERCEPT_OFFSET,
                 "state_variable": "storage[S],inflow[S]",
                 "coefficient": f"{storage},{inflow}",
             }
@@ -60,7 +64,7 @@ class TestParseStateCuts:
     def test_splits_storage_and_inflow_coefficients(self):
         nodes = check.parse_state_cuts(LEARNED, ["S"])
         intercepts, storage, inflow = nodes[6]
-        assert intercepts.tolist() == [60.0, 190.0]
+        assert intercepts.tolist() == [60.0 + INTERCEPT_OFFSET, 190.0 + INTERCEPT_OFFSET]
         assert storage[:, 0].tolist() == [-1.0, -3.0]
         assert inflow[:, 0].tolist() == [0.0, -0.02]
 

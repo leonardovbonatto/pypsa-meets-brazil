@@ -36,6 +36,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from check_sddp_regimes import (
     GRID_FRACTIONS,
+    LOWER_BOUND,
     REFERENCE_FRACTION,
     REFERENCE_STAGE,
     SLOPE_STEP_FRACTION,
@@ -77,7 +78,8 @@ def parse_state_cuts(cuts: pd.DataFrame, subsystems: list[str]) -> dict:
 
 def cost_to_go(node: tuple, storage: np.ndarray, inflow: np.ndarray) -> float:
     intercepts, storage_coefficients, inflow_coefficients = node
-    return float(np.max(intercepts + storage_coefficients @ storage + inflow_coefficients @ inflow))
+    highest = np.max(intercepts + storage_coefficients @ storage + inflow_coefficients @ inflow)
+    return float(max(LOWER_BOUND, highest))
 
 
 def water_value(

@@ -36,11 +36,16 @@ ONE_REGION = {"all": ["N", "S"]}
 TWO_REGIONS = {"a": ["N"], "b": ["S"]}
 
 
+# Added to every fixture intercept so each cut stays above the models lower
+# bound of 0 at the points tested, as real cuts do; slopes are unchanged.
+INTERCEPT_OFFSET = 1000.0
+
+
 def _cut(stage: int, regime: int, intercept: float, slope_n: float, slope_s: float) -> dict:
     return {
         "stage": stage,
         "markov_state": regime,
-        "intercept": intercept,
+        "intercept": intercept + INTERCEPT_OFFSET,
         "state_variable": "storage[N],storage[S]",
         "coefficient": f"{slope_n},{slope_s}",
     }
@@ -202,3 +207,10 @@ class TestGrid:
 
         # 1 stage x 3 fractions x 2 subsystems x 3 regimes of the other region.
         assert sum(counts.values()) == 18
+
+
+class TestLowerBound:
+    def test_cost_to_go_never_falls_below_the_models_lower_bound(self):
+        intercepts = np.array([-50.0])
+        coefficients = np.array([[-1.0, 0.0]])
+        assert check.cost_to_go(intercepts, coefficients, np.array([10.0, 0.0])) == 0.0
