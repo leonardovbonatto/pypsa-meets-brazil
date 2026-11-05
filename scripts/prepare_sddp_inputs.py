@@ -158,6 +158,34 @@ def network_renewables(network_path: Path, *, subsystems: list[str]) -> pd.DataF
     )
 
 
+INFLOW_MODES = ("gross", "storable_plus_run_of_river", "storable")
+
+
+def storable_share(ena: pd.DataFrame, *, mode: str = "storable") -> pd.DataFrame:
+    """ADR-0018: (month, subsystem) -> `storable_share`, the share of gross ENA
+    that is storable (total storable over total gross across every year of
+    history), and `run_of_river_share`, the share offered as same-month energy.
+
+    - "gross": everything is storable (the model before ADR-0018).
+    - "storable_plus_run_of_river": the rest is same-month energy.
+    - "storable": the rest is lost, as ONS's own spill made it.
+    """
+    if mode not in INFLOW_MODES:
+        raise ValueError(f"unknown inflow mode {mode!r}, expected one of {INFLOW_MODES}")
+    month = pd.to_datetime(ena["date"]).dt.month
+    totals = (
+        ena.assign(month=month)
+        .groupby(["month", "subsystem"], as_index=False)[
+            ["ena_bruta_mwmed", "ena_armazenavel_mwmed"]
+        ]
+        .sum()
+    )
+    share = (totals["ena_armazenavel_mwmed"] / totals["ena_bruta_mwmed"]).clip(0.0, 1.0)
+    totals["storable_share"] = 1.0 if mode == "gross" else share
+    totals["run_of_river_share"] = 1.0 - share if mode == "storable_plus_run_of_river" else 0.0
+    return totals[["month", "subsystem", "storable_share", "run_of_river_share"]]
+
+
 def thermal_cost(costs_t0: pd.DataFrame) -> pd.DataFrame:
     """subsystem -> marginal_cost, R$/MWh. costs_t0.csv already carries only
     thermal (PR-10) - non-thermal carriers get marginal_cost=0 elsewhere in the
@@ -501,6 +529,10 @@ def main() -> None:
     write_parquet(
         pd.read_csv(snake.input.thermal_floor)[["month", "subsystem", "floor_mw"]],
         Path(snake.output.thermal_floor),
+    )
+    write_parquet(
+        storable_share(pd.read_csv(snake.input.inflow), mode=str(snake.params.inflow_mode)),
+        Path(snake.output.storable_share),
     )
     write_parquet(
         network_renewables(Path(snake.input.network), subsystems=sorted(storage0["subsystem"])),

@@ -42,6 +42,10 @@ SDDP_REGIONAL_ITERATION_LIMIT = 300
 # tried (PR-55) and made the 2024 backtest worse, so it stays at one; the
 # multi-year code is kept for a later retry.
 SDDP_HORIZON_YEARS = 1
+# ADR-0018: what reaches the reservoirs, in SDDP and in the coupled run.
+# "gross" (all ENA), "storable_plus_run_of_river" (storable ENA, the rest as
+# same-month energy) or "storable" (storable ENA, the rest lost).
+SDDP_INFLOW_MODE = "storable"
 SDDP_N_SIMULATIONS = 1000
 
 # ADR-0009: hydrological regimes in the Markovian policy graph. K=3 is
@@ -155,6 +159,7 @@ rule prepare_sddp_inputs:
         links="resources/links_t0.csv",
         network="resources/networks/t0.nc",
         thermal_floor="resources/thermal_floor_t0.csv",
+        inflow="resources/inflow_ena.csv",
     output:
         demand="resources/sddp_inputs/demand.parquet",
         capacity="resources/sddp_inputs/capacity.parquet",
@@ -167,7 +172,9 @@ rule prepare_sddp_inputs:
         links="resources/sddp_inputs/links.parquet",
         renewables="resources/sddp_inputs/renewables.parquet",
         thermal_floor="resources/sddp_inputs/thermal_floor.parquet",
+        storable_share="resources/sddp_inputs/storable_share.parquet",
     params:
+        inflow_mode=SDDP_INFLOW_MODE,
         n_scenarios=10,
         n_par1_paths=1000,
         n_simulated_years=200000,
@@ -202,6 +209,7 @@ rule sddp_first_policy:
         "resources/sddp_inputs/links.parquet",
         "resources/sddp_inputs/renewables.parquet",
         "resources/sddp_inputs/thermal_floor.parquet",
+        "resources/sddp_inputs/storable_share.parquet",
     output:
         cuts="results/sddp_first_policy/cuts.parquet",
         summary="results/sddp_first_policy/summary.json",
@@ -243,6 +251,7 @@ rule sddp_cvar_policy:
         "resources/sddp_inputs/links.parquet",
         "resources/sddp_inputs/renewables.parquet",
         "resources/sddp_inputs/thermal_floor.parquet",
+        "resources/sddp_inputs/storable_share.parquet",
     output:
         cuts="results/sddp_cvar_policy/cuts.parquet",
         summary="results/sddp_cvar_policy/summary.json",
@@ -385,6 +394,7 @@ rule solve_network_sddp:
         summary="results/sddp_coupled/summary.json",
     params:
         start_storage_date="2023-12-31",
+        inflow_mode=SDDP_INFLOW_MODE,
         regions=SDDP_REGIONS,
         n_markov_states=SDDP_MARKOV_STATES,
         solver_name=config["solver"]["name"],

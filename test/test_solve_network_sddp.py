@@ -129,3 +129,40 @@ class TestSpillTieBreak:
             n, {}, pd.Series(1, index=[1, 2]), reservoirs, solver_name="highs", solver_options={}
         )
         assert n.storage_units_t.spill["A reservoir"].sum() == pytest.approx(0.0, abs=1e-6)
+
+    def test_free_wind_runs_before_worthless_stored_water(self):
+        """With no water value, wind and stored water both cost zero; the
+        dispatch cost makes the solver burn wind and keep the water."""
+        n = _network()
+        n.add("Generator", "A wind", bus="A", p_nom=10.0, marginal_cost=0.0)
+        reservoirs = _reservoir(n)
+        coupled.solve_year(
+            n, {}, pd.Series(1, index=[1, 2]), reservoirs, solver_name="highs", solver_options={}
+        )
+        assert n.storage_units_t.p["A reservoir"].sum() == pytest.approx(0.0, abs=1e-6)
+        assert n.generators_t.p["A wind"].sum() == pytest.approx(80.0)
+        assert coupled.RESERVOIR_DISPATCH_COST < coupled.SPILL_COST
+
+
+class TestRunOfRiver:
+    def test_run_of_river_is_used_first_and_shares_the_turbines(self):
+        """ADR-0018: non-storable inflow runs before stored water, and the
+        two together never exceed the subsystem's hydro capacity."""
+        n = _network()
+        n.loads_t.p_set["A"] = 30.0
+        reservoirs = _reservoir(n)
+        pairs = coupled.add_run_of_river(n, pd.DataFrame({"A": 6.0}, index=n.snapshots))
+        coupled.solve_year(
+            n,
+            {},
+            pd.Series(1, index=[1, 2]),
+            reservoirs,
+            solver_name="highs",
+            solver_options={},
+            run_of_river=pairs,
+        )
+        ror = n.generators_t.p["A run_of_river"]
+        reservoir = n.storage_units_t.p["A reservoir"]
+        assert ror.min() == pytest.approx(6.0)
+        assert (ror + reservoir).max() <= 10.0 + 1e-6
+        assert reservoir.sum() == pytest.approx(4.0 * 8)

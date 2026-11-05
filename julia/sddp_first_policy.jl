@@ -304,6 +304,19 @@ function flow_stats(simulations, links)
     return stats
 end
 
+"""
+(month, subsystem) -> share of gross inflow that is storable (ADR-0018). The
+rest is run-of-river energy for the same stage.
+"""
+function load_storable_share(inputs_dir::String)
+    df = read_parquet_df(joinpath(inputs_dir, "storable_share.parquet"))
+    return Dict(
+        (Int(r.month), r.subsystem) =>
+            (storable = Float64(r.storable_share), run_of_river = Float64(r.run_of_river_share))
+        for r in eachrow(df)
+    )
+end
+
 function load_inputs(inputs_dir::String)
     demand = read_parquet_df(joinpath(inputs_dir, "demand.parquet"))
     capacity = read_parquet_df(joinpath(inputs_dir, "capacity.parquet"))
@@ -374,6 +387,7 @@ function load_inputs(inputs_dir::String)
         links = load_links(inputs_dir),
         renewables = load_renewables(inputs_dir),
         thermal_floor = load_thermal_floor(inputs_dir),
+        storable_share = load_storable_share(inputs_dir),
         hydro_cap,
         thermal_cap,
         thermal_marginal_cost,
@@ -424,19 +438,31 @@ function build_model(inputs)
         @variable(subproblem, spill[s in SUBSYSTEMS] >= 0)
         @variable(subproblem, load_shed[s in SUBSYSTEMS] >= 0)
         @variable(subproblem, inflow[s in SUBSYSTEMS])
+        # ADR-0018: only the storable share of inflow reaches the reservoir; a
+        # run-of-river share (zero unless that mode is chosen) can be generated
+        # this month, within the same turbines.
+        @variable(subproblem, run_of_river[s in SUBSYSTEMS] >= 0)
+        share = Dict(s => inputs.storable_share[(month, s)].storable for s in SUBSYSTEMS)
+        ror_share = Dict(s => inputs.storable_share[(month, s)].run_of_river for s in SUBSYSTEMS)
+        @constraint(subproblem, [s in SUBSYSTEMS], run_of_river[s] <= ror_share[s] * inflow[s])
+        @constraint(
+            subproblem,
+            [s in SUBSYSTEMS],
+            hydro_generation[s] + run_of_river[s] <= inputs.hydro_cap[s]
+        )
         net_import = add_transmission(subproblem, inputs.links)
         renewable = add_renewables(subproblem, inputs.renewables, month)
 
         @constraint(
             subproblem,
             [s in SUBSYSTEMS],
-            storage[s].out == storage[s].in - hydro_generation[s] - spill[s] + inflow[s]
+            storage[s].out == storage[s].in - hydro_generation[s] - spill[s] + share[s] * inflow[s]
         )
         @constraint(
             subproblem,
             [s in SUBSYSTEMS],
-            hydro_generation[s] + thermal_generation[s] + load_shed[s] + net_import[s] +
-            renewable[s] == inputs.demand_by_month[(month, s)]
+            hydro_generation[s] + run_of_river[s] + thermal_generation[s] + load_shed[s] +
+            net_import[s] + renewable[s] == inputs.demand_by_month[(month, s)]
         )
 
         # HOURS_PER_MONTH converts the R$/h rate into real R$ for this

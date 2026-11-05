@@ -794,6 +794,19 @@ code without touching this file, unless it carries the `no-changelog` label.
   every month, SE_CO storage 0% in November), so the setting stays at 1 and
   the one-year results are unchanged. The water value is zero in both: the
   horizon was not the cause. `docs/handoffs/PR-55-two-year-horizon.md`.
+- **Storable inflow (PR-56, ADR-0018).** `SDDP_INFLOW_MODE = "storable"`:
+  SDDP sends each month's historical storable share of sampled inflow to
+  the reservoirs, and the coupled run uses observed storable ENA. In 2024,
+  storable ENA less the storage change matches ONS hydro generation within
+  3%; gross overstates it by 14%. Backtest storage passes in 3 of 4
+  subsystems (SE_CO 0.90); price still fails, with prices near zero all
+  year. `"gross"` and `"storable_plus_run_of_river"` remain as modes.
+  `docs/handoffs/PR-56-storable-inflow.md`.
+- `RESERVOIR_DISPATCH_COST` (R$0.005/MWh) in the coupled run: with water
+  valued at zero, reservoir output and free wind and solar tied, and the
+  solver ran about 70 GW of hydro a month against ONS's 40-60 GW,
+  curtailing renewables. National hydro now tracks ONS within a few GW
+  (PR-56).
 - `SDDP_REGIONAL_ITERATION_LIMIT = 300` for the regional policy, which
   settles within a few hundred iterations while `SimulationStoppingRule`
   may never fire (PR-55).

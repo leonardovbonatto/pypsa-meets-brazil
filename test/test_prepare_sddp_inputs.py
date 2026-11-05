@@ -371,3 +371,33 @@ class TestMultiYearHorizon:
         )
         transitions = prep.joint_transitions(states, n_joint=4)
         assert sorted(transitions["stage"].unique()) == list(range(1, 25))
+
+
+class TestStorableShare:
+    ENA = pd.DataFrame(
+        {
+            "date": ["2000-01-01", "2001-01-01", "2000-02-01"],
+            "subsystem": ["A", "A", "A"],
+            "ena_bruta_mwmed": [100.0, 300.0, 50.0],
+            "ena_armazenavel_mwmed": [100.0, 200.0, 60.0],
+        }
+    )
+
+    def test_is_total_storable_over_total_gross_per_month(self):
+        share = prep.storable_share(self.ENA).set_index("month")
+        assert share.loc[1, "storable_share"] == pytest.approx(300.0 / 400.0)
+        assert share.loc[2, "storable_share"] == pytest.approx(1.0)  # capped at gross
+        assert (share["run_of_river_share"] == 0.0).all()
+
+    def test_run_of_river_mode_offers_the_rest(self):
+        share = prep.storable_share(self.ENA, mode="storable_plus_run_of_river").set_index("month")
+        assert share.loc[1, "run_of_river_share"] == pytest.approx(0.25)
+
+    def test_gross_mode_is_the_old_model(self):
+        share = prep.storable_share(self.ENA, mode="gross")
+        assert (share["storable_share"] == 1.0).all()
+        assert (share["run_of_river_share"] == 0.0).all()
+
+    def test_rejects_unknown_mode(self):
+        with pytest.raises(ValueError, match="unknown inflow mode"):
+            prep.storable_share(self.ENA, mode="net")

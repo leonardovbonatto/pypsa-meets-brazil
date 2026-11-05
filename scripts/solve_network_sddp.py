@@ -52,6 +52,7 @@ from solve_network import KNOWN_LIMITATIONS as T0_LIMITATIONS
 HOURS_PER_MWMES = 730.0
 MONEY_SCALE = 1.0e6
 INFLOW_COLUMN = "ena_bruta_mwmed"
+STORABLE_COLUMN = "ena_armazenavel_mwmed"
 RESERVOIR_CARRIER = "hydro"
 
 # Breaks a tie, not a price. Where the cuts value water at zero, spilling
@@ -62,13 +63,22 @@ RESERVOIR_CARRIER = "hydro"
 # and solar goes first.
 SPILL_COST = 0.01
 
+# The same kind of tie, one step further. Wind, solar and reservoir output all
+# cost zero, so with worthless water the solver could run stored water and
+# curtail free renewables: the spill-fixed 2024 run produced about 70 GW of
+# hydro a month against ONS's 40-60 GW (demand and renewables in the network
+# match ONS), draining every reservoir by October. Half the spill cost, so the
+# order is renewables, then reservoir output, then spill.
+RESERVOIR_DISPATCH_COST = 0.005
+
 KNOWN_LIMITATIONS = [
     "HYDRO IS OPTIMISED, NOT BACKCAST (ADR-0014): one reservoir per subsystem, "
     "observed 2024 inflow, observed 2023-12-31 storage, valued at month ends by "
     "SDDP cuts. Supersedes T0's backcast caveat for this run only.",
     "Water values come from the regional SDDP policy (ADR-0010), which has "
-    "transmission (ADR-0012) and net load (ADR-0013) but no minimum outflows, "
-    "run-of-river limits, or storable-vs-gross inflow distinction.",
+    "transmission (ADR-0012) and net load (ADR-0013) but no minimum outflows. "
+    "Reservoirs receive storable ENA (ADR-0018) at a fixed monthly share in SDDP "
+    "and as observed in 2024 here.",
     "December has no water value: SDDP's last stage has no cuts, so reservoirs "
     "may be drawn down in December.",
     "One MWmes = 730 MWh for every month.",
@@ -83,11 +93,14 @@ KNOWN_LIMITATIONS = [
 
 
 def hourly_inflow(
-    ena: pd.DataFrame, snapshots: pd.DatetimeIndex, subsystems: list[str]
+    ena: pd.DataFrame,
+    snapshots: pd.DatetimeIndex,
+    subsystems: list[str],
+    column: str = INFLOW_COLUMN,
 ) -> pd.DataFrame:
     """snapshot x subsystem -> inflow MW, each day's mean ENA held for its hours."""
     daily = ena.assign(day=pd.to_datetime(ena["date"]).dt.normalize()).pivot_table(
-        index="day", columns="subsystem", values=INFLOW_COLUMN
+        index="day", columns="subsystem", values=column
     )
     missing = set(subsystems) - set(daily.columns)
     if missing:
@@ -147,11 +160,63 @@ def add_reservoirs(
             state_of_charge_initial=initial_mwmes[s] * HOURS_PER_MWMES,
             cyclic_state_of_charge=False,
             p_min_pu=0.0,
-            marginal_cost=0.0,
+            marginal_cost=RESERVOIR_DISPATCH_COST,
             spill_cost=SPILL_COST,
         )
         names.append(name)
     return names
+
+
+def add_run_of_river(n: pypsa.Network, run_of_river_mw: pd.DataFrame) -> dict[str, str]:
+    """ADR-0018: the inflow that cannot be stored (gross minus storable ENA)
+    becomes a free generator at each reservoir's bus, used in its hour or
+    lost. Returns reservoir -> generator, for `shared_turbines`."""
+    pairs = {}
+    for s in run_of_river_mw.columns:
+        reservoir = f"{s} reservoir"
+        p_nom = float(n.storage_units.loc[reservoir, "p_nom"])
+        name = f"{s} run_of_river"
+        n.add(
+            "Generator",
+            name,
+            bus=s,
+            carrier="run_of_river",
+            p_nom=p_nom,
+            p_max_pu=(run_of_river_mw[s].clip(lower=0.0) / p_nom).clip(upper=1.0),
+            marginal_cost=0.0,
+        )
+        pairs[reservoir] = name
+    return pairs
+
+
+def shared_turbines(n: pypsa.Network, pairs: dict[str, str]):
+    """extra_functionality: reservoir output plus run-of-river output stay
+    within the subsystem's one hydro capacity."""
+
+    def extra(n, snapshots):
+        m = n.model
+        dispatch = m["StorageUnit-p_dispatch"]
+        generation = m["Generator-p"]
+        for reservoir, generator in pairs.items():
+            p_nom = float(n.storage_units.loc[reservoir, "p_nom"])
+            lhs = dispatch.sel(name=reservoir, drop=True) + generation.sel(
+                name=generator, drop=True
+            )
+            m.add_constraints(lhs <= p_nom, name=f"shared_turbine {reservoir}")
+
+    return extra
+
+
+def _combine(*functions):
+    functions = [f for f in functions if f is not None]
+    if not functions:
+        return None
+
+    def extra(n, snapshots):
+        for f in functions:
+            f(n, snapshots)
+
+    return extra
 
 
 def water_value(
@@ -192,6 +257,9 @@ def month_summary(n: pypsa.Network, snapshots: pd.DatetimeIndex, reservoirs: lis
             "spill_mw": float(n.storage_units_t.spill.loc[snapshots, name].mean())
             if name in n.storage_units_t.spill
             else 0.0,
+            "run_of_river_mw": float(p[f"{s} run_of_river"].mean())
+            if f"{s} run_of_river" in p
+            else 0.0,
             "thermal_mw": float(p[f"{s} thermal"].mean()),
             "load_shed_mwh": float(p[f"{s} load_shedding"].sum()),
             "price_mean_rs_per_mwh": float(prices[s].mean()),
@@ -208,27 +276,29 @@ def solve_year(
     *,
     solver_name: str,
     solver_options: dict,
+    run_of_river: dict[str, str] | None = None,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """One solve per calendar month in the snapshots, in order. Returns
     (monthly rows, hourly prices)."""
     rows, prices = [], []
+    turbines = shared_turbines(n, run_of_river) if run_of_river else None
     for month in sorted(set(n.snapshots.month)):
         snapshots = n.snapshots[n.snapshots.month == month]
         regime = int(regimes[month])
-        extra = None
+        cuts = None
         if (month, regime) in nodes:
             intercepts, coefficients = nodes[(month, regime)]
-            extra = water_value(n, intercepts, coefficients, reservoirs)
+            cuts = water_value(n, intercepts, coefficients, reservoirs)
         status, condition = n.optimize(
             snapshots=snapshots,
             solver_name=solver_name,
             include_objective_constant=False,
-            extra_functionality=extra,
+            extra_functionality=_combine(cuts, turbines),
             **solver_options,
         )
         if status != "ok":
             raise RuntimeError(f"month {month} did not solve: {status}/{condition}")
-        alpha = float(n.model["water_value_alpha"].solution) if extra else 0.0
+        alpha = float(n.model["water_value_alpha"].solution) if cuts else 0.0
         for s, values in month_summary(n, snapshots, reservoirs).items():
             rows.append(
                 {
@@ -259,12 +329,21 @@ def main() -> None:
 
     ena = pd.read_csv(snake.input.inflow, parse_dates=["date"])
     year = ena[ena["date"].dt.year == n.snapshots[0].year]
-    inflow = hourly_inflow(year, n.snapshots, subsystems)
+    gross = hourly_inflow(year, n.snapshots, subsystems)
+    # ADR-0018: in the storable modes only storable ENA enters the reservoir;
+    # "storable_plus_run_of_river" offers the rest as run-of-river.
+    mode = str(snake.params.inflow_mode)
+    storable = (
+        gross if mode == "gross" else hourly_inflow(year, n.snapshots, subsystems, STORABLE_COLUMN)
+    )
     reservoirs = add_reservoirs(
         n,
         dict(zip(capacity["subsystem"], capacity["ear_max_mwmes"], strict=True)),
         dict(zip(start["subsystem"], start["ear_verif_mwmes"], strict=True)),
-        inflow,
+        storable,
+    )
+    run_of_river = (
+        add_run_of_river(n, gross - storable) if mode == "storable_plus_run_of_river" else None
     )
 
     monthly_inflow = (
@@ -292,6 +371,7 @@ def main() -> None:
         reservoirs,
         solver_name=snake.params.solver_name,
         solver_options=dict(snake.params.solver_options),
+        run_of_river=run_of_river,
     )
 
     Path(snake.output.monthly).parent.mkdir(parents=True, exist_ok=True)
