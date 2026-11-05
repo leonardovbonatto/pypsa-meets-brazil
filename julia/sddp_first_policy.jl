@@ -579,4 +579,8 @@ function main()
     println("Wrote ", length(rows), " cuts and summary.json to ", output_dir)
 end
 
-main()
+# Guarded so julia/sddp_inflow_state.jl can include this file for its shared
+# constants and helpers without starting a training run (ADR-0011).
+if abspath(PROGRAM_FILE) == @__FILE__
+    main()
+end

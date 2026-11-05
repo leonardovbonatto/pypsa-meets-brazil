@@ -256,3 +256,82 @@ rule check_sddp_regimes:
         "logs/check_sddp_regimes/{policy}.log",
     script:
         "../scripts/check_sddp_regimes.py"
+
+
+rule prepare_sddp_inflow_state:
+    """
+    ADR-0011: inputs for the policy that remembers last month's inflow. A
+    levels PAR(1) (linear, so inflow can be an SDDP state), its training
+    noise, the noise that reproduces each of prepare_sddp_inputs' 1000
+    log-PAR(1) scoring paths, the December 2025 starting inflow, and the
+    validation table that replaced ADR-0009's negative-inflow figures.
+    """
+    input:
+        inflow="resources/inflow_ena.csv",
+        par1_correlation="resources/inflow_par1_correlation.csv",
+        par1_paths="resources/sddp_inputs/par1_paths.parquet",
+    output:
+        inflow_model="resources/sddp_inflow_state/inflow_model.parquet",
+        initial_inflow="resources/sddp_inflow_state/initial_inflow.parquet",
+        noise="resources/sddp_inflow_state/noise.parquet",
+        scoring_noise="resources/sddp_inflow_state/scoring_noise.parquet",
+        validation="resources/sddp_inflow_state/levels_validation.json",
+    params:
+        n_noise=20,
+        n_validation_years=20000,
+        seed=0,
+    log:
+        "logs/prepare_sddp_inflow_state/run.log",
+    script:
+        "../scripts/prepare_sddp_inflow_state.py"
+
+
+rule sddp_inflow_state_policy:
+    """
+    ADR-0011: expectation policy with storage and last month's inflow as
+    states, on a linear 12-stage graph. Trained and scored like
+    sddp_first_policy (same seed, iteration limit, simulations and 1000
+    scoring paths) so the two compare directly.
+    """
+    input:
+        "resources/sddp_inputs/demand.parquet",
+        "resources/sddp_inputs/capacity.parquet",
+        "resources/sddp_inputs/cost.parquet",
+        "resources/sddp_inputs/reservoir_capacity.parquet",
+        "resources/sddp_inputs/initial_storage.parquet",
+        "resources/sddp_inflow_state/inflow_model.parquet",
+        "resources/sddp_inflow_state/initial_inflow.parquet",
+        "resources/sddp_inflow_state/noise.parquet",
+        "resources/sddp_inflow_state/scoring_noise.parquet",
+    output:
+        cuts="results/sddp_inflow_state_policy/cuts.parquet",
+        summary="results/sddp_inflow_state_policy/summary.json",
+    params:
+        iteration_limit=SDDP_ITERATION_LIMIT,
+        n_simulations=SDDP_N_SIMULATIONS,
+    log:
+        "logs/sddp_inflow_state_policy/run.log",
+    shell:
+        "pixi run -e sddp julia --project=julia julia/sddp_inflow_state.jl "
+        "resources/sddp_inputs resources/sddp_inflow_state results/sddp_inflow_state_policy 0 "
+        "{params.iteration_limit} {params.n_simulations} > {log} 2>&1"
+
+
+rule check_sddp_inflow_state:
+    """
+    ADR-0011's acceptance test: after a very dry month (own last inflow at
+    P10) water must be worth at least as much as after a very wet one (P90),
+    and the deficit slack must carry at most 1% of S's inflow energy. Fails
+    the rule if either does not hold. See scripts/check_sddp_inflow_state.py.
+    """
+    input:
+        cuts="results/sddp_inflow_state_policy/cuts.parquet",
+        summary="results/sddp_inflow_state_policy/summary.json",
+        reservoir_capacity="resources/sddp_inputs/reservoir_capacity.parquet",
+        par1_params="resources/inflow_par1_params.csv",
+    output:
+        "results/sddp_inflow_state_policy/inflow_state_check.json",
+    log:
+        "logs/check_sddp_inflow_state/run.log",
+    script:
+        "../scripts/check_sddp_inflow_state.py"

@@ -718,6 +718,12 @@ code without touching this file, unless it carries the `no-changelog` label.
   where a sound measurement shipped with a wrong explanation attached
   (PR-38's persistence claim, PR-39's cut-accumulation claim, PR-43's CVaR
   claim) - each settled cheaply, but only after expensive speculation.
+  Every command was executed while writing the file, which immediately
+  caught a stale claim in the draft: cut coefficients now saturate at 7.44,
+  not 10,000, and that number reconciles exactly as
+  `LOAD_SHED_COST x 744 h / MONEY_SCALE` - a compact physical check that
+  both the hours factor and the money scale are applied. Records current
+  known-good baselines for regression comparison (PR-44).
 - **Serial baselines for regional regimes.** Serial 4000-iteration runs
   reverse the threaded verdicts: expectation (R$233.8bn on PAR(1) paths)
   fails the acceptance test on SE_CO alone, whose water value is about
@@ -726,12 +732,16 @@ code without touching this file, unless it carries the `no-changelog` label.
   should exempt nearly free water is still open (PR-46).
 - **ADR-0010 accepted** (2026-11-04); ADR-0009's single national regime and
   analytic transition matrices are marked superseded by it.
-  Every command was executed while writing the file, which immediately
-  caught a stale claim in the draft: cut coefficients now saturate at 7.44,
-  not 10,000, and that number reconciles exactly as
-  `LOAD_SHED_COST x 744 h / MONEY_SCALE` - a compact physical check that
-  both the hours factor and the money scale are applied. Records current
-  known-good baselines for regression comparison (PR-44).
+- **Last month's inflow as an SDDP state (ADR-0011), built but not adopted.**
+  A levels PAR(1) with moments-matched three-parameter lognormal noise makes
+  each subsystem's last inflow a state on a 12-node linear graph, with a
+  penalised deficit slack for negative inflow. ADR-0009's 19.3% negative-month
+  rate for N does not reproduce (1.2-1.5% with correct shock scaling); S is
+  3.6%. Serial result on the same 1000 PAR(1) paths: R$233.76bn against
+  ADR-0010's R$233.78bn, in 13 minutes instead of 2 h 31, but the acceptance
+  test fails (dry = wet at the reference point in every subsystem, 59% of the
+  grid tied, 0.6% backwards). Regional regimes stay the policy (PR-48).
+- `docs/handoffs/PR-48-inflow-memory-state.md`.
 
 ### Changed
 
