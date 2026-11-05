@@ -802,6 +802,9 @@ code without touching this file, unless it carries the `no-changelog` label.
   subsystems (SE_CO 0.90); price still fails, with prices near zero all
   year. `"gross"` and `"storable_plus_run_of_river"` remain as modes.
   `docs/handoffs/PR-56-storable-inflow.md`.
+- `SDDP_COUPLING_POLICY` selects the policy whose cuts the coupled run uses.
+  The CVaR policy (PR-43's fixed settings) was re-scored and did worse
+  (storage 2 of 4); the expectation policy stays (PR-56).
 - `RESERVOIR_DISPATCH_COST` (R$0.005/MWh) in the coupled run: with water
   valued at zero, reservoir output and free wind and solar tied, and the
   solver ran about 70 GW of hydro a month against ONS's 40-60 GW,

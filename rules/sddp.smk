@@ -46,6 +46,11 @@ SDDP_HORIZON_YEARS = 1
 # "gross" (all ENA), "storable_plus_run_of_river" (storable ENA, the rest as
 # same-month energy) or "storable" (storable ENA, the rest lost).
 SDDP_INFLOW_MODE = "storable"
+# Which trained policy's cuts value water in the coupled run (ADR-0014):
+# "sddp_first_policy" (expectation) or "sddp_cvar_policy" (PR-43's fixed
+# lambda=0.5, alpha=0.1). CVaR was scored in PR-56 and did worse (storage 2 of
+# 4, price still zero): SDDP's cost-to-go does not depend on inflow at all.
+SDDP_COUPLING_POLICY = "sddp_first_policy"
 SDDP_N_SIMULATIONS = 1000
 
 # ADR-0009: hydrological regimes in the Markovian policy graph. K=3 is
@@ -382,7 +387,7 @@ rule solve_network_sddp:
     """
     input:
         network="resources/networks/t0.nc",
-        cuts="results/sddp_first_policy/cuts.parquet",
+        cuts=f"results/{SDDP_COUPLING_POLICY}/cuts.parquet",
         reservoir_capacity="resources/reservoir_ear_capacity.csv",
         reservoir_history="resources/reservoir_ear_history.csv",
         inflow="resources/inflow_ena.csv",

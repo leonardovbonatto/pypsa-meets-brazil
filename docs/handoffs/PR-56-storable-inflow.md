@@ -61,6 +61,19 @@ April.
      none, the model can plan to run reservoirs to zero.
 - 296 numeric issues at the 300-iteration cap (31 with gross).
 
+## CVaR, re-tested without the degenerate dispatch
+
+`SDDP_COUPLING_POLICY` picks which policy's cuts the coupled run uses. With
+PR-43's fixed λ=0.5, α=0.1 and storable inflow: storage 2 of 4 (N 0.53,
+NE −0.32, S 0.92, SE_CO 0.92), price still about zero. Not adopted.
+
+The reason is in the cuts: **the month-end future cost is the same in every
+run** (gross, storable, expectation, CVaR: R$18.48bn at the end of February,
+R$7.89bn at the end of August). SDDP's cost-to-go does not depend on inflow
+or storage at all; it is the thermal floor's cost for the remaining months.
+No risk measure can change a cost that has no spread. So the question is not
+how SDDP weighs bad years but why it has no bad years.
+
 ## Gotchas
 
 - Tested three inflow modes on one backtest: the choice rests on the energy
@@ -69,5 +82,10 @@ April.
 
 ## Next PR needs
 
-- Find why SDDP values water at zero: start with the training start
-  storage, then a minimum-storage (security curve) constraint.
+- Find why no SDDP scenario needs thermal above the floor. Not the start
+  storage: training starts at end-2025 (SE_CO 42%), below the backtest's
+  61%. First measure, on the 1000 PAR(1) paths, how often thermal rises
+  above the floor and how low storage gets; then compare the PAR(1)'s
+  driest years with 2014-2015 and 2021. If droughts are too mild, that is
+  the fix; if they are not, a minimum-storage (security curve) constraint
+  is next.
