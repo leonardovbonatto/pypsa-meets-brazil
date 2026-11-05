@@ -41,6 +41,7 @@ Do **not** write one for routine implementation choices with an obvious default.
 | [0014](ADR-0014-sddp-cuts-in-pypsa.md) | SDDP water values in the PyPSA T0 model | Proposed |
 | [0015](ADR-0015-backtest-2024.md) | The 2024 backtest and its pass criterion | Proposed |
 | [0016](ADR-0016-thermal-floor.md) | A thermal floor from ONS dispatch reasons | Proposed |
+| [0017](ADR-0017-sddp-two-year-horizon.md) | A two-year SDDP horizon so year-end water has a value | Proposed (tried, not adopted) |
 
 ## Template
 

@@ -105,7 +105,9 @@ function known_limitations(risk_kind::String)
         "starting from a known dry regime " *
         "would set the root distribution accordingly; SDDP.jl supports that " *
         "directly, it is simply not what an annual-cycle model represents.",
-        "12 monthly stages, one annual cycle - not an infinite-horizon cyclic policy graph.",
+        "Monthly stages over SDDP_HORIZON_YEARS years (ADR-0017), not an " *
+        "infinite-horizon cyclic graph; the last stage still has no water value. " *
+        "Scoring paths cover the first year only.",
         "Transmission is the four T0 boundaries as transport flows (ADR-0012), " *
         "bounded by the hourly-maximum proxy of links_t0.csv applied to monthly " *
         "averages - generous; no losses, no load blocks.",
@@ -324,8 +326,10 @@ function load_inputs(inputs_dir::String)
     # 1 x n_states; stages 2-12 are n_states x n_states. SDDP.jl requires
     # exactly this shape.
     n_states = maximum(transitions.to_state)
+    # ADR-0017: as many stages as Python built transitions for (12 per year).
+    n_stages = maximum(transitions.stage)
     transition_matrices = Matrix{Float64}[]
-    for stage in 1:12
+    for stage in 1:n_stages
         stage_rows = filter(r -> r.stage == stage, transitions)
         n_from = stage == 1 ? 1 : n_states
         matrix = zeros(n_from, n_states)
@@ -402,7 +406,9 @@ function build_model(inputs)
         lower_bound = 0.0,
         optimizer = HiGHS.Optimizer,
     ) do subproblem, node
-        month, markov_state = node
+        stage, markov_state = node
+        # ADR-0017: stages run past December; every input is per calendar month.
+        month = mod1(stage, 12)
         @variable(
             subproblem,
             0 <= storage[s in SUBSYSTEMS] <= inputs.max_storage[s],

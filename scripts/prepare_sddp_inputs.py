@@ -246,9 +246,11 @@ def simulate_par1_anomalies(
     *,
     n_paths: int,
     rng: np.random.Generator,
+    n_months: int = 12,
 ) -> np.ndarray:
     """
-    Standardized log-inflow anomalies `z`, shape (n_paths, 12, subsystems),
+    Standardized log-inflow anomalies `z`, shape (n_paths, n_months,
+    subsystems), month t of the path being calendar month ((t - 1) % 12) + 1,
     from the fitted PAR(1): each subsystem's own `phi_m` and PR-29's
     cross-subsystem correlation, starting from the stationary distribution.
     Subsystems are ordered as `corr_matrix.columns`.
@@ -257,12 +259,12 @@ def simulate_par1_anomalies(
     cholesky_factor = np.linalg.cholesky(corr_matrix.loc[subsystems, subsystems].to_numpy())
     lookup = params.set_index(["month", "subsystem"])
 
-    z = np.empty((n_paths, 12, len(subsystems)))
+    z = np.empty((n_paths, n_months, len(subsystems)))
     z[:, 0] = rng.normal(size=(n_paths, len(subsystems))) @ cholesky_factor.T
-    for month in range(2, 13):
-        _, _, phi = _month_parameters(lookup, subsystems, month)
+    for t in range(2, n_months + 1):
+        _, _, phi = _month_parameters(lookup, subsystems, (t - 1) % 12 + 1)
         shock = rng.normal(size=(n_paths, len(subsystems))) @ cholesky_factor.T
-        z[:, month - 1] = phi * z[:, month - 2] + np.sqrt(1.0 - phi**2) * shock
+        z[:, t - 1] = phi * z[:, t - 2] + np.sqrt(1.0 - phi**2) * shock
     return z
 
 
@@ -297,11 +299,11 @@ def regional_states(
     for names in regions.values():
         columns = [subsystems.index(s) for s in names]
         block = correlation[np.ix_(columns, columns)]
-        for month in range(1, 13):
-            mu, sigma, _ = _month_parameters(lookup, names, month)
+        for t in range(1, z.shape[1] + 1):
+            mu, sigma, _ = _month_parameters(lookup, names, (t - 1) % 12 + 1)
             weights = np.exp(mu + 0.5 * sigma**2)
-            index = (z[:, month - 1, columns] @ weights) / math.sqrt(weights @ block @ weights)
-            joint[:, month - 1] = joint[:, month - 1] * n_states + np.searchsorted(upper, index)
+            index = (z[:, t - 1, columns] @ weights) / math.sqrt(weights @ block @ weights)
+            joint[:, t - 1] = joint[:, t - 1] * n_states + np.searchsorted(upper, index)
     return joint + 1
 
 
@@ -321,7 +323,7 @@ def joint_transitions(states: np.ndarray, *, n_joint: int) -> pd.DataFrame:
         {"stage": 1, "from_state": 0, "to_state": j + 1, "probability": float(p)}
         for j, p in enumerate(root)
     ]
-    for stage in range(2, 13):
+    for stage in range(2, states.shape[1] + 1):
         counts = np.zeros((n_joint, n_joint))
         np.add.at(counts, (states[:, stage - 2] - 1, states[:, stage - 1] - 1), 1)
         totals = counts.sum(axis=1)
@@ -459,13 +461,14 @@ def main() -> None:
         par1_params,
         corr_matrix,
         n_paths=int(snake.params.n_simulated_years),
+        n_months=12 * int(snake.params.horizon_years),
         rng=np.random.default_rng(int(snake.params.seed)),
     )
     states = regional_states(z, par1_params, corr_matrix, regions=regions, n_states=n_states)
     transitions = joint_transitions(states, n_joint=n_joint)
     scenarios = sample_regional_scenarios(
-        z,
-        states,
+        z[:, :12],
+        states[:, :12],
         par1_params,
         corr_matrix,
         n_joint=n_joint,

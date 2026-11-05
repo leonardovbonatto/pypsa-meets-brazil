@@ -339,3 +339,35 @@ class TestMonthlyRenewables:
         available = pd.DataFrame({"X wind": [1.0]}, index=pd.to_datetime(["2024-01-01"]))
         with pytest.raises(ValueError, match="without a bus"):
             prep.monthly_renewables(available, pd.Series(dtype=str), subsystems=["N"])
+
+
+class TestMultiYearHorizon:
+    """ADR-0017: two simulated years, so December -> January exists."""
+
+    def test_persistence_carries_across_the_year_boundary(self):
+        z = prep.simulate_par1_anomalies(
+            _params(0.9), _corr(0.0), n_paths=20000, rng=np.random.default_rng(0), n_months=24
+        )
+        assert z.shape == (20000, 24, 2)
+        december, january = z[:, 11, 0], z[:, 12, 0]
+        assert np.corrcoef(december, january)[0, 1] == pytest.approx(0.9, abs=0.02)
+
+    def test_default_keeps_twelve_months_and_the_same_draws(self):
+        a = prep.simulate_par1_anomalies(
+            _params(0.5), _corr(0.0), n_paths=10, rng=np.random.default_rng(3)
+        )
+        b = prep.simulate_par1_anomalies(
+            _params(0.5), _corr(0.0), n_paths=10, rng=np.random.default_rng(3), n_months=12
+        )
+        assert a.shape[1] == 12
+        np.testing.assert_array_equal(a, b)
+
+    def test_transitions_cover_every_stage(self):
+        z = prep.simulate_par1_anomalies(
+            _params(0.7), _corr(0.0), n_paths=5000, rng=np.random.default_rng(1), n_months=24
+        )
+        states = prep.regional_states(
+            z, _params(0.7), _corr(0.0), regions={"a": ["A"], "b": ["B"]}, n_states=2
+        )
+        transitions = prep.joint_transitions(states, n_joint=4)
+        assert sorted(transitions["stage"].unique()) == list(range(1, 25))

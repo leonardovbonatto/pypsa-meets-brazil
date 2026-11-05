@@ -32,6 +32,16 @@ Every rule here is requested explicitly.
 # cheap and makes P90 figures meaningfully steadier.
 # See docs/handoffs/PR-39-*.md and PR-42-*.md for the measurements.
 SDDP_ITERATION_LIMIT = 4000
+# The regional policy with transmission, net load and the floor settles
+# early: on the two-year graph the bound was 44,627 (R$m) at iteration 100 and
+# 44,641 at iteration 3146, 0.03% apart (PR-55 handoff), while
+# SimulationStoppingRule never fired and the run took 9 s per iteration by the
+# end. 300 keeps a margin; the one-year graph converges at about 200.
+SDDP_REGIONAL_ITERATION_LIMIT = 300
+# ADR-0017: how many years the regional policy graph spans. Two years was
+# tried (PR-55) and made the 2024 backtest worse, so it stays at one; the
+# multi-year code is kept for a later retry.
+SDDP_HORIZON_YEARS = 1
 SDDP_N_SIMULATIONS = 1000
 
 # ADR-0009: hydrological regimes in the Markovian policy graph. K=3 is
@@ -161,6 +171,7 @@ rule prepare_sddp_inputs:
         n_scenarios=10,
         n_par1_paths=1000,
         n_simulated_years=200000,
+        horizon_years=SDDP_HORIZON_YEARS,
         n_markov_states=SDDP_MARKOV_STATES,
         regions=SDDP_REGIONS,
         seed=0,
@@ -195,7 +206,7 @@ rule sddp_first_policy:
         cuts="results/sddp_first_policy/cuts.parquet",
         summary="results/sddp_first_policy/summary.json",
     params:
-        iteration_limit=SDDP_ITERATION_LIMIT,
+        iteration_limit=SDDP_REGIONAL_ITERATION_LIMIT,
         n_simulations=SDDP_N_SIMULATIONS,
     log:
         "logs/sddp_first_policy/run.log",

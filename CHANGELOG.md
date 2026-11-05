@@ -787,6 +787,16 @@ code without touching this file, unless it carries the `no-changelog` label.
   price rank 0.10; SE_CO 14% in August against 56% observed), which points
   at the year-end, where water has no value, rather than risk aversion.
 - `docs/handoffs/PR-52-backtest-2024.md`.
+- **Multi-year SDDP horizon, tried and not adopted (PR-55, ADR-0017).** The
+  regional policy graph can span `SDDP_HORIZON_YEARS` years (stage month
+  `mod1(stage, 12)`, transitions from multi-year PAR(1) simulations). Two
+  years made the 2024 backtest worse (storage 2 of 4, SE_CO price zero in
+  every month, SE_CO storage 0% in November), so the setting stays at 1 and
+  the one-year results are unchanged. The water value is zero in both: the
+  horizon was not the cause. `docs/handoffs/PR-55-two-year-horizon.md`.
+- `SDDP_REGIONAL_ITERATION_LIMIT = 300` for the regional policy, which
+  settles within a few hundred iterations while `SimulationStoppingRule`
+  may never fire (PR-55).
 
 ### Changed
 
