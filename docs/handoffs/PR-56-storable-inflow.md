@@ -74,6 +74,25 @@ or storage at all; it is the thermal floor's cost for the remaining months.
 No risk measure can change a cost that has no spread. So the question is not
 how SDDP weighs bad years but why it has no bad years.
 
+## Two years, re-tested with storable inflow
+
+ADR-0017's two-year horizon was first scored on gross inflow and the
+degenerate dispatch. Re-run with both fixed: storage 2 of 4 (N 0.69,
+NE 0.18, S 0.06, SE_CO 0.85), prices exactly zero, SDDP cost R$22.67bn.
+Not adopted; `SDDP_HORIZON_YEARS` stays 1. The month-end future costs again
+match the earlier two-year run to the real, so the cost-to-go stays flat in
+storage.
+
+## Droughts are not too mild
+
+Annual inflow as % of the 2000-2025 mean: history's driest is 72% (2001),
+8% of years below 85%; the 1000 PAR(1) paths reach 62%, 14% below 85%. So
+scarcity exists in the tails (SDDP's cost rises R$0.26bn above the floor
+with storable inflow), but from 2024's 60-90% storage a one-year horizon
+almost never runs short, so the marginal water value is near zero. ONS
+prices water at those levels through things this model lacks: a five-year
+horizon with CVaR, and minimum-storage targets.
+
 ## Gotchas
 
 - Tested three inflow modes on one backtest: the choice rests on the energy
