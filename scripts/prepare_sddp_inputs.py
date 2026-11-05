@@ -74,9 +74,9 @@ KNOWN_LIMITATIONS = [
     "policy graph SDDP.jl also supports and Brazil's real planning uses.",
     "No CVaR - expectation-only (ADR-0005 names this as this stage's explicit "
     "scope; risk aversion is the next stage).",
-    "No inter-subsystem transmission in the SDDP subproblem itself - PRIMER "
-    "Sec 4.5's architecture puts real network coupling in PyPSA/linopy once "
-    "cuts are consumed there, not in this reduced hydro-thermal model.",
+    "Transmission is the four T0 boundaries as transport flows bounded by "
+    "links_t0.csv (ADR-0012): monthly-average flow against an hourly-maximum "
+    "limit, which is generous; no losses, no load blocks.",
     "Hydro/thermal capacity from generators_t0.csv is instantaneous nameplate "
     "MW, applied as a bound on MONTHLY AVERAGE generation - rarely binding "
     "at this timescale, a real simplification of within-month unit commitment.",
@@ -447,6 +447,9 @@ def main() -> None:
     write_parquet(transitions, Path(snake.output.transitions))
     write_parquet(scenarios, Path(snake.output.scenarios))
     write_parquet(par1_paths, Path(snake.output.par1_paths))
+    # ADR-0012: the T0 boundaries and capacities, unchanged, so SDDP and PyPSA
+    # see one network.
+    write_parquet(pd.read_csv(snake.input.links), Path(snake.output.links))
 
 
 if __name__ == "__main__":

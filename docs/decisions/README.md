@@ -36,6 +36,7 @@ Do **not** write one for routine implementation choices with an obvious default.
 | [0009](ADR-0009-persistence-aware-policy.md) | Making the SDDP policy persistence-aware (Markovian policy graph) | Accepted (national regime superseded by 0010) |
 | [0010](ADR-0010-regional-hydrological-regimes.md) | Regional hydrological regimes in the SDDP policy graph | Accepted |
 | [0011](ADR-0011-inflow-memory-state.md) | Last month's inflow as an SDDP state (levels PAR(1)) | Accepted; built, not adopted (PR-48) |
+| [0012](ADR-0012-sddp-transmission.md) | Inter-subsystem transmission in the SDDP subproblem | Proposed |
 
 ## Template
 

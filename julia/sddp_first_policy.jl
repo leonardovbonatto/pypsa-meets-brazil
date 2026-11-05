@@ -106,8 +106,9 @@ function known_limitations(risk_kind::String)
         "would set the root distribution accordingly; SDDP.jl supports that " *
         "directly, it is simply not what an annual-cycle model represents.",
         "12 monthly stages, one annual cycle - not an infinite-horizon cyclic policy graph.",
-        "No inter-subsystem transmission in this reduced hydro-thermal subproblem - " *
-        "real network coupling belongs in PyPSA/linopy once cuts are consumed there.",
+        "Transmission is the four T0 boundaries as transport flows (ADR-0012), " *
+        "bounded by the hourly-maximum proxy of links_t0.csv applied to monthly " *
+        "averages - generous; no losses, no load blocks.",
         "Wind, solar and nuclear excluded from this reduced model.",
         "SimulationStoppingRule (SDDP.jl's own recommended default) is wired in, " *
         "but checked directly (PR-33) that it does NOT actually trigger within " *
@@ -213,6 +214,55 @@ function read_parquet_df(path::String)
     return DataFrame(Parquet2.readfile(path); copycols = true)
 end
 
+"""
+The T0 boundaries (ADR-0006) as `(bus0, bus1, p_nom)` tuples, read from the
+links.parquet prepare_sddp_inputs copies from resources/links_t0.csv.
+"""
+function load_links(inputs_dir::String)
+    links = read_parquet_df(joinpath(inputs_dir, "links.parquet"))
+    return [(bus0 = r.bus0, bus1 = r.bus1, p_nom = Float64(r.p_nom_mw)) for r in eachrow(links)]
+end
+
+"""
+ADR-0012: one transport flow per boundary, bounded in both directions by its
+p_nom, registered as `:flow` so simulations can record it. Returns each
+subsystem's net import, to add to its demand balance. A monthly-average
+flow against an hourly-maximum limit is generous (ADR-0012's table).
+"""
+function add_transmission(subproblem, links)
+    flow = @variable(
+        subproblem,
+        [l in eachindex(links)],
+        lower_bound = -links[l].p_nom,
+        upper_bound = links[l].p_nom,
+        base_name = "flow",
+    )
+    subproblem[:flow] = flow
+    net_import = Dict(s => JuMP.AffExpr(0.0) for s in SUBSYSTEMS)
+    for (l, link) in enumerate(links)
+        JuMP.add_to_expression!(net_import[link.bus1], 1.0, flow[l])
+        JuMP.add_to_expression!(net_import[link.bus0], -1.0, flow[l])
+    end
+    return net_import
+end
+
+"""
+Per boundary over a set of simulations: mean absolute flow (MW) and the
+share of months within 0.1% of the limit.
+"""
+function flow_stats(simulations, links)
+    stats = Dict{String,Any}()
+    for (l, link) in enumerate(links)
+        flows = [stage[:flow][l] for realization in simulations for stage in realization]
+        stats["$(link.bus0)-$(link.bus1)"] = Dict(
+            "p_nom_mw" => link.p_nom,
+            "mean_abs_flow_mw" => sum(abs.(flows)) / length(flows),
+            "share_of_months_at_limit" => count(f -> abs(f) >= 0.999 * link.p_nom, flows) / length(flows),
+        )
+    end
+    return stats
+end
+
 function load_inputs(inputs_dir::String)
     demand = read_parquet_df(joinpath(inputs_dir, "demand.parquet"))
     capacity = read_parquet_df(joinpath(inputs_dir, "capacity.parquet"))
@@ -278,6 +328,7 @@ function load_inputs(inputs_dir::String)
     end
 
     return (;
+        links = load_links(inputs_dir),
         hydro_cap,
         thermal_cap,
         thermal_marginal_cost,
@@ -322,6 +373,7 @@ function build_model(inputs)
         @variable(subproblem, spill[s in SUBSYSTEMS] >= 0)
         @variable(subproblem, load_shed[s in SUBSYSTEMS] >= 0)
         @variable(subproblem, inflow[s in SUBSYSTEMS])
+        net_import = add_transmission(subproblem, inputs.links)
 
         @constraint(
             subproblem,
@@ -331,7 +383,7 @@ function build_model(inputs)
         @constraint(
             subproblem,
             [s in SUBSYSTEMS],
-            hydro_generation[s] + thermal_generation[s] + load_shed[s] ==
+            hydro_generation[s] + thermal_generation[s] + load_shed[s] + net_import[s] ==
             inputs.demand_by_month[(month, s)]
         )
 
@@ -498,14 +550,13 @@ function main()
     # The same policy, scored on PAR(1) paths it never trained on. The
     # regime scenarios above have milder droughts than the fit (PR-45), so
     # these are the figures to compare across K and against PR-43.
-    out_of_sample = simulation_stats(
-        SDDP.simulate(
-            model,
-            length(inputs.out_of_sample_paths),
-            [:load_shed];
-            sampling_scheme = SDDP.Historical(inputs.out_of_sample_paths),
-        ),
+    scored = SDDP.simulate(
+        model,
+        length(inputs.out_of_sample_paths),
+        [:load_shed, :flow];
+        sampling_scheme = SDDP.Historical(inputs.out_of_sample_paths),
     )
+    out_of_sample = simulation_stats(scored)
     println("PAR(1) out-of-sample mean cost (R\$): ", out_of_sample.expected_cost)
     println(
         "PAR(1) out-of-sample Mean/P50/P90 load shed (MW-months): ",
@@ -568,6 +619,7 @@ function main()
             "p50_annual_load_shed_mw_months" => out_of_sample.p50_load_shed,
             "p90_annual_load_shed_mw_months" => out_of_sample.p90_load_shed,
             "mean_annual_load_shed_by_subsystem" => out_of_sample.load_shed_by_subsystem,
+            "transmission" => flow_stats(scored, inputs.links),
         ),
         "n_cuts" => length(rows),
         "n_markov_states" => inputs.n_states,

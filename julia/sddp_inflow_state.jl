@@ -74,6 +74,7 @@ function load_inflow_state_inputs(sddp_inputs_dir::String, inflow_state_dir::Str
     end
 
     return (;
+        links = load_links(sddp_inputs_dir),
         hydro_cap = Dict(r.subsystem => r.hydro_mw for r in eachrow(capacity)),
         thermal_cap = Dict(r.subsystem => r.thermal_mw for r in eachrow(capacity)),
         thermal_marginal_cost = Dict(r.subsystem => r.marginal_cost for r in eachrow(cost)),
@@ -110,6 +111,7 @@ function build_inflow_state_model(inputs)
         @variable(subproblem, load_shed[s in SUBSYSTEMS] >= 0)
         @variable(subproblem, deficit[s in SUBSYSTEMS] >= 0)
         @variable(subproblem, noise[s in SUBSYSTEMS])
+        net_import = add_transmission(subproblem, inputs.links)
 
         @constraint(
             subproblem,
@@ -129,7 +131,7 @@ function build_inflow_state_model(inputs)
         @constraint(
             subproblem,
             [s in SUBSYSTEMS],
-            hydro_generation[s] + thermal_generation[s] + load_shed[s] ==
+            hydro_generation[s] + thermal_generation[s] + load_shed[s] + net_import[s] ==
             inputs.demand_by_month[(month, s)]
         )
 
@@ -186,8 +188,8 @@ function inflow_state_limitations()
         "noise values that reproduce each path; those may fall outside the training support.",
         "The initial inflow state is the observed December 2025 mean, the same " *
         "date as the initial storage.",
-        "12 monthly stages, one annual cycle; no transmission; wind, solar and " *
-        "nuclear excluded - as in sddp_first_policy.jl.",
+        "12 monthly stages, one annual cycle; transmission as in " *
+        "sddp_first_policy.jl (ADR-0012); wind, solar and nuclear excluded.",
     ]
 end
 
@@ -217,7 +219,7 @@ function inflow_state_main()
     bound = SDDP.calculate_bound(model) * MONEY_SCALE
     println("Trained. Bound (R\$): ", bound)
 
-    recorded = [:storage, :inflow, :deficit, :load_shed]
+    recorded = [:storage, :inflow, :deficit, :load_shed, :flow]
     simulations = SDDP.simulate(model, n_simulations, recorded)
     in_sample = simulation_stats(simulations)
     in_sample_deficit = deficit_stats(simulations)
@@ -290,6 +292,7 @@ function inflow_state_main()
             "p90_annual_load_shed_mw_months" => out_of_sample.p90_load_shed,
             "mean_annual_load_shed_by_subsystem" => out_of_sample.load_shed_by_subsystem,
             "deficit" => out_of_sample_deficit,
+            "transmission" => flow_stats(scored, inputs.links),
         ),
         "n_cuts" => length(rows),
         "known_limitations" => inflow_state_limitations(),
