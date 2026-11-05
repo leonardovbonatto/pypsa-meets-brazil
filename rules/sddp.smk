@@ -345,3 +345,57 @@ rule check_sddp_inflow_state:
         "logs/check_sddp_inflow_state/run.log",
     script:
         "../scripts/check_sddp_inflow_state.py"
+
+
+rule solve_network_sddp:
+    """
+    ADR-0014: solve 2024 on the T0 network with each subsystem's hydro as a
+    reservoir valued by the regional SDDP policy's cuts, one month at a time,
+    instead of ADR-0007's backcast. Observed 2024 inflow, storage from
+    2023-12-31, regime per month read from observed inflow. The backcast run
+    (solve_network_t0) is kept for comparison.
+    """
+    input:
+        network="resources/networks/t0.nc",
+        cuts="results/sddp_first_policy/cuts.parquet",
+        reservoir_capacity="resources/reservoir_ear_capacity.csv",
+        reservoir_history="resources/reservoir_ear_history.csv",
+        inflow="resources/inflow_ena.csv",
+        par1_params="resources/inflow_par1_params.csv",
+        par1_correlation="resources/inflow_par1_correlation.csv",
+    output:
+        monthly="results/sddp_coupled/monthly.csv",
+        hourly_prices="results/sddp_coupled/hourly_prices.csv",
+        summary="results/sddp_coupled/summary.json",
+    params:
+        start_storage_date="2023-12-31",
+        regions=SDDP_REGIONS,
+        n_markov_states=SDDP_MARKOV_STATES,
+        solver_name=config["solver"]["name"],
+        solver_options=config["solver"]["options"],
+    log:
+        "logs/solve_network_sddp/run.log",
+    script:
+        "../scripts/solve_network_sddp.py"
+
+
+rule backtest_2024:
+    """
+    ADR-0015: the Phase 7 gate. Compares the coupled 2024 run's monthly
+    storage and prices with observed EAR and CMO, January to November, on
+    shape. Fails the rule if the pre-registered criterion is not met.
+    """
+    input:
+        model="results/sddp_coupled/monthly.csv",
+        reservoir_capacity="resources/reservoir_ear_capacity.csv",
+        reservoir_history="resources/reservoir_ear_history.csv",
+        cmo="resources/cmo_monthly.csv",
+    output:
+        table="results/backtest_2024/comparison.csv",
+        report="results/backtest_2024/report.json",
+    params:
+        year=2024,
+    log:
+        "logs/backtest_2024/run.log",
+    script:
+        "../scripts/backtest_2024.py"
