@@ -114,3 +114,18 @@ class TestSolveYear:
         # February has no cuts, so it spends what January kept.
         assert monthly.loc[2, "hydro_mw"] == pytest.approx(10.0)
         assert monthly.loc[2, "storage_end_mwmes"] == pytest.approx(0.0, abs=1e-9)
+
+
+class TestSpillTieBreak:
+    def test_worthless_water_is_kept_not_spilled(self):
+        """With no water value and room to store, the first coupled run could
+        spill inflow and run stored water instead; the spill cost forbids it."""
+        n = _network()
+        inflow = pd.DataFrame({"A": 5.0}, index=n.snapshots)
+        reservoirs = coupled.add_reservoirs(
+            n, {"A": 1.0}, {"A": 40.0 / coupled.HOURS_PER_MWMES}, inflow
+        )
+        coupled.solve_year(
+            n, {}, pd.Series(1, index=[1, 2]), reservoirs, solver_name="highs", solver_options={}
+        )
+        assert n.storage_units_t.spill["A reservoir"].sum() == pytest.approx(0.0, abs=1e-6)

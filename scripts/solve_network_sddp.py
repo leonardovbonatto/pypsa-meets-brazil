@@ -54,6 +54,14 @@ MONEY_SCALE = 1.0e6
 INFLOW_COLUMN = "ena_bruta_mwmed"
 RESERVOIR_CARRIER = "hydro"
 
+# Breaks a tie, not a price. Where the cuts value water at zero, spilling
+# inflow and storing it cost the same, and the first coupled run took the
+# spill vertex: SE_CO spilled 36.8 GW in January 2024 while drawing its stored
+# water down, and was empty by April. A cost this small never outbids a real
+# price, but keeps water rather than dumping it, so free curtailment of wind
+# and solar goes first.
+SPILL_COST = 0.01
+
 KNOWN_LIMITATIONS = [
     "HYDRO IS OPTIMISED, NOT BACKCAST (ADR-0014): one reservoir per subsystem, "
     "observed 2024 inflow, observed 2023-12-31 storage, valued at month ends by "
@@ -140,6 +148,7 @@ def add_reservoirs(
             cyclic_state_of_charge=False,
             p_min_pu=0.0,
             marginal_cost=0.0,
+            spill_cost=SPILL_COST,
         )
         names.append(name)
     return names

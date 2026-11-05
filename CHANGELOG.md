@@ -773,6 +773,20 @@ code without touching this file, unless it carries the `no-changelog` label.
   September-October drought. Without the floor, SDDP with net load costs
   R$0.47bn a year on the PAR(1) paths; with it, R$22.5bn in a 200-iteration
   smoke run (PR-54).
+- **Coupled 2024 run and backtest results (PR-51, PR-52, PR-54).** With
+  transmission, net load and the floor, SDDP costs R$22.37bn (regional,
+  converged at 200 iterations) and R$22.35bn (inflow state) on the PAR(1)
+  paths, with no shedding. The first coupled run was degenerate: with zero
+  water value, SE_CO spilled 36.8 GW of inflow in January while emptying its
+  storage. `SPILL_COST` (R$0.01/MWh) breaks the tie. The pre-registered
+  backtest then passes on storage in 4 of 4 subsystems (SE_CO 0.95) and
+  **fails on price** (SE_CO rank 0.27, Pearson 0.77): prices are zero in ten
+  of eleven months, with the October spike at R$500 against R$516 observed,
+  and storage drains from June far faster than ONS's. A CVaR sensitivity
+  with PR-43's fixed lambda=0.5, alpha=0.1 does not help (storage 4 of 4,
+  price rank 0.10; SE_CO 14% in August against 56% observed), which points
+  at the year-end, where water has no value, rather than risk aversion.
+- `docs/handoffs/PR-52-backtest-2024.md`.
 
 ### Changed
 

@@ -66,3 +66,15 @@ Storage is aggregate per subsystem. December will tend to draw reservoirs down.
 outflows, gross inflow, monthly-average transmission limits). If prices come
 out far from CMO, the cause may sit in SDDP, not the coupling; the backtest
 reports EAR trajectories alongside prices to tell the two apart.
+
+## Outcome (PR-51/52, 2026-11-05)
+
+Cuts from the regional expectation policy with transmission, net load and
+the thermal floor (converged at 200 iterations). The first coupled run hit a
+degenerate tie: where the cuts value water at zero, spilling and storing cost
+the same, and SE_CO spilled 36.8 GW in January while drawing its storage down,
+empty by April. A spill cost of R$0.01/MWh (`SPILL_COST`) breaks the tie and
+was added; both runs are reported in the PR-52 handoff. With it, storage
+tracks 2024 from January to May and then drains far faster than observed
+(SE_CO 22% in August against 56%); prices are zero in ten of eleven months
+and spike to R$500 in October (observed R$516). Water is valued too low.

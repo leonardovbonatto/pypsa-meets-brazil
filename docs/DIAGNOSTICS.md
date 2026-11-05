@@ -250,7 +250,26 @@ are structurally invisible at fixture scale.
 
 ## Current known-good baselines
 
-Regional regimes (ADR-0010, 3 regions at K=3), seed 0, 4000 iterations,
+**Current model (PR-54): transmission, net load and the thermal floor.**
+Seed 0, serial, same 1000 PAR(1) paths. Costs are not comparable with the
+tables further down, which describe isolated subsystems without renewables.
+
+| | regional expectation | inflow-state expectation |
+|---|---|---|
+| PAR(1) paths, mean cost | R$ 22.37 bn | R$ 22.35 bn |
+| mean load shed | 0 | 0 |
+| iterations (stop) | 200 (simulation rule) | 4000 (limit) |
+| numeric issues | 31 | 177 |
+| acceptance test | fail (all water values 0 at reference) | pass |
+
+2024 backtest (ADR-0015) of the coupled run with the regional cuts: storage
+passes 4 of 4, SE_CO price rank 0.27, **fails**. See PR-52's handoff.
+
+**Bucket 7 check — degenerate spill.** If a coupled run spills heavily while
+storage falls, the cuts value water at zero there and the LP picked a vertex;
+`SPILL_COST` must be non-zero in `solve_network_sddp.py`.
+
+Earlier: regional regimes (ADR-0010, 3 regions at K=3), seed 0, 4000 iterations,
 serial through Snakemake, as of PR-46. Threaded runs land within about 0.5% of
 these costs but can flip acceptance verdicts.
 
