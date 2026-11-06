@@ -25,9 +25,20 @@ ONS's per-plant datasets already used in T0 carry the state (`id_estado`):
 
 ## Decision
 
-1. **Nodes:** the 27 states. Each state belongs to the subsystem most of
-   its registry capacity reports (`capacidade_geracao`), checked rather
-   than assumed; subsystem boundaries are preserved for comparison with T0.
+1. **Nodes: one per (state, subsystem) pair** that holds at least 1% of the
+   state's registry capacity (`capacidade_geracao`), named `{state}` for the
+   state's main subsystem and `{state}_{subsystem}` otherwise. Measured
+   (PR-67): 23 states sit wholly in one subsystem; PR splits S 8.9 GW / SE
+   7.0 GW (Itaipu's Brazilian side reports under SE), PA N 19.8 / SE 2.5 GW,
+   BA NE 22.3 / SE 0.26 GW. One bus per state would move Itaipu into S and
+   break the equivalence with T0. A plant goes to the node of its own
+   `id_subsistema`, so every subsystem's capacity equals T0's. Load sits at
+   the state's main node.
+1b. **Corridors** connect the two states' main nodes. A secondary node gets
+   one dedicated link, sized at its own registry capacity, to the main node
+   of its state's DLR neighbour in the same subsystem with the largest
+   corridor (Itaipu: PR_SE -> SP), and no link inside its state. That
+   matches plants such as Itaipu, which export over dedicated lines.
 2. **Topology and transfer limits from DLR** (operating corridors), as
    Links with DLR's capacity and efficiency. Cross-border nodes become the
    PR-64 exports (no foreign buses).

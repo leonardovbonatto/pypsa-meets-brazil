@@ -196,6 +196,23 @@ rule extract_dlr:
         "../scripts/extract_dlr.py"
 
 
+rule build_t1_topology:
+    """
+    ADR-0022: T1 nodes ((state, subsystem) pairs) and links (DLR corridors
+    between main nodes, dedicated links for secondary nodes).
+    """
+    input:
+        registry="resources/ons/CAPACIDADE_GERACAO.csv",
+        grid="resources/dlr/grid_operation.csv",
+    output:
+        nodes="resources/t1/nodes.csv",
+        links="resources/t1/links.csv",
+    log:
+        "logs/build_t1_topology/run.log",
+    script:
+        "../scripts/build_t1_topology.py"
+
+
 rule build_exports_t0:
     """
     T0 international exports as load at the border subsystem (PR-64):
