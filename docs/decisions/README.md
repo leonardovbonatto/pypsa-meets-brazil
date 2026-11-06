@@ -45,6 +45,7 @@ Do **not** write one for routine implementation choices with an obvious default.
 | [0018](ADR-0018-storable-inflow.md) | Only storable inflow reaches the reservoirs | Proposed |
 | [0019](ADR-0019-minimum-operating-storage.md) | Minimum operating storage (VminOp) as a soft constraint | Proposed |
 | [0020](ADR-0020-phase1-gate.md) | The Phase 1 gate: T0 energy balance and interchange | Proposed |
+| [0021](ADR-0021-thermal-cost-bands.md) | T0 thermal as cost bands of joined plants | Proposed |
 
 ## Template
 
