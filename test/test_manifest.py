@@ -163,9 +163,23 @@ class TestManifest:
 
 @pytest.mark.parametrize("cfg_path", sorted((REPO_ROOT / "config").rglob("*.yaml")))
 def test_shipped_configs_are_valid(cfg_path):
-    """Every committed config must parse and carry the keys the workflow needs."""
+    """Every committed config must parse and carry the keys the workflow needs.
+    An overlay (no `tier`, e.g. ADR-0024's config.2025.yaml) is checked merged
+    over config.default.yaml, as `snakemake --configfile` merges it."""
     yaml = pytest.importorskip("yaml")
     cfg = yaml.safe_load(cfg_path.read_text(encoding="utf-8"))
+    if "tier" not in cfg:
+        base = yaml.safe_load(
+            (REPO_ROOT / "config" / "config.default.yaml").read_text(encoding="utf-8")
+        )
+
+        def merge(a: dict, b: dict) -> dict:
+            out = dict(a)
+            for k, v in b.items():
+                out[k] = merge(a[k], v) if isinstance(v, dict) and isinstance(a.get(k), dict) else v
+            return out
+
+        cfg = merge(base, cfg)
 
     assert cfg["tier"] in {"t0", "t1", "t2", "t3"}
     assert {"start", "end", "resolution"} <= set(cfg["snapshots"])
