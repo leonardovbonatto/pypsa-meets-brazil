@@ -185,8 +185,13 @@ def attach_exports(n: pypsa.Network, exports: pd.DataFrame) -> pypsa.Network:
         index="snapshot", columns="subsystem", values="p_set_mw"
     )
     wide = wide.reindex(pd.DatetimeIndex(n.snapshots))
-    if wide.isna().any().any():
-        raise ValueError("exports series has gaps after aligning to network snapshots")
+    # ADR-0024 data-format fix: ONS's 2025 file lacks 312 hours (13 days);
+    # those hours get zero exports. 2024 is complete, so unchanged. More than
+    # 5% missing is still an error.
+    gaps = float(wide.isna().to_numpy().mean())
+    if gaps > 0.05:
+        raise ValueError(f"exports series missing for {gaps:.1%} of hours")
+    wide = wide.fillna(0.0)
     for s in wide.columns:
         n.add("Load", f"{s} exports", bus=s, p_set=wide[s].to_numpy())
     return n
@@ -249,9 +254,9 @@ def attach_commissioning(n: pypsa.Network, share: pd.DataFrame) -> pypsa.Network
     p_max_pu = n.get_switchable_as_dense("Generator", "p_max_pu")
     for name, rows in work.assign(name=names).groupby("name"):
         by_month = rows.set_index(["year", "month"])["share"]
-        factor = by_month.reindex(keys)
-        if factor.isna().any():
-            raise ValueError(f"{name}: commissioning share missing for some snapshot months")
+        # A month with no row has no unit operating (ADR-0024: SE_CO wind in
+        # early 2025): share 0, not missing data. 2024 has a row every month.
+        factor = by_month.reindex(keys).fillna(0.0)
         n.generators_t.p_max_pu[name] = p_max_pu[name].to_numpy() * factor.to_numpy()
     return n
 

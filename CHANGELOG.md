@@ -802,6 +802,9 @@ code without touching this file, unless it carries the `no-changelog` label.
   subsystems (SE_CO 0.90); price still fails, with prices near zero all
   year. `"gross"` and `"storable_plus_run_of_river"` remain as modes.
   `docs/handoffs/PR-56-storable-inflow.md`.
+- **T1 out of sample on 2025 (PR-72, ADR-0024): fails, 4 of 8.** Wind
+  1.088, solar 1.052, N-NE and N-SE_CO fail; four data-format fixes for 2025
+  files. `docs/handoffs/PR-72-t1-2025-out-of-sample.md`.
 - **T1 against ONS, post hoc (PR-71).** Wind 1.014, solar 1.003, nuclear
   0.998, thermal 0.987; not a pre-registered verdict.
   `docs/handoffs/PR-71-t1-versus-ons.md`.

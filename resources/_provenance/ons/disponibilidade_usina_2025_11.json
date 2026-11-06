@@ -1,0 +1,10 @@
+{
+  "byte_size": 25530828,
+  "dataset": "disponibilidade_usina_2025_11",
+  "format": "csv",
+  "retrieved": "2026-11-06T02:43:15+00:00",
+  "row_count": 177840,
+  "sha256": "6b454300d4d1d677e9736b5950e969f7349665ba06f38337cd372a7cb0d877a3",
+  "source": "ons",
+  "source_url": "https://ons-aws-prod-opendata.s3.amazonaws.com/dataset/disponibilidade_usina_ho/DISPONIBILIDADE_USINA_2025_11.csv"
+}

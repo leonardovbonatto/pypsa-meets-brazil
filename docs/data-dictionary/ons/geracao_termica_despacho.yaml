@@ -60,9 +60,10 @@ columns:
   - Geramar I
   - Geramar II
 - name: cod_usinaplanejamento
-  dtype: int64
+  dtype: float64
+  coerce: true
   unit: null
-  nullable: false
+  nullable: true
   null_rate: 0.0
   description: Plant code in ONS's planning and scheduling models.
   sample:
@@ -445,3 +446,4 @@ notes:
   drought (SE 5,553 in October).'
 - 'ADR-0016''s thermal floor is val_verifgeracao minus val_verifordemdemeritoacimadainflex:
   everything that ran for reasons other than price.'
+- 'ADR-0024 (2025 out-of-sample run): cod_usinaplanejamento has nulls in 2025 files (not used by the floor; the band bridge drops them), so it is nullable, float64 with coerce (an integer column with nulls reads as float); 2024 had none.'

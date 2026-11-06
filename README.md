@@ -16,9 +16,14 @@ reducible to any spatial resolution.
 > generation (ADR-0007). An SDDP.jl water-value policy coupled into PyPSA exists
 > (ADR-0014) but fails its pre-registered 2024 backtest on price (ADR-0015,
 > `docs/handoffs/PR-57-*.md`); that line is paused. The roadmap's Phase 1 gate
-> (ADR-0020) is scored: generation passes (wind, solar, nuclear and thermal within
-> 5% of ONS) and two of four boundaries do not (`docs/handoffs/PR-65-*.md`).
-> T1–T3 (state, clustered, nodal) are not started.
+> (ADR-0020) is scored and T0 fails it: with wind and solar availability before
+> curtailment (ADR-0023) T0 over-produces wind, having no congestion inside a
+> subsystem. The **T1 tier (27 states, ADR-0022)** is built on DLR's topology and
+> ONS 2024 data; on 2024 it reproduces ONS's interchange on all four boundaries
+> and its wind and solar within 1.5% (post hoc, `docs/handoffs/PR-71-*.md`). The
+> pre-registered out-of-sample test on 2025 (ADR-0024) fails, 4 of 8: wind and
+> solar over-produce and the two N boundaries miss (`docs/handoffs/PR-72-*.md`).
+> T2–T3 (clustered, nodal) are not started.
 > See [`docs/STACK.md`](docs/STACK.md) for exactly what's built vs planned, and
 > [`Brazilian-Grid-in-PyPSA.md`](Brazilian-Grid-in-PyPSA.md) for the feasibility
 > study and staged roadmap this project is built on.

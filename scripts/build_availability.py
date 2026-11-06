@@ -72,6 +72,10 @@ def build_availability(df: pd.DataFrame) -> pd.DataFrame:
     generator exceed its own p_nom.
     """
     mapped = map_subsystems(df).pipe(map_technology)
+    # ADR-0024 data-format fix: 2025 has 1,320 rows with no installed capacity.
+    # Their generation would count without their capacity and inflate the
+    # factor, so they are dropped. 2024 has none, so 2024 is unchanged.
+    mapped = mapped[mapped[CAPACITY_COLUMN].notna()]
 
     grouped = mapped.groupby(["subsystem", "carrier", "din_instante"], as_index=False).agg(
         generation=(GENERATION_COLUMN, "sum"),

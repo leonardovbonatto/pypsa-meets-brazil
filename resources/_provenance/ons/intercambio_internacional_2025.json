@@ -1,0 +1,10 @@
+{
+  "byte_size": 569946,
+  "dataset": "intercambio_internacional_2025",
+  "format": "csv",
+  "retrieved": "2026-11-06T02:45:06+00:00",
+  "row_count": 16872,
+  "sha256": "5643e62293db1794f41f654b68d961838fc0f6a4f0545c9dbcd33533ec9e59bf",
+  "source": "ons",
+  "source_url": "https://ons-aws-prod-opendata.s3.amazonaws.com/dataset/intercambio_internacional_ho/INTERCAMBIO_INTERNACIONAL_2025.csv"
+}

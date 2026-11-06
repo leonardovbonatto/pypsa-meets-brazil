@@ -142,3 +142,15 @@ class TestToPanderaSchema:
 
         with pytest.raises(pa.errors.SchemaError):
             schema.validate(drifted)
+
+
+class TestCoerce:
+    def test_coerce_accepts_an_integer_code_that_gained_nulls(self):
+        import pandas as pd
+
+        dictionary = {
+            "columns": [{"name": "code", "dtype": "float64", "nullable": True, "coerce": True}]
+        }
+        schema = inspect_mod.to_pandera_schema(dictionary)
+        schema.validate(pd.DataFrame({"code": [1, 2, 3]}))  # 2024: int64
+        schema.validate(pd.DataFrame({"code": [1.0, None, 3.0]}))  # 2025: float with nulls

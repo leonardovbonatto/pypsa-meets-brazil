@@ -1,0 +1,10 @@
+{
+  "byte_size": 237037238,
+  "dataset": "restricao_coff_EOLICA_2025_01",
+  "format": "csv",
+  "retrieved": "2026-11-06T02:43:39+00:00",
+  "row_count": 1520736,
+  "sha256": "862185be872ceed836d76859d903d15761ae8a9f631564aa29fd2eb820c24607",
+  "source": "ons",
+  "source_url": "https://ons-aws-prod-opendata.s3.amazonaws.com/dataset/restricao_coff_eolica_detail_tm/RESTRICAO_COFF_EOLICA_DETAIL_2025_01.csv"
+}

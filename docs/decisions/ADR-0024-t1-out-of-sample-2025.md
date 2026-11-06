@@ -41,3 +41,24 @@ This ADR is committed before any 2025 data is fetched.
 
 The first test of T1 on data it was not built on. DLR's 2020 load shares
 and corridor capacities are one more year further from the test year.
+
+## Outcome (PR-72): fails, 4 of 8
+
+Run `t0-75b5182c` (config.2025.yaml), model frozen at `2a39aa5` plus four
+data-format fixes (handoff PR-72), none of which changes 2024.
+
+| check | T1 2025 | ONS 2025 | result |
+|---|---|---|---|
+| wind | 14,342 MW | 13,184 MW | 1.088 fail |
+| utility solar | 3,917 | 3,722 | 1.052 fail |
+| nuclear | 1,792 | 1,805 | 0.993 pass |
+| thermal | 8,511 | 8,493 | 1.002 pass |
+| N-NE flow | −1,591 | −2,054 | 7.3% of capacity, fail |
+| N-SE_CO flow | 3,273 | 4,223 | 9.0%, fail |
+| NE-SE_CO flow | 4,550 | 4,210 | 4.2%, pass |
+| SE_CO-S flow | 2,855 | 2,793 | 0.6%, pass (hourly corr. 0.998) |
+
+T1 still beats T0 on every check that differs between them (T0 2025: wind
+1.157, solar 0.944, thermal 0.934, three boundaries failing). The 2024
+match (PR-71) does not carry over: T1 now over-produces wind and solar, so
+it curtails less than ONS did in 2025.

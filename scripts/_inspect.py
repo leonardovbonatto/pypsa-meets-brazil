@@ -114,8 +114,13 @@ def to_pandera_schema(dictionary: dict[str, Any]) -> pa.DataFrameSchema:
     the dictionary is exactly the kind of silent drift this exists to catch,
     so it is treated as a failure rather than tolerated.
     """
+    # `coerce: true` on a column (ADR-0024): an integer code that gains nulls
+    # in a later year is read as float; the check converts before comparing
+    # rather than failing on the dtype alone.
     columns = {
-        col["name"]: pa.Column(col["dtype"], nullable=col["nullable"])
+        col["name"]: pa.Column(
+            col["dtype"], nullable=col["nullable"], coerce=bool(col.get("coerce", False))
+        )
         for col in dictionary["columns"]
     }
     return pa.DataFrameSchema(columns, strict=True)

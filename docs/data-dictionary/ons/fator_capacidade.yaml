@@ -207,7 +207,7 @@ columns:
 - name: val_capacidadeinstalada
   dtype: float64
   unit: MW
-  nullable: false
+  nullable: true
   null_rate: 0.0
   description: Installed capacity of the plant/group.
   sample:
@@ -275,3 +275,4 @@ notes:
   planning-model codes - consistent with the cross-dataset ID mismatch already documented
   in the PR-09 handoff. Any aggregation here should group by (subsystem, technology),
   not attempt a per-plant join, for the same reason CVU aggregation did (PR-10).
+- 'ADR-0024 (2025 out-of-sample run): val_capacidadeinstalada has nulls in 2025 files (1,320 rows, dropped by build_availability), so it is marked nullable; 2024 had none.'
