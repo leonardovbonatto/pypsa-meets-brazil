@@ -802,6 +802,8 @@ code without touching this file, unless it carries the `no-changelog` label.
   subsystems (SE_CO 0.90); price still fails, with prices near zero all
   year. `"gross"` and `"storable_plus_run_of_river"` remain as modes.
   `docs/handoffs/PR-56-storable-inflow.md`.
+- `docs/VALIDATION.md`: every test the models were scored on, pre-registered
+  or post hoc, and T1's eight checks across 2023-2025.
 - **Curtailment by reason and hydro must-run, held out on 2023 (PR-73,
   ADR-0025): not adopted** (changed T1 infeasible; baseline 5 of 8). New
   reason-coded constrained-off connector; three 2023 data-format fixes.

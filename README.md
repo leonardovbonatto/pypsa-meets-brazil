@@ -23,6 +23,7 @@ reducible to any spatial resolution.
 > and its wind and solar within 1.5% (post hoc, `docs/handoffs/PR-71-*.md`). The
 > pre-registered out-of-sample test on 2025 (ADR-0024) fails, 4 of 8: wind and
 > solar over-produce and the two N boundaries miss (`docs/handoffs/PR-72-*.md`).
+> Every test and its result: [`docs/VALIDATION.md`](docs/VALIDATION.md).
 > T2–T3 (clustered, nodal) are not started.
 > See [`docs/STACK.md`](docs/STACK.md) for exactly what's built vs planned, and
 > [`Brazilian-Grid-in-PyPSA.md`](Brazilian-Grid-in-PyPSA.md) for the feasibility
