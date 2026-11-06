@@ -1,0 +1,8 @@
+# SPDX-FileCopyrightText: 2026 pypsa-meets-brazil contributors
+# SPDX-License-Identifier: MIT
+#
+# ADR-0025: the held-out year for the reason-aware curtailment and hydro
+# must-run change. Merged over config.default.yaml like config.2025.yaml.
+snapshots:
+  start: "2023-01-01"
+  end: "2023-12-31"
