@@ -8,6 +8,7 @@ import importlib.util
 import sys
 from pathlib import Path
 
+import pandas as pd
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -100,3 +101,40 @@ class TestWriteGeneratorCapacity:
         reloaded = pd.read_csv(out)
         assert len(reloaded) == len(tidy)
         assert list(reloaded.columns) == ["subsystem", "carrier", "p_nom_mw"]
+
+
+class TestMonthlyOperatingCapacity:
+    UNITS = pd.DataFrame(
+        {
+            "id_subsistema": ["SE", "SE", "SE", "PY"],
+            "nom_tipousina": ["FOTOVOLTAICA", "FOTOVOLTAICA", "FOTOVOLTAICA", "HIDROELÉTRICA"],
+            "dat_entradaoperacao": ["2020-01-01", "2024-02-15", "2025-06-01", "2000-01-01"],
+            "dat_desativacao": [None, None, None, None],
+            "val_potenciaefetiva": [100.0, 50.0, 70.0, 999.0],
+        }
+    )
+
+    def test_counts_only_units_operating_at_each_month_end(self):
+        monthly = build_generators.monthly_operating_capacity(
+            self.UNITS, months=[(2024, 1), (2024, 2)]
+        ).set_index("month")
+        assert monthly.loc[1, "p_nom_mw"] == pytest.approx(100.0)
+        assert monthly.loc[2, "p_nom_mw"] == pytest.approx(150.0)
+
+    def test_deactivated_unit_counts_until_its_date(self):
+        units = self.UNITS.copy()
+        units.loc[0, "dat_desativacao"] = "2024-01-20"
+        monthly = build_generators.monthly_operating_capacity(units, months=[(2024, 1)])
+        assert monthly.empty  # the only unit operating in January left on the 20th
+
+    def test_capacity_is_the_largest_month_and_share_follows(self):
+        months = [(2024, 1), (2024, 2)]
+        capacity = build_generators.build_generator_capacity(
+            self.UNITS, subsystems=["SE_CO"], months=months
+        )
+        assert capacity["p_nom_mw"].iloc[0] == pytest.approx(150.0)
+        share = build_generators.commissioning_share(
+            build_generators.monthly_operating_capacity(self.UNITS, months=months), capacity
+        ).set_index("month")["share"]
+        assert share[1] == pytest.approx(100.0 / 150.0)
+        assert share[2] == pytest.approx(1.0)

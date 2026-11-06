@@ -9,6 +9,7 @@ import sys
 from pathlib import Path
 
 import pandas as pd
+import pypsa
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -358,3 +359,26 @@ class TestAttachLoadShedding:
         n = build_network.build_network(tidy_demand, subsystems=SUBSYSTEMS)
         build_network.attach_load_shedding(n, subsystems=SUBSYSTEMS)
         n.consistency_check()  # must not raise
+
+
+class TestAttachCommissioning:
+    def test_scales_availability_by_the_operating_share(self):
+        n = pypsa.Network()
+        n.set_snapshots(pd.DatetimeIndex(["2024-01-01 00:00", "2024-02-01 00:00"]))
+        n.add("Bus", "A")
+        n.add("Generator", "A solar", bus="A", carrier="solar", p_nom=100.0)
+        n.add("Generator", "A hydro", bus="A", carrier="hydro", p_nom=100.0)
+        n.generators_t.p_max_pu["A solar"] = [0.5, 0.5]
+        share = pd.DataFrame(
+            {
+                "year": [2024, 2024, 2024, 2024],
+                "month": [1, 2, 1, 2],
+                "subsystem": ["A"] * 4,
+                "carrier": ["solar", "solar", "hydro", "hydro"],
+                "share": [0.5, 1.0, 0.5, 0.5],
+            }
+        )
+        build_network.attach_commissioning(n, share)
+        assert list(n.generators_t.p_max_pu["A solar"]) == pytest.approx([0.25, 0.5])
+        # Hydro availability is a backcast of observed output: left alone.
+        assert "A hydro" not in n.generators_t.p_max_pu

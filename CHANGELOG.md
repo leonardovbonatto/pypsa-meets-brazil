@@ -802,6 +802,10 @@ code without touching this file, unless it carries the `no-changelog` label.
   subsystems (SE_CO 0.90); price still fails, with prices near zero all
   year. `"gross"` and `"storable_plus_run_of_river"` remain as modes.
   `docs/handoffs/PR-56-storable-inflow.md`.
+- **T0 capacity by commissioning date (PR-59).** Capacity and p_max_pu follow
+  the units operating in each month, not the registry's current snapshot:
+  2024 solar was 63.5% of it. Gate: solar 1.48 -> 0.94, wind 1.06 -> 0.94,
+  thermal 1.04 -> 1.37. `docs/handoffs/PR-59-capacity-by-commissioning-date.md`.
 - **The Phase 1 gate (PR-58, ADR-0020).** `check_phase1_gate` scores the
   solved T0 network against ONS 2024: national wind, utility solar, nuclear
   and thermal within 5%, and each boundary's mean flow within 5% of its

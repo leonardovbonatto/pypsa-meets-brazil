@@ -49,9 +49,13 @@ rule build_generators_t0:
         raw="resources/ons/CAPACIDADE_GERACAO.csv",
         dictionary="docs/data-dictionary/ons/capacidade_geracao.yaml",
     output:
-        "resources/generators_t0.csv",
+        capacity="resources/generators_t0.csv",
+        commissioning="resources/generator_commissioning_t0.csv",
     params:
         subsystems=config["subsystems"],
+        # PR-59: capacity of the units operating in the snapshot months, not
+        # the registry's current snapshot.
+        months=snapshot_year_months(config),
     log:
         "logs/build_generators_t0/run.log",
     script:
@@ -368,6 +372,7 @@ rule build_network_t0:
     input:
         demand="resources/demand_t0.csv",
         generators="resources/generators_t0.csv",
+        commissioning="resources/generator_commissioning_t0.csv",
         mmgd_generators="resources/mmgd_generators_t0.csv",
         links="resources/links_t0.csv",
         availability="resources/availability_t0.csv",

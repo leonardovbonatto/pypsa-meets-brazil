@@ -23,6 +23,7 @@ trusting a dispatch result.
 import sys
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import pypsa
 
@@ -169,6 +170,36 @@ def attach_availability(n: pypsa.Network, availability: pd.DataFrame) -> pypsa.N
     return n
 
 
+# Carriers whose availability is NOT already a backcast of observed output:
+# their p_max_pu is scaled by the share of the fleet operating each month
+# (PR-59). Hydro and MMGD availability is observed generation over p_nom,
+# which already reflects the plants that were running.
+COMMISSIONED_CARRIERS = ("wind", "solar", "thermal", "nuclear")
+
+
+def attach_commissioning(n: pypsa.Network, share: pd.DataFrame) -> pypsa.Network:
+    """
+    PR-59: multiply p_max_pu by each month's operating share of p_nom, for
+    COMMISSIONED_CARRIERS, so capacity that entered operation mid-year is not
+    available before it did. Mutates `n` in place and returns it.
+    """
+    work = share[share["carrier"].isin(COMMISSIONED_CARRIERS)]
+    names = work["subsystem"] + " " + work["carrier"]
+    unknown = set(names) - set(n.generators.index)
+    if unknown:
+        raise ValueError(f"commissioning row(s) have no matching generator: {sorted(unknown)}")
+    snapshots = pd.DatetimeIndex(n.snapshots)
+    keys = pd.MultiIndex.from_arrays([snapshots.year, snapshots.month])
+    p_max_pu = n.get_switchable_as_dense("Generator", "p_max_pu")
+    for name, rows in work.assign(name=names).groupby("name"):
+        by_month = rows.set_index(["year", "month"])["share"]
+        factor = by_month.reindex(keys)
+        if factor.isna().any():
+            raise ValueError(f"{name}: commissioning share missing for some snapshot months")
+        n.generators_t.p_max_pu[name] = p_max_pu[name].to_numpy() * factor.to_numpy()
+    return n
+
+
 def load_costs(path: Path) -> pd.DataFrame:
     return pd.read_csv(path)
 
@@ -223,7 +254,9 @@ def attach_thermal_floor(n: pypsa.Network, floor: pd.DataFrame) -> pypsa.Network
         by_month = rows.set_index("month")["floor_mw"] / n.generators.loc[name, "p_nom"]
         if set(months) - set(by_month.index):
             raise ValueError(f"{name}: floor missing for some snapshot months")
-        n.generators_t.p_min_pu[name] = by_month.reindex(months).to_numpy()
+        # Never above what is available that hour (PR-59 scales p_max_pu).
+        ceiling = n.get_switchable_as_dense("Generator", "p_max_pu")[name].to_numpy()
+        n.generators_t.p_min_pu[name] = np.minimum(by_month.reindex(months).to_numpy(), ceiling)
     return n
 
 
@@ -309,6 +342,7 @@ def main() -> None:
         ignore_index=True,
     )
     attach_availability(n, availability)
+    attach_commissioning(n, pd.read_csv(Path(snake.input.commissioning)))
 
     costs = load_costs(Path(snake.input.costs))
     attach_marginal_costs(n, costs)
