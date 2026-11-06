@@ -179,6 +179,26 @@ rule build_mmgd_t0:
         "../scripts/build_mmgd.py"
 
 
+rule build_nuclear_availability_t0:
+    """
+    T0 nuclear availability from ONS operational availability per plant
+    (PR-62): Angra's outages. Availability, not output.
+    """
+    input:
+        raw=[
+            f"resources/ons/DISPONIBILIDADE_USINA_{year}_{month:02d}.csv"
+            for year, month in snapshot_year_months(config)
+        ],
+        dictionary="docs/data-dictionary/ons/disponibilidade_usina.yaml",
+        capacity="resources/generators_t0.csv",
+    output:
+        "resources/nuclear_availability_t0.csv",
+    log:
+        "logs/build_nuclear_availability_t0/run.log",
+    script:
+        "../scripts/build_nuclear_availability.py"
+
+
 rule build_small_plants_t0:
     """
     T0 small plants (TIPO III: in observed generation, not in the capacity
@@ -401,6 +421,7 @@ rule build_network_t0:
         hydro_availability="resources/hydro_availability_t0.csv",
         mmgd_availability="resources/mmgd_availability_t0.csv",
         small_availability="resources/small_availability_t0.csv",
+        nuclear_availability="resources/nuclear_availability_t0.csv",
         costs="resources/costs_t0.csv",
         thermal_floor="resources/thermal_floor_t0.csv",
     output:

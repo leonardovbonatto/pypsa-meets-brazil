@@ -1,0 +1,145 @@
+dataset: disponibilidade_usina
+source: ons
+source_url: https://ons-aws-prod-opendata.s3.amazonaws.com/dataset/disponibilidade_usina_ho/DISPONIBILIDADE_USINA_{year}_{month}.csv
+retrieved: '2026-11-06T01:02:34+00:00'
+format: csv
+encoding: utf-8
+delimiter: ;
+decimal: .
+row_count: 2104512
+schema_hash: sha256:ab7d49dd56dbb30acd7abec755e2b394637024e65e0312f76e11d7405c26139a
+columns:
+- name: id_subsistema
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: 'ONS subsystem code (N, NE, S, SE); map through _ons.map_subsystems.'
+  sample:
+  - N
+  - N
+  - N
+- name: nom_subsistema
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: 'Subsystem name.'
+  sample:
+  - Norte
+  - Norte
+  - Norte
+- name: id_estado
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: 'State (UF) of the plant.'
+  sample:
+  - AM
+  - AM
+  - AM
+- name: nom_estado
+  dtype: str
+  unit: null
+  nullable: true
+  null_rate: 0.0042
+  description: 'State name; null in 0.4% of rows, never used.'
+  sample:
+  - Amazonas
+  - Amazonas
+  - Amazonas
+- name: nom_usina
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: 'Plant name.'
+  sample:
+  - Balbina
+  - Balbina
+  - Balbina
+- name: id_tipousina
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: 'Plant type: UHE hydro, UTE thermal, UTN nuclear.'
+  sample:
+  - UHE
+  - UHE
+  - UHE
+- name: nom_tipocombustivel
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: 'Fuel type, e.g. Hidráulica, Nuclear, Gás.'
+  sample:
+  - Hidráulica
+  - Hidráulica
+  - Hidráulica
+- name: id_ons
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: 'ONS plant identifier.'
+  sample:
+  - AMBA
+  - AMBA
+  - AMBA
+- name: ceg
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: 'ANEEL CEG (unique generation project code).'
+  sample:
+  - UHE.PH.AM.000190-2.01
+  - UHE.PH.AM.000190-2.01
+  - UHE.PH.AM.000190-2.01
+- name: din_instante
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: 'Start of the hour, YYYY-MM-DD HH:MM:SS.'
+  sample:
+  - '2024-01-01 00:00:00'
+  - '2024-01-01 01:00:00'
+  - '2024-01-01 02:00:00'
+- name: val_potenciainstalada
+  dtype: float64
+  unit: MW
+  nullable: false
+  null_rate: 0.0
+  description: 'Installed capacity ONS uses for the availability figures.'
+  sample:
+  - 250.0
+  - 250.0
+  - 250.0
+- name: val_dispoperacional
+  dtype: float64
+  unit: MW
+  nullable: false
+  null_rate: 0.0
+  description: 'Operational availability after outages and restrictions (ONS: disponibilidade operacional).'
+  sample:
+  - 226.1
+  - 226.1
+  - 226.1
+- name: val_dispsincronizada
+  dtype: float64
+  unit: MW
+  nullable: false
+  null_rate: 0.0
+  description: 'Operational availability counting only units synchronised to the SIN; depends on dispatch, so not used as availability.'
+  sample:
+  - 135.66
+  - 135.66
+  - 135.66
+notes:
+- 'Availability, not output: val_dispoperacional is what the plant could produce after outages, whatever it was dispatched to do, so using it as p_max_pu is not a backcast (PR-62). val_dispsincronizada depends on dispatch and is not used.'
+- '2024 January means: UHE 91.4 of 108.3 GW installed, UTE 17.6 of 21.4 GW, UTN 1,958 of 1,990 MW (Angra I 613 of 640, Angra II 1,345 of 1,350).'
+- 'Built from all twelve 2024 files concatenated (2,104,512 rows), per the PR-15 lesson on nullability.'

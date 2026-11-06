@@ -158,6 +158,26 @@ rule fetch_ons_geracao_termica_despacho:
         "../scripts/fetch_dataset.py"
 
 
+rule fetch_ons_disponibilidade_usina:
+    """
+    ONS hourly operational availability per plant, one file per (year,
+    month). Nuclear availability (PR-62): Angra's refuelling outages.
+    """
+    output:
+        raw="resources/ons/DISPONIBILIDADE_USINA_{year}_{month}.csv",
+        provenance="resources/_provenance/ons/disponibilidade_usina_{year}_{month}.json",
+    params:
+        url=lambda wc: config["sources"]["ons"]["disponibilidade_usina"]["url"].format(
+            year=wc.year, month=wc.month
+        ),
+        source="ons",
+        dataset=lambda wc: f"disponibilidade_usina_{wc.year}_{wc.month}",
+    log:
+        "logs/fetch_ons_disponibilidade_usina/{year}_{month}.log",
+    script:
+        "../scripts/fetch_dataset.py"
+
+
 rule fetch_ons_ena_subsistema:
     """
     ONS daily natural inflow energy (ENA) per subsystem, one file per

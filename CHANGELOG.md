@@ -802,6 +802,10 @@ code without touching this file, unless it carries the `no-changelog` label.
   subsystems (SE_CO 0.90); price still fails, with prices near zero all
   year. `"gross"` and `"storable_plus_run_of_river"` remain as modes.
   `docs/handoffs/PR-56-storable-inflow.md`.
+- **Plant availability connector; nuclear outages (PR-62).** New ONS
+  dataset `disponibilidade_usina`. Gate: nuclear 0.998 passes; thermal
+  1.056 fails narrowly, and is mostly a backcast (floor and small plants).
+  `docs/handoffs/PR-62-nuclear-availability.md`.
 - **One-way links with a tie-break (PR-61).** R$0.001/MWh per hop stops
   N's surplus being routed through NE. Gate: NE-SE_CO and SE_CO-S pass;
   N-NE and N-SE_CO fail (meshed-grid routing a transport model cannot

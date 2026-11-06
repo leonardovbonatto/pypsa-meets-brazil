@@ -193,8 +193,9 @@ def attach_must_run(n: pypsa.Network) -> pypsa.Network:
 # Carriers whose availability is NOT already a backcast of observed output:
 # their p_max_pu is scaled by the share of the fleet operating each month
 # (PR-59). Hydro and MMGD availability is observed generation over p_nom,
-# which already reflects the plants that were running.
-COMMISSIONED_CARRIERS = ("wind", "solar", "thermal", "nuclear")
+# and nuclear availability (PR-62) is ONS's operational availability in MW
+# over p_nom: both already reflect the plants that were running.
+COMMISSIONED_CARRIERS = ("wind", "solar", "thermal")
 
 
 def attach_commissioning(n: pypsa.Network, share: pd.DataFrame) -> pypsa.Network:
@@ -360,6 +361,7 @@ def main() -> None:
             load_availability(Path(snake.input.hydro_availability)),
             load_availability(Path(snake.input.mmgd_availability)),
             load_availability(Path(snake.input.small_availability)),
+            load_availability(Path(snake.input.nuclear_availability)),
         ],
         ignore_index=True,
     )
