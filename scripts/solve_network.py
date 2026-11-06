@@ -43,23 +43,22 @@ KNOWN_LIMITATIONS = [
     "merit order whenever it is available. Only the p_max_pu ceiling now "
     "stops it covering everything.",
     "Wind and solar have a real hourly availability profile (PR-15) from "
-    "ONS measured capacity factors - a purpose-built capacity-factor "
-    "dataset, not a backcast of the same kind as hydro's. But that dataset "
-    "(fator_capacidade) only covers a SUBSET of installed nameplate "
-    "capacity: 10,273 of 21,312 MW solar (48%) and 14,582 of 33,721 MW "
-    "wind (43%), concentrated in larger ONS-dispatched plant-groups (PR-20 "
-    "finding). Its fleet-average p_max_pu is applied to the FULL nameplate "
-    "capacity from capacidade_geracao, so untracked plants (smaller/older, "
-    "the other 52%/57%) are implicitly assumed to share the tracked "
-    "fleet's average capacity factor. This is the most likely explanation "
-    "for PR-19's finding that model utility solar (4,816 MW mean) runs "
-    "~1.5x observed (~3,234 MW) - not yet fixed, since no per-plant "
-    "capacity-factor source is currently connected.",
-    "Transmission is a transport model (ADR-0006): Links with a "
-    "transfer-capacity limit derived from historical flows, not real "
-    "DC power flow with impedances. No losses.",
-    "Thermal marginal_cost is a single subsystem-wide mean CVU for the "
-    "whole year (PR-10), not per-plant or time-varying.",
+    "ONS measured capacity factors, applied to the fleet operating each "
+    "month (PR-59; utility solar was 1.48x ONS before that, 0.97x after). "
+    "fator_capacidade covers only part of the fleet (PR-20), so untracked "
+    "plants are assumed to share the tracked fleet's capacity factor.",
+    "MORE BACKCASTS: MMGD (PR-19), small TIPO III plants (PR-60) and the "
+    "hourly thermal floor (ADR-0016, PR-65) are ONS's observed output. "
+    "Most of thermal is therefore an input; only merit-order thermal above "
+    "the floor is decided here.",
+    "Transmission is a transport model (ADR-0006): two one-way Links per "
+    "boundary with a transfer-capacity limit derived from historical "
+    "flows and a R$0.001/MWh routing tie-break (PR-61), not DC power flow "
+    "with impedances. No losses. ONS routes part of NE's export through "
+    "N; this model cannot (Phase 1 gate, PR-65).",
+    "Thermal is per-subsystem CVU bands of plants joined across CVU, "
+    "dispatch and availability data (ADR-0021), with a 2024-mean CVU per "
+    "plant; the residual registry thermal keeps PR-10's averaged cost.",
     "Wind, solar and nuclear carry marginal_cost = 0 "
     "(NON_THERMAL_MARGINAL_COST). Near-zero is defensible for wind and "
     "solar; nuclear is a must-run baseload approximation.",

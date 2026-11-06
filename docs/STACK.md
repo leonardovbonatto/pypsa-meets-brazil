@@ -29,6 +29,15 @@ this document:
 | **BUILT** | Installed, running, and exercised by tests today. |
 | **PLANNED** | Named in the roadmap. Not yet installed. Does not exist in the repo. |
 
+> **Current state (PR-65, 2026-11-06).** SDDP.jl is built: a regional Markovian
+> policy trains on real data and its cuts value water in a coupled PyPSA run
+> (ADR-0010, ADR-0014), which fails its pre-registered 2024 backtest on price
+> (ADR-0015, PR-57) and is paused. The T0 model has been scored against the
+> roadmap's Phase 1 gate (ADR-0020): generation passes (wind, solar, nuclear,
+> thermal within 5% of ONS), two of four boundaries do not (PR-65). atlite and
+> Gurobi are still **PLANNED**. The paragraph below is the PR-20-era account,
+> kept because its two caveats still hold.
+>
 > **Read this twice.** Some of the famous names in this project — atlite, SDDP.jl,
 > Gurobi — are still **PLANNED**. PyPSA and HiGHS landed (PR-06 through PR-11),
 > `n.optimize()` genuinely runs and returns `optimal` on the real 2024 T0 network, the
@@ -354,7 +363,7 @@ flowchart LR
 | `.yaml` | Human-friendly structured text | Configuration and data dictionaries — meant to be read and edited. |
 | `.json` | Machine-friendly structured text | Provenance records and run manifests — written and read by code. |
 | `.toml` | Configuration format | `pixi.toml`, `pyproject.toml` — tool settings. |
-| `.parquet` | Compressed binary table | *(planned)* Intermediate data. Far smaller, preserves column types. |
+| `.parquet` | Compressed binary table | SDDP inputs and cuts crossing between Python and Julia (`resources/sddp_inputs/`, `results/*/cuts.parquet`). |
 | `.nc` | NetCDF, scientific arrays | `resources/networks/t0.nc` — the saved PyPSA network. Weather cutouts are still *(planned)*. |
 
 > **The unit trap, which is not hypothetical.** The load column is in **MWmed** —
@@ -387,11 +396,15 @@ Brazil's zonal formulation the CMO. You do not compute prices separately; you re
 them off the solved model. **Not yet meaningful here** — see below.
 
 **What exists today.** `resources/networks/t0.nc` — 4 buses, 8784 hourly snapshots,
-time-varying loads, generators with real capacity and marginal cost (including a
-distinct `solar_mmgd` carrier for distributed rooftop PV, PR-19), 4 inter-subsystem
-`Link`s with a real transfer-capacity proxy (ADR-0006), real measured hourly `p_max_pu`
-for wind and solar (PR-15) and an hourly backcast `p_max_pu` for hydro from observed
-2024 generation (PR-17/18, ADR-0007), and a load-shedding backstop per bus.
+time-varying loads plus net international exports at S (PR-64), generators with
+capacity from the units operating in each month (PR-59), wind and solar with measured
+hourly `p_max_pu` (PR-15), hydro, MMGD and small TIPO III plants as backcasts of
+observed output (ADR-0007, PR-19, PR-60), nuclear availability from ONS outages
+(PR-62), thermal as per-subsystem CVU bands of real plants with hourly availability
+and an hourly floor plus a residual at the averaged cost (ADR-0016, ADR-0021, PR-65),
+two one-way `Link`s per boundary with a routing tie-break (ADR-0006, PR-61), and a
+load-shedding backstop per bus. `check_phase1_gate` scores the solved network against
+ONS (ADR-0020).
 `results/<run>/network_t0_solved.nc` is the solved result: `n.optimize()` runs and
 returns `optimal`, thermal dispatches a nonzero, roughly-right mean, and marginal
 prices are nonzero. **A clean, economically-alive solve is still not the same claim as
@@ -483,7 +496,14 @@ pandas. This is how `hidr.dat` (hydro plant physical cadastre) and `VAZOES.DAT` 
 ~95-year natural inflow record) get read. Hand-parsing them is a well-known way to
 lose a week.
 
-### SDDP.jl (Julia) — **PLANNED** (coupling mechanism BUILT and proven, PR-26)
+### SDDP.jl (Julia) — **BUILT** (policy on real data since PR-31; coupled into PyPSA, PR-51; paused after PR-57)
+
+> **Update.** Everything the PR-26 note below calls PLANNED has since been built: the
+> ENA connector (PR-27), PAR(1) fitting (PR-28/29), a hydro-thermal policy on real data
+> (PR-31), CVaR (PR-32), regional Markovian regimes (ADR-0009/0010), transmission, net
+> load and the thermal floor in the subproblem (ADR-0012/0013/0016), and the linopy cut
+> coupling into the T0 network (ADR-0014). Its 2024 backtest passes on storage shape in
+> some runs and fails on price (PR-56, PR-57); read those handoffs before using it.
 
 **Why a second language appears.** SDDP.jl is the mature, well-tested implementation
 of Stochastic Dual Dynamic Programming, with risk measures such as CVaR built in.
