@@ -224,10 +224,13 @@ def tidy_links():
 
 
 class TestAttachLinks:
-    def test_adds_one_link_per_row(self, tidy_demand, tidy_links):
+    def test_adds_two_one_way_links_per_row(self, tidy_demand, tidy_links):
         n = build_network.build_network(tidy_demand, subsystems=SUBSYSTEMS)
         build_network.attach_links(n, tidy_links)
-        assert len(n.links) == 4
+        assert len(n.links) == 8
+        back = n.links.loc["NE-N"]
+        assert (back["bus0"], back["bus1"]) == ("NE", "N")
+        assert back["p_nom"] == pytest.approx(100.0)
 
     def test_link_values_are_correct(self, tidy_demand, tidy_links):
         n = build_network.build_network(tidy_demand, subsystems=SUBSYSTEMS)
@@ -238,10 +241,28 @@ class TestAttachLinks:
         assert link["bus1"] == "NE"
         assert link["p_nom"] == pytest.approx(100.0)
 
-    def test_links_are_bidirectional(self, tidy_demand, tidy_links):
+    def test_links_are_one_way_with_a_tie_break_cost(self, tidy_demand, tidy_links):
         n = build_network.build_network(tidy_demand, subsystems=SUBSYSTEMS)
         build_network.attach_links(n, tidy_links)
-        assert (n.links["p_min_pu"] == -1.0).all()
+        assert (n.links["p_min_pu"] == 0.0).all()
+        assert (n.links["marginal_cost"] == build_network.LINK_TIE_BREAK_COST).all()
+
+    def test_direct_path_wins_over_two_hops(self):
+        """N's free surplus can reach SE_CO directly or via NE; the tie-break
+        sends it directly."""
+        n = pypsa.Network()
+        n.set_snapshots(pd.date_range("2024-01-01", periods=1, freq="h"))
+        for b in ["N", "NE", "SE_CO"]:
+            n.add("Bus", b)
+        n.add("Generator", "N hydro", bus="N", p_nom=100.0)
+        n.add("Load", "SE_CO", bus="SE_CO", p_set=50.0)
+        links = pd.DataFrame(
+            {"bus0": ["N", "N", "NE"], "bus1": ["NE", "SE_CO", "SE_CO"], "p_nom_mw": [100.0] * 3}
+        )
+        build_network.attach_links(n, links)
+        n.optimize(solver_name="highs", include_objective_constant=False)
+        assert n.links_t.p0["N-SE_CO"].iloc[0] == pytest.approx(50.0)
+        assert n.links_t.p0["N-NE"].iloc[0] == pytest.approx(0.0)
 
     def test_raises_on_a_link_bus_with_no_matching_bus(self, tidy_demand, tidy_links):
         bad = pd.concat(

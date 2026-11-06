@@ -106,34 +106,40 @@ def load_links(path: Path) -> pd.DataFrame:
     return pd.read_csv(path)
 
 
+# PR-61: a tie-break, not a price. In a lossless transport model, N's surplus
+# reaches SE_CO at the same cost directly or through NE, and the 2024 solve
+# routed ~2 GW through NE (N-NE +2,029 MW mean against ONS's -1,467). A tiny
+# cost per MWh per hop makes the direct path win. It sits below the coupled
+# run's RESERVOIR_DISPATCH_COST (0.005) and SPILL_COST (0.01), so exporting
+# water stays cheaper than spilling it.
+LINK_TIE_BREAK_COST = 0.001
+
+
 def attach_links(n: pypsa.Network, links: pd.DataFrame) -> pypsa.Network:
     """
-    Add one bidirectional transfer Link per real ONS boundary (ADR-0006).
-
-    `p_min_pu=-1` (with the default `p_max_pu=1`) makes each Link carry
-    flow in either direction up to `p_nom` - matching the real data, which
-    shows every boundary reversing direction over the year. No
-    `marginal_cost` (transferring is free; only the `p_nom` limit binds) and
-    no losses (`efficiency` stays at PyPSA's default of 1.0) - both a stated
-    T0 simplification, not a claim that real transmission is lossless.
-    Reuses the "AC" carrier already registered for buses, since these
-    represent (simplified) AC transmission corridors. Mutates `n` in place
-    and returns it for convenience.
+    Add two one-way transfer Links per real ONS boundary (ADR-0006): `b0-b1`
+    and `b1-b0`, each up to `p_nom`, matching the real data, which shows
+    every boundary reversing direction over the year. One-way because each
+    carries LINK_TIE_BREAK_COST (PR-61): on a single two-way Link a cost on
+    negative flow would be a credit. No losses (`efficiency` 1.0), a stated
+    T0 simplification. Reuses the "AC" carrier already registered for buses.
+    Mutates `n` in place and returns it for convenience.
     """
     unknown_buses = (set(links["bus0"]) | set(links["bus1"])) - set(n.buses.index)
     if unknown_buses:
         raise ValueError(f"link bus(es) have no matching bus: {sorted(unknown_buses)}")
 
-    names = [f"{b0}-{b1}" for b0, b1 in zip(links["bus0"], links["bus1"], strict=True)]
-    n.add(
-        "Link",
-        names,
-        bus0=links["bus0"].to_numpy(),
-        bus1=links["bus1"].to_numpy(),
-        p_nom=links["p_nom_mw"].to_numpy(),
-        p_min_pu=-1.0,
-        carrier="AC",
-    )
+    for bus0, bus1 in (("bus0", "bus1"), ("bus1", "bus0")):
+        n.add(
+            "Link",
+            [f"{a}-{b}" for a, b in zip(links[bus0], links[bus1], strict=True)],
+            bus0=links[bus0].to_numpy(),
+            bus1=links[bus1].to_numpy(),
+            p_nom=links["p_nom_mw"].to_numpy(),
+            p_min_pu=0.0,
+            marginal_cost=LINK_TIE_BREAK_COST,
+            carrier="AC",
+        )
 
     n.consistency_check()
     return n

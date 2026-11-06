@@ -114,10 +114,17 @@ def interchange_table(
     correlation and mean absolute flow."""
     rows = []
     for _, link in links.iterrows():
-        name = n.links.index[(n.links["bus0"] == link["bus0"]) & (n.links["bus1"] == link["bus1"])]
-        if len(name) != 1:
-            raise ValueError(f"expected one link {link['bus0']}-{link['bus1']}, found {len(name)}")
-        model = n.links_t.p0[name[0]]
+        # Net flow bus0 -> bus1: one-way links each way since PR-61, or a
+        # single two-way link.
+        forward = n.links.index[
+            (n.links["bus0"] == link["bus0"]) & (n.links["bus1"] == link["bus1"])
+        ]
+        backward = n.links.index[
+            (n.links["bus0"] == link["bus1"]) & (n.links["bus1"] == link["bus0"])
+        ]
+        if len(forward) == 0:
+            raise ValueError(f"no link {link['bus0']}-{link['bus1']}")
+        model = n.links_t.p0[forward].sum(axis=1) - n.links_t.p0[backward].sum(axis=1)
         obs = (
             observed[(observed["bus0"] == link["bus0"]) & (observed["bus1"] == link["bus1"])]
             .groupby("snapshot")["observed_mw"]
