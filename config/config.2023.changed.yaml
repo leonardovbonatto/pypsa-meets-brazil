@@ -1,0 +1,8 @@
+# SPDX-FileCopyrightText: 2026 pypsa-meets-brazil contributors
+# SPDX-License-Identifier: MIT
+#
+# ADR-0025's "changed" run: config.2023.yaml plus both switches on. Use as
+#   snakemake --configfile config/config.2023.yaml config/config.2023.changed.yaml
+t0_options:
+  curtailment: reasons
+  hydro_must_run: true

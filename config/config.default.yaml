@@ -89,6 +89,14 @@ sources:
       # The same for solar plants. Published from April 2024 only.
       url: https://ons-aws-prod-opendata.s3.amazonaws.com/dataset/restricao_coff_fotovoltaica_detail_tm/RESTRICAO_COFF_FOTOVOLTAICA_DETAIL_{year}_{month}.csv
       first_month: [2024, 4]
+    restricao_coff_eolica_tm:
+      # Half-hourly constrained-off per wind plant WITH reason codes (REL, ENE,
+      # CNF, PAR) and ONS's GNRa. ADR-0025 option (a).
+      url: https://ons-aws-prod-opendata.s3.amazonaws.com/dataset/restricao_coff_eolica_tm/RESTRICAO_COFF_EOLICA_{year}_{month}.csv
+    restricao_coff_fotovoltaica_tm:
+      # The same for solar, from April 2024.
+      url: https://ons-aws-prod-opendata.s3.amazonaws.com/dataset/restricao_coff_fotovoltaica_tm/RESTRICAO_COFF_FOTOVOLTAICA_{year}_{month}.csv
+      first_month: [2024, 4]
     intercambio_internacional:
       # Hourly verified international interchange per destination country,
       # one file per year; positive = export from Brazil. Exports are
@@ -187,3 +195,11 @@ epe:
   local_dir: ~/epe_local/raw
   repository: https://github.com/EPE-GOV-BR/BaseDadosGT
   commit: 5168bba0d702139dde233cf7d543ea037571a1ac
+
+# ADR-0025 switches, both off unless an overlay turns them on:
+# curtailment "detail" (ADR-0023, all reasons) or "reasons" (REL and ENE
+# only, from the reason-coded datasets); hydro_must_run makes T0/T1 hydro
+# run exactly as observed.
+t0_options:
+  curtailment: detail
+  hydro_must_run: false

@@ -55,14 +55,61 @@ def hourly_factor(raw: pd.DataFrame, carrier: str) -> pd.DataFrame:
     ]
 
 
+REASON_COLUMNS = [
+    "id_subsistema",
+    "din_instante",
+    "val_geracao",
+    "val_geracaonaorealizadaapurada",
+    "cod_razaorestricao",
+]
+# ADR-0025 (a): curtailment the model can reproduce - transmission (REL) and
+# energy surplus (ENE). Reliability (CNF) and access-permit (PAR) curtailment
+# have no counterpart in the model, so they stay out of availability.
+REPRESENTABLE = {"REL", "ENE"}
+
+
+def hourly_factor_reasons(raw: pd.DataFrame, carrier: str) -> pd.DataFrame:
+    """(snapshot, subsystem) -> (verified + GNRa of REPRESENTABLE reasons) /
+    verified, from the reason-coded constrained-off data."""
+    df = map_subsystems(raw)
+    gnr = df["val_geracaonaorealizadaapurada"].clip(lower=0.0).fillna(0.0)
+    df = df.assign(
+        snapshot=pd.to_datetime(df["din_instante"]).dt.floor("h"),
+        unrealised=gnr.where(df["cod_razaorestricao"].isin(REPRESENTABLE), 0.0),
+        verified=df["val_geracao"].clip(lower=0.0).fillna(0.0),
+    )
+    total = df.groupby(["snapshot", "subsystem"], as_index=False)[["verified", "unrealised"]].sum()
+    factor = (total["verified"] + total["unrealised"]) / total["verified"].where(
+        total["verified"] > 0
+    )
+    return total.assign(carrier=carrier, factor=factor.fillna(1.0).clip(lower=1.0))[
+        ["snapshot", "subsystem", "carrier", "factor"]
+    ]
+
+
 def main() -> None:
     snake = globals()["snakemake"]
+    reasons = str(snake.params.mode) == "reasons"
     parts = []
     for kind, paths in (("EOLICA", snake.input.wind), ("FOTOVOLTAICA", snake.input.solar)):
+        if not paths:
+            continue
+        columns = REASON_COLUMNS if reasons else COLUMNS
         raw = pd.concat(
-            [pd.read_csv(p, sep=";", usecols=COLUMNS) for p in paths], ignore_index=True
+            [
+                pd.read_csv(
+                    p,
+                    sep=";",
+                    usecols=columns,
+                    low_memory=False,
+                    dtype={"cod_razaorestricao": str} if reasons else None,
+                )
+                for p in paths
+            ],
+            ignore_index=True,
         )
-        parts.append(hourly_factor(raw, CARRIER[kind]))
+        fn = hourly_factor_reasons if reasons else hourly_factor
+        parts.append(fn(raw, CARRIER[kind]))
     out = Path(snake.output[0])
     out.parent.mkdir(parents=True, exist_ok=True)
     pd.concat(parts, ignore_index=True).to_csv(out, index=False)

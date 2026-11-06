@@ -219,12 +219,16 @@ def attach_uncurtailment(n: pypsa.Network, factor: pd.DataFrame) -> pypsa.Networ
 MUST_RUN_SUFFIX = "_small"
 
 
-def attach_must_run(n: pypsa.Network) -> pypsa.Network:
+def attach_must_run(n: pypsa.Network, *, hydro: bool = False) -> pypsa.Network:
     """
     PR-60: small TIPO III plants are not centrally dispatched, so they run
-    exactly as observed: p_min_pu = p_max_pu. Mutates `n` in place.
+    exactly as observed: p_min_pu = p_max_pu. ADR-0025 (b): with `hydro`,
+    so does hydro. Mutates `n` in place.
     """
-    names = n.generators.index[n.generators["carrier"].str.endswith(MUST_RUN_SUFFIX)]
+    carrier = n.generators["carrier"]
+    names = n.generators.index[
+        carrier.str.endswith(MUST_RUN_SUFFIX) | ((carrier == "hydro") & hydro)
+    ]
     for name in names:
         n.generators_t.p_min_pu[name] = n.generators_t.p_max_pu[name]
     return n
@@ -470,7 +474,7 @@ def main() -> None:
     attach_availability(n, availability)
     if snake.params.uncurtailed:
         attach_uncurtailment(n, pd.read_csv(Path(snake.input.uncurtailment)))
-    attach_must_run(n)
+    attach_must_run(n, hydro=bool(snake.params.hydro_must_run))
     attach_commissioning(n, pd.read_csv(Path(snake.input.commissioning)))
 
     costs = load_costs(Path(snake.input.costs))

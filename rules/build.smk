@@ -213,21 +213,32 @@ rule build_t1_topology:
         "../scripts/build_t1_topology.py"
 
 
+def coff_files(kind):
+    """ADR-0025: the constrained-off files the configured curtailment mode
+    reads - detail (ADR-0023) or reason-coded (_tm) - for `kind`."""
+    reasons = config.get("t0_options", {}).get("curtailment", "detail") == "reasons"
+    key = f"restricao_coff_{kind.lower()}" + ("_tm" if reasons else "")
+    first = tuple(config["sources"]["ons"][key].get("first_month", (0, 0)))
+    prefix = "RESTRICAO_COFF_TM_" if reasons else "RESTRICAO_COFF_"
+    return [
+        f"resources/ons/{prefix}{kind}_{year}_{month:02d}.csv"
+        for year, month in snapshot_year_months(config)
+        if (year, month) >= first
+    ]
+
+
 rule build_uncurtailment_t0:
     """
     PR-70: wind and solar availability before ONS's constrained-off, as a
     factor per (hour, subsystem) on T0's measured capacity factors.
+    ADR-0025: `t0_options.curtailment` picks all reasons (detail) or REL
+    and ENE only (reasons).
     """
     input:
-        wind=[
-            f"resources/ons/RESTRICAO_COFF_EOLICA_{year}_{month:02d}.csv"
-            for year, month in snapshot_year_months(config)
-        ],
-        solar=[
-            f"resources/ons/RESTRICAO_COFF_FOTOVOLTAICA_{year}_{month:02d}.csv"
-            for year, month in snapshot_year_months(config)
-            if (year, month) >= tuple(config["sources"]["ons"]["restricao_coff_fotovoltaica"]["first_month"])
-        ],
+        wind=coff_files("EOLICA"),
+        solar=coff_files("FOTOVOLTAICA"),
+    params:
+        mode=config.get("t0_options", {}).get("curtailment", "detail"),
     output:
         "resources/uncurtailment_t0.csv",
     log:
@@ -546,6 +557,8 @@ rule build_network_t0:
         subsystems=config["subsystems"],
         # PR-70: wind and solar availability before ONS's curtailment.
         uncurtailed=True,
+        # ADR-0025 (b): T0/T1 hydro runs exactly as observed.
+        hydro_must_run=config.get("t0_options", {}).get("hydro_must_run", False),
     log:
         "logs/build_network_t0/run.log",
     script:

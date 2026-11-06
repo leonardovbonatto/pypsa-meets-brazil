@@ -200,6 +200,28 @@ rule fetch_ons_restricao_coff:
         "../scripts/fetch_dataset.py"
 
 
+rule fetch_ons_restricao_coff_tm:
+    """
+    ONS constrained-off per wind or solar plant WITH reason codes and GNRa
+    (`kind` EOLICA or FOTOVOLTAICA), one file per (year, month). ADR-0025.
+    """
+    output:
+        raw="resources/ons/RESTRICAO_COFF_TM_{kind}_{year}_{month}.csv",
+        provenance="resources/_provenance/ons/restricao_coff_tm_{kind}_{year}_{month}.json",
+    wildcard_constraints:
+        kind="EOLICA|FOTOVOLTAICA",
+    params:
+        url=lambda wc: config["sources"]["ons"][f"restricao_coff_{wc.kind.lower()}_tm"]["url"].format(
+            year=wc.year, month=wc.month
+        ),
+        source="ons",
+        dataset=lambda wc: f"restricao_coff_tm_{wc.kind}_{wc.year}_{wc.month}",
+    log:
+        "logs/fetch_ons_restricao_coff_tm/{kind}_{year}_{month}.log",
+    script:
+        "../scripts/fetch_dataset.py"
+
+
 rule fetch_ons_intercambio_internacional:
     """
     ONS hourly international interchange per destination country, one file

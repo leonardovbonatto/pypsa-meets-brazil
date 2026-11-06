@@ -56,3 +56,24 @@ class TestFactor:
             }
         )
         assert unc.hourly_factor(raw, "solar")["factor"].iloc[0] == pytest.approx(1.0)
+
+
+class TestReasons:
+    def test_only_transmission_and_energy_curtailment_count(self):
+        raw = pd.DataFrame(
+            {
+                "id_subsistema": ["NE"] * 4,
+                "din_instante": [
+                    "2024-01-01 00:00:00",
+                    "2024-01-01 00:00:00",
+                    "2024-01-01 00:30:00",
+                    "2024-01-01 00:30:00",
+                ],
+                "val_geracao": [100.0, 100.0, 100.0, 100.0],
+                "val_geracaonaorealizadaapurada": [10.0, 20.0, 40.0, 5.0],
+                "cod_razaorestricao": ["REL", "ENE", "CNF", None],
+            }
+        )
+        out = unc.hourly_factor_reasons(raw, "wind")
+        # verified 400; REL 10 + ENE 20 count, CNF 40 does not.
+        assert out["factor"].iloc[0] == pytest.approx(430.0 / 400.0)
