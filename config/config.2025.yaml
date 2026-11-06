@@ -1,0 +1,10 @@
+# SPDX-FileCopyrightText: 2026 pypsa-meets-brazil contributors
+# SPDX-License-Identifier: MIT
+#
+# ADR-0024: the out-of-sample year. Merged over config.default.yaml with
+#   pixi run -e dev snakemake -j1 --configfile config/config.2025.yaml <target>
+# Everything else (model, criteria) is frozen at the commit ADR-0024 names.
+# resources/ holds whichever year was built last; results/ is per run.
+snapshots:
+  start: "2025-01-01"
+  end: "2025-12-31"

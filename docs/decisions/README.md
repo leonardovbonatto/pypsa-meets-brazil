@@ -48,6 +48,7 @@ Do **not** write one for routine implementation choices with an obvious default.
 | [0021](ADR-0021-thermal-cost-bands.md) | T0 thermal as cost bands of joined plants | Proposed |
 | [0022](ADR-0022-t1-state-tier.md) | T1: a 27-state tier from DLR topology and ONS 2024 data | Proposed |
 | [0023](ADR-0023-availability-before-curtailment.md) | Wind and solar availability before curtailment | Proposed |
+| [0024](ADR-0024-t1-out-of-sample-2025.md) | Out-of-sample test of T1 on 2025 | Proposed |
 
 ## Template
 
