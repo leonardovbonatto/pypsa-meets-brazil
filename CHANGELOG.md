@@ -802,6 +802,9 @@ code without touching this file, unless it carries the `no-changelog` label.
   subsystems (SE_CO 0.90); price still fails, with prices near zero all
   year. `"gross"` and `"storable_plus_run_of_river"` remain as modes.
   `docs/handoffs/PR-56-storable-inflow.md`.
+- **Hourly thermal floor in T0 (PR-65).** Gate generation now passes
+  (thermal 1.048); N-NE and N-SE_CO still fail.
+  `docs/handoffs/PR-65-hourly-thermal-floor.md`.
 - **International exports as load (PR-64).** New ONS dataset
   `intercambio_internacional`; 162 MW net export at S. Gate: SE_CO-S hourly
   correlation 0.989. `docs/handoffs/PR-64-international-exports.md`.

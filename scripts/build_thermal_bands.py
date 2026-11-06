@@ -47,17 +47,35 @@ def dispatch_bridge(despacho: pd.DataFrame) -> pd.DataFrame:
     return despacho[["cod_usinaplanejamento", "ceg"]].drop_duplicates().reset_index(drop=True)
 
 
-def plant_floor(despacho: pd.DataFrame) -> pd.DataFrame:
-    """(ceg, month) -> mean floor MW: verified minus merit order above
-    inflexibility, ADR-0016's definition, per plant."""
+def floor_period(despacho: pd.DataFrame, *, hourly: bool) -> pd.Series:
+    """The floor's time key: the hour (PR-65) or the calendar month (ADR-0016)."""
+    if hourly:
+        return despacho["din_instante"]
+    return pd.to_datetime(despacho["din_instante"]).dt.month
+
+
+def plant_floor(despacho: pd.DataFrame, *, hourly: bool = False) -> pd.DataFrame:
+    """(ceg, period) -> mean floor MW: verified minus merit order above
+    inflexibility, ADR-0016's definition, per plant. `period` is the month,
+    or with `hourly` the hour."""
     work = despacho.assign(
-        month=pd.to_datetime(despacho["din_instante"]).dt.month,
+        period=floor_period(despacho, hourly=hourly),
         floor_mw=despacho[TOTAL] - despacho[PRICE_DRIVEN],
     )
-    hours = work.groupby("month")["din_instante"].nunique()
-    total = work.groupby(["ceg", "month"])["floor_mw"].sum().reset_index()
-    total["floor_mw"] = total["floor_mw"] / total["month"].map(hours)
+    hours = work.groupby("period")["din_instante"].nunique()
+    total = work.groupby(["ceg", "period"])["floor_mw"].sum().reset_index()
+    total["floor_mw"] = total["floor_mw"] / total["period"].map(hours)
     return total
+
+
+def subsystem_floor_hourly(despacho: pd.DataFrame) -> pd.DataFrame:
+    """(period = hour, subsystem) -> the subsystem's floor MW, all plants."""
+    work = map_subsystems(despacho).assign(floor_mw=lambda d: d[TOTAL] - d[PRICE_DRIVEN])
+    return (
+        work.groupby(["din_instante", "subsystem"], as_index=False)["floor_mw"]
+        .sum()
+        .rename(columns={"din_instante": "period"})
+    )
 
 
 def build_bands(
@@ -98,7 +116,7 @@ def build_bands(
     floor = floor_by_plant[floor_by_plant["ceg"].isin(plants.index)]
     band_floor = (
         floor.assign(name=floor["ceg"].map(plants["name"]))
-        .groupby(["month", "name"], as_index=False)["floor_mw"]
+        .groupby(["period", "name"], as_index=False)["floor_mw"]
         .sum()
     )
     band_floor["floor_mw"] = band_floor["floor_mw"].clip(lower=0.0)
@@ -116,8 +134,8 @@ def residual(
     in_bands = bands.groupby("subsystem")["p_nom_mw"].sum().reindex(registry.index, fill_value=0.0)
     capacity = (registry - in_bands).clip(lower=0.0).rename("p_nom_mw").reset_index()
     by_subsystem = band_floor.assign(subsystem=band_floor["name"].str.split(" ").str[0])
-    carried = by_subsystem.groupby(["month", "subsystem"])["floor_mw"].sum()
-    rest = subsystem_floor.set_index(["month", "subsystem"])["floor_mw"]
+    carried = by_subsystem.groupby(["period", "subsystem"])["floor_mw"].sum()
+    rest = subsystem_floor.set_index(["period", "subsystem"])["floor_mw"]
     floor = (
         (rest - carried.reindex(rest.index, fill_value=0.0))
         .clip(lower=0.0)
@@ -135,7 +153,14 @@ def main() -> None:
             pd.read_csv(
                 p,
                 sep=";",
-                usecols=["din_instante", "cod_usinaplanejamento", "ceg", TOTAL, PRICE_DRIVEN],
+                usecols=[
+                    "din_instante",
+                    "id_subsistema",
+                    "cod_usinaplanejamento",
+                    "ceg",
+                    TOTAL,
+                    PRICE_DRIVEN,
+                ],
             )
             for p in snake.input.despacho
         ],
@@ -160,12 +185,22 @@ def main() -> None:
         ignore_index=True,
     )
     cvu = pd.concat([pd.read_csv(p, sep=";") for p in snake.input.cvu], ignore_index=True)
+    hourly = str(snake.params.floor_resolution) == "hourly"
     bands, band_availability, band_floor = build_bands(
-        availability, plant_cvu(cvu, dispatch_bridge(despacho), year=year), plant_floor(despacho)
+        availability,
+        plant_cvu(cvu, dispatch_bridge(despacho), year=year),
+        plant_floor(despacho, hourly=hourly),
     )
+    if hourly:
+        subsystem_floor = subsystem_floor_hourly(despacho)
+    else:
+        subsystem_floor = pd.read_csv(snake.input.floor).rename(columns={"month": "period"})
     capacity, floor = residual(
-        pd.read_csv(snake.input.generators), bands, pd.read_csv(snake.input.floor), band_floor
+        pd.read_csv(snake.input.generators), bands, subsystem_floor, band_floor
     )
+    key = "snapshot" if hourly else "month"
+    band_floor = band_floor.rename(columns={"period": key})
+    floor = floor.rename(columns={"period": key})
     out = Path(snake.output.bands)
     out.parent.mkdir(parents=True, exist_ok=True)
     bands.to_csv(out, index=False)

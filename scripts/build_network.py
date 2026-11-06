@@ -275,6 +275,25 @@ def attach_marginal_costs(n: pypsa.Network, costs: pd.DataFrame) -> pypsa.Networ
     return n
 
 
+def _floor_by_snapshot(
+    floor: pd.DataFrame, column: str, snapshots: pd.DatetimeIndex
+) -> pd.DataFrame:
+    """snapshot x `column` floor MW, from a monthly (`month`) or hourly
+    (`snapshot`, PR-65) floor table. Hours an hourly table lacks get 0."""
+    if "snapshot" in floor.columns:
+        wide = floor.assign(snapshot=pd.to_datetime(floor["snapshot"])).pivot(
+            index="snapshot", columns=column, values="floor_mw"
+        )
+        return wide.reindex(snapshots).fillna(0.0)
+    wide = floor.pivot(index="month", columns=column, values="floor_mw")
+    missing = set(snapshots.month) - set(wide.index)
+    if missing:
+        raise ValueError(f"floor missing for snapshot month(s) {sorted(missing)}")
+    out = wide.reindex(snapshots.month)
+    out.index = snapshots
+    return out
+
+
 def attach_thermal_bands(
     n: pypsa.Network,
     bands: pd.DataFrame,
@@ -297,8 +316,7 @@ def attach_thermal_bands(
     if gaps > 0.01:
         raise ValueError(f"band availability missing for {gaps:.1%} of hours")
     wide = wide.ffill().bfill()
-    months = snapshots.month
-    floor_wide = floor.pivot(index="month", columns="name", values="floor_mw")
+    floor_wide = _floor_by_snapshot(floor, "name", snapshots)
     for _, band in bands.iterrows():
         name = band["name"]
         n.add(
@@ -311,7 +329,7 @@ def attach_thermal_bands(
         )
         n.generators_t.p_max_pu[name] = wide[name].to_numpy()
         if name in floor_wide:
-            share = (floor_wide[name].reindex(months).fillna(0.0) / band["p_nom_mw"]).to_numpy()
+            share = (floor_wide[name].fillna(0.0) / band["p_nom_mw"]).to_numpy()
             n.generators_t.p_min_pu[name] = np.minimum(share, wide[name].to_numpy())
     for _, row in residual_capacity.iterrows():
         n.generators.loc[f"{row['subsystem']} thermal", "p_nom"] = float(row["p_nom_mw"])
@@ -329,17 +347,14 @@ def attach_thermal_floor(n: pypsa.Network, floor: pd.DataFrame) -> pypsa.Network
     unknown = set(names) - set(n.generators.index)
     if unknown:
         raise ValueError(f"floor row(s) have no matching generator: {sorted(unknown)}")
-    months = pd.DatetimeIndex(n.snapshots).month
-    for name, rows in floor.assign(name=names).groupby("name"):
+    wide = _floor_by_snapshot(floor.assign(name=names), "name", pd.DatetimeIndex(n.snapshots))
+    for name in wide.columns:
         p_nom = float(n.generators.loc[name, "p_nom"])
         if p_nom <= 0.0:
             continue  # ADR-0021: a residual with no capacity carries no floor
-        by_month = rows.set_index("month")["floor_mw"] / p_nom
-        if set(months) - set(by_month.index):
-            raise ValueError(f"{name}: floor missing for some snapshot months")
         # Never above what is available that hour (PR-59 scales p_max_pu).
         ceiling = n.get_switchable_as_dense("Generator", "p_max_pu")[name].to_numpy()
-        n.generators_t.p_min_pu[name] = np.minimum(by_month.reindex(months).to_numpy(), ceiling)
+        n.generators_t.p_min_pu[name] = np.minimum((wide[name] / p_nom).to_numpy(), ceiling)
     return n
 
 

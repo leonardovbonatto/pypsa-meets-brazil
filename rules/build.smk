@@ -223,6 +223,8 @@ rule build_thermal_bands_t0:
         residual_floor="resources/thermal_residual_floor_t0.csv",
     params:
         year=snapshot_years(config)[0],
+        # PR-65: "hourly" (ADR-0016's floor, hour by hour) or "monthly".
+        floor_resolution="hourly",
     log:
         "logs/build_thermal_bands_t0/run.log",
     script:

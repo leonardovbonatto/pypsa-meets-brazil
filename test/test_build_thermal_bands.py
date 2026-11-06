@@ -81,7 +81,29 @@ class TestBands:
         generators = pd.DataFrame(
             {"subsystem": ["NE"], "carrier": ["thermal"], "p_nom_mw": [1000.0]}
         )
-        subsystem_floor = pd.DataFrame({"month": [1], "subsystem": ["NE"], "floor_mw": [130.0]})
+        subsystem_floor = pd.DataFrame({"period": [1], "subsystem": ["NE"], "floor_mw": [130.0]})
         capacity, floor = bands_mod.residual(generators, bands, subsystem_floor, band_floor)
         assert capacity["p_nom_mw"].iloc[0] == pytest.approx(550.0)
         assert floor["floor_mw"].iloc[0] == pytest.approx(30.0)
+
+    def test_hourly_floor_keeps_each_hour(self):
+        despacho = pd.concat(
+            [
+                DESPACHO,
+                DESPACHO.assign(
+                    din_instante="2024-01-01 01:00:00", val_verifgeracao=[10.0, 150.0, 40.0]
+                ),
+            ],
+            ignore_index=True,
+        )
+        floor = bands_mod.plant_floor(despacho, hourly=True).set_index(["ceg", "period"])[
+            "floor_mw"
+        ]
+        assert floor[("A", "2024-01-01 00:00:00")] == pytest.approx(50.0)
+        assert floor[("A", "2024-01-01 01:00:00")] == pytest.approx(10.0)
+        monthly = bands_mod.plant_floor(despacho).set_index(["ceg", "period"])["floor_mw"]
+        assert monthly[("A", 1)] == pytest.approx(30.0)
+
+    def test_subsystem_hourly_floor_sums_plants(self):
+        out = bands_mod.subsystem_floor_hourly(DESPACHO.assign(id_subsistema="NE"))
+        assert out["floor_mw"].iloc[0] == pytest.approx(50.0 + 50.0 + 0.0)
