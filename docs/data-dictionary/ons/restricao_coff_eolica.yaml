@@ -1,0 +1,195 @@
+dataset: restricao_coff_eolica
+source: ons
+source_url: https://ons-aws-prod-opendata.s3.amazonaws.com/dataset/restricao_coff_eolica_detail_tm/RESTRICAO_COFF_EOLICA_DETAIL_{year}_{month}.csv
+retrieved: '2026-11-06T02:26:17+00:00'
+format: csv
+encoding: utf-8
+delimiter: ;
+decimal: .
+row_count: 1381728
+schema_hash: sha256:6ad24701fa5e5fc7bda6ffa69fb0043a2f3d55db5918fb317edec86e765882b4
+columns:
+- name: id_subsistema
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: 'ONS subsystem code; map through _ons.map_subsystems.'
+  sample:
+  - N
+  - N
+  - N
+- name: id_estado
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: 'State (UF).'
+  sample:
+  - MA
+  - MA
+  - MA
+- name: nom_modalidadeoperacao
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: 'Operating modality (e.g. Tipo II-C).'
+  sample:
+  - Tipo II-C
+  - Tipo II-C
+  - Tipo II-C
+- name: nom_conjuntousina
+  dtype: str
+  unit: null
+  nullable: true
+  null_rate: 0.0118
+  description: 'Plant group (conjunto), null for plants outside one.'
+  sample:
+  - Conj. Paulino Neves
+  - Conj. Paulino Neves
+  - Conj. Paulino Neves
+- name: nom_usina
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: 'Plant name.'
+  sample:
+  - Delta 3 I
+  - Delta 3 II
+  - Delta 3 III
+- name: id_ons
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: 'ONS plant identifier.'
+  sample:
+  - MAEDT1
+  - MAEDT2
+  - MAEDT3
+- name: ceg
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: 'ANEEL CEG; - for groups.'
+  sample:
+  - EOL.CV.MA.033682-3.01
+  - EOL.CV.MA.033683-1.01
+  - EOL.CV.MA.033684-0.01
+- name: din_instante
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: 'Start of the half hour, YYYY-MM-DD HH:MM:SS.'
+  sample:
+  - '2024-01-01 00:00:00'
+  - '2024-01-01 00:00:00'
+  - '2024-01-01 00:00:00'
+- name: val_ventoverificado
+  dtype: float64
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: 'Measured resource: wind speed (wind file) or irradiance (solar file).'
+  sample:
+  - 3.3
+  - 4.9
+  - 2.804
+- name: flg_dadoventoinvalido
+  dtype: int64
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: '1 if the measured resource is invalid.'
+  sample:
+  - 1
+  - 1
+  - 1
+- name: val_geracaoestimada
+  dtype: float64
+  unit: MW
+  nullable: false
+  null_rate: 0.0
+  description: 'Estimated output from the measured resource (power curve or irradiance model), MWmed; ONS''s reference before limits.'
+  sample:
+  - 0.0
+  - 0.0
+  - 0.0
+- name: val_geracaoverificada
+  dtype: float64
+  unit: MW
+  nullable: false
+  null_rate: 0.0
+  description: 'Verified output, MWmed.'
+  sample:
+  - 0.0
+  - 0.541
+  - 0.299
+- name: id_ons_conjuntousina
+  dtype: str
+  unit: null
+  nullable: true
+  null_rate: 0.0118
+  description: 'ONS identifier of the plant group.'
+  sample:
+  - CJU_MAPLN
+  - CJU_MAPLN
+  - CJU_MAPLN
+- name: nom_origemvento
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: 'Source of the resource measurement.'
+  sample:
+  - Supervisão
+  - Supervisão
+  - Supervisão
+- name: flg_dadoventosupervisaoinvalido
+  dtype: int64
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: '1 if the supervised resource datum is invalid.'
+  sample:
+  - 1
+  - 1
+  - 1
+- name: nom_origemgeracaoreferencia
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: 'Method behind the reference output (e.g. Curva, Irradiancia).'
+  sample:
+  - Curva
+  - Curva
+  - Curva
+- name: val_geracaoreferenciafinal
+  dtype: float64
+  unit: MW
+  nullable: true
+  null_rate: 0.9998
+  description: 'Final reference output sent to CCEE, only in restricted periods.'
+  sample:
+  - 0.0
+  - 0.0
+  - 0.0
+- name: flg_geracaorestrita
+  dtype: int64
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: '1 if output was restricted by ONS in the half hour.'
+  sample:
+  - 0
+  - 0
+  - 0
+notes:
+- 'Half-hourly constrained-off detail per wind plant. The 2024 files differ from ONS''s published dictionary, which names val_geracao / val_geracaoreferencia; the files carry val_geracaoverificada / val_geracaoestimada (PR-70).'
+- 'Built from January 2024 only (about 200 MB per month); null rates for other months are not checked. PR-70 uses only id_subsistema, din_instante, val_geracaoestimada, val_geracaoverificada and flg_geracaorestrita.'
+- '2024: unrealised output in restricted periods was 10.4% of potential in NE, 2.6% in N, 1.7% in S.'

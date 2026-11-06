@@ -1,0 +1,10 @@
+{
+  "byte_size": 93577812,
+  "dataset": "restricao_coff_FOTOVOLTAICA_2024_11",
+  "format": "csv",
+  "retrieved": "2026-11-06T02:25:42+00:00",
+  "row_count": 597312,
+  "sha256": "f5f1458381c3007e62ff11cb80369a12f3b543e6708f7a282ca09a32c99f92cd",
+  "source": "ons",
+  "source_url": "https://ons-aws-prod-opendata.s3.amazonaws.com/dataset/restricao_coff_fotovoltaica_detail_tm/RESTRICAO_COFF_FOTOVOLTAICA_DETAIL_2024_11.csv"
+}

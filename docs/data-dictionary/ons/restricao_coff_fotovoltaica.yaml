@@ -1,0 +1,195 @@
+dataset: restricao_coff_fotovoltaica
+source: ons
+source_url: https://ons-aws-prod-opendata.s3.amazonaws.com/dataset/restricao_coff_fotovoltaica_detail_tm/RESTRICAO_COFF_FOTOVOLTAICA_DETAIL_{year}_{month}.csv
+retrieved: '2026-11-06T02:26:12+00:00'
+format: csv
+encoding: utf-8
+delimiter: ;
+decimal: .
+row_count: 479952
+schema_hash: sha256:c3a60f6b88ac322d9f48e0c79dc85808c3df519d83402be8de1d29aab45c1a28
+columns:
+- name: id_subsistema
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: 'ONS subsystem code; map through _ons.map_subsystems.'
+  sample:
+  - NE
+  - NE
+  - NE
+- name: id_estado
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: 'State (UF).'
+  sample:
+  - BA
+  - BA
+  - BA
+- name: nom_modalidadeoperacao
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: 'Operating modality (e.g. Tipo II-C).'
+  sample:
+  - Tipo II-C
+  - Tipo II-C
+  - Tipo II-C
+- name: nom_conjuntousina
+  dtype: str
+  unit: null
+  nullable: true
+  null_rate: 0.012
+  description: 'Plant group (conjunto), null for plants outside one.'
+  sample:
+  - Conj. BJL
+  - Conj. BJL
+  - Conj. Bom Jesus
+- name: nom_usina
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: 'Plant name.'
+  sample:
+  - BJL 11
+  - BJL 4
+  - Bom Jesus da Lapa I
+- name: id_ons
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: 'ONS plant identifier.'
+  sample:
+  - BAFB11
+  - BAFB04
+  - BAUFB1
+- name: ceg
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: 'ANEEL CEG; - for groups.'
+  sample:
+  - UFV.RS.BA.034153-3.01
+  - UFV.RS.BA.034158-4.01
+  - UFV.RS.BA.032892-8.01
+- name: din_instante
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: 'Start of the half hour, YYYY-MM-DD HH:MM:SS.'
+  sample:
+  - '2024-04-01 00:00:00'
+  - '2024-04-01 00:00:00'
+  - '2024-04-01 00:00:00'
+- name: val_irradianciaverificado
+  dtype: float64
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: 'Measured resource: wind speed (wind file) or irradiance (solar file).'
+  sample:
+  - 0.0
+  - 0.0
+  - 0.0
+- name: flg_dadoirradianciainvalido
+  dtype: int64
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: '1 if the measured resource is invalid.'
+  sample:
+  - 0
+  - 0
+  - 0
+- name: val_geracaoestimada
+  dtype: float64
+  unit: MW
+  nullable: true
+  null_rate: 0.0001
+  description: 'Estimated output from the measured resource (power curve or irradiance model), MWmed; ONS''s reference before limits.'
+  sample:
+  - 0.0
+  - 0.0
+  - 0.0
+- name: val_geracaoverificada
+  dtype: float64
+  unit: MW
+  nullable: false
+  null_rate: 0.0
+  description: 'Verified output, MWmed.'
+  sample:
+  - 0.0
+  - 0.0
+  - 0.0
+- name: id_ons_conjuntousina
+  dtype: str
+  unit: null
+  nullable: true
+  null_rate: 0.012
+  description: 'ONS identifier of the plant group.'
+  sample:
+  - CJU_BABJL
+  - CJU_BABJL
+  - CJU_BABJU
+- name: nom_origemirradiancia
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: 'Source of the resource measurement.'
+  sample:
+  - Supervisão
+  - Supervisão
+  - Supervisão
+- name: flg_dadoirradianciasupervisaoinvalido
+  dtype: int64
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: '1 if the supervised resource datum is invalid.'
+  sample:
+  - 0
+  - 0
+  - 0
+- name: nom_origemgeracaoreferencia
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: 'Method behind the reference output (e.g. Curva, Irradiancia).'
+  sample:
+  - Irradiância
+  - Irradiância
+  - Garantia Física
+- name: val_geracaoreferenciafinal
+  dtype: float64
+  unit: MW
+  nullable: true
+  null_rate: 0.9985
+  description: 'Final reference output sent to CCEE, only in restricted periods.'
+  sample:
+  - 5.614
+  - 5.614
+  - 5.614
+- name: flg_geracaorestrita
+  dtype: int64
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: '1 if output was restricted by ONS in the half hour.'
+  sample:
+  - 0
+  - 0
+  - 0
+notes:
+- 'Half-hourly constrained-off detail per solar plant, published from April 2024. Columns as the wind file with irradiance in place of wind speed.'
+- 'Built from April 2024 only; null rates for other months not checked. PR-70 uses the same five columns as for wind.'
+- 'April-December 2024: unrealised output was 17.7% of potential in NE and 10.7% in SE_CO.'

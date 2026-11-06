@@ -192,6 +192,25 @@ def attach_exports(n: pypsa.Network, exports: pd.DataFrame) -> pypsa.Network:
     return n
 
 
+def attach_uncurtailment(n: pypsa.Network, factor: pd.DataFrame) -> pypsa.Network:
+    """
+    PR-70: scale wind and solar p_max_pu by the (snapshot, subsystem)
+    uncurtailment factor, capped at 1, so availability is before ONS's
+    constrained-off and the model curtails for itself. Missing hours keep
+    factor 1. Mutates `n` in place.
+    """
+    snapshots = pd.DatetimeIndex(n.snapshots)
+    work = factor.assign(snapshot=pd.to_datetime(factor["snapshot"]))
+    p_max_pu = n.get_switchable_as_dense("Generator", "p_max_pu")
+    for (subsystem, carrier), rows in work.groupby(["subsystem", "carrier"]):
+        name = f"{subsystem} {carrier}"
+        if name not in n.generators.index:
+            continue
+        f = rows.set_index("snapshot")["factor"].reindex(snapshots).fillna(1.0).to_numpy()
+        n.generators_t.p_max_pu[name] = np.minimum(p_max_pu[name].to_numpy() * f, 1.0)
+    return n
+
+
 MUST_RUN_SUFFIX = "_small"
 
 
@@ -444,6 +463,8 @@ def main() -> None:
         ignore_index=True,
     )
     attach_availability(n, availability)
+    if snake.params.uncurtailed:
+        attach_uncurtailment(n, pd.read_csv(Path(snake.input.uncurtailment)))
     attach_must_run(n)
     attach_commissioning(n, pd.read_csv(Path(snake.input.commissioning)))
 

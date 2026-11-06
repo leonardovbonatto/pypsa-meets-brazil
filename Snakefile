@@ -79,6 +79,14 @@ rule fetch_all:
             f"resources/ons/DISPONIBILIDADE_USINA_{year}_{month:02d}.csv"
             for year, month in snapshot_year_months(config)
         ],
+        [
+            f"resources/ons/RESTRICAO_COFF_{kind}_{year}_{month:02d}.csv"
+            for kind in ("EOLICA", "FOTOVOLTAICA")
+            for year, month in snapshot_year_months(config)
+            if kind == "EOLICA"
+            or (year, month)
+            >= tuple(config["sources"]["ons"]["restricao_coff_fotovoltaica"]["first_month"])
+        ],
         expand(
             "resources/ons/INTERCAMBIO_INTERNACIONAL_{year}.csv",
             year=snapshot_years(config),

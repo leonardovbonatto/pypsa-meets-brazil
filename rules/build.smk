@@ -213,6 +213,29 @@ rule build_t1_topology:
         "../scripts/build_t1_topology.py"
 
 
+rule build_uncurtailment_t0:
+    """
+    PR-70: wind and solar availability before ONS's constrained-off, as a
+    factor per (hour, subsystem) on T0's measured capacity factors.
+    """
+    input:
+        wind=[
+            f"resources/ons/RESTRICAO_COFF_EOLICA_{year}_{month:02d}.csv"
+            for year, month in snapshot_year_months(config)
+        ],
+        solar=[
+            f"resources/ons/RESTRICAO_COFF_FOTOVOLTAICA_{year}_{month:02d}.csv"
+            for year, month in snapshot_year_months(config)
+            if (year, month) >= tuple(config["sources"]["ons"]["restricao_coff_fotovoltaica"]["first_month"])
+        ],
+    output:
+        "resources/uncurtailment_t0.csv",
+    log:
+        "logs/build_uncurtailment_t0/run.log",
+    script:
+        "../scripts/build_uncurtailment.py"
+
+
 rule build_exports_t0:
     """
     T0 international exports as load at the border subsystem (PR-64):
@@ -511,6 +534,7 @@ rule build_network_t0:
         costs="resources/costs_t0.csv",
         thermal_floor="resources/thermal_floor_t0.csv",
         exports="resources/exports_t0.csv",
+        uncurtailment="resources/uncurtailment_t0.csv",
         thermal_bands="resources/thermal_bands_t0.csv",
         thermal_band_availability="resources/thermal_band_availability_t0.csv",
         thermal_band_floor="resources/thermal_band_floor_t0.csv",
@@ -520,6 +544,8 @@ rule build_network_t0:
         "resources/networks/t0.nc",
     params:
         subsystems=config["subsystems"],
+        # PR-70: wind and solar availability before ONS's curtailment.
+        uncurtailed=True,
     log:
         "logs/build_network_t0/run.log",
     script:

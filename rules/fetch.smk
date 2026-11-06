@@ -177,6 +177,29 @@ rule fetch_dlr_open_brazil_energy_data:
         "../scripts/fetch_dataset.py"
 
 
+rule fetch_ons_restricao_coff:
+    """
+    ONS constrained-off detail per wind or solar plant (`kind` eolica or
+    fotovoltaica), one file per (year, month): verified and reference
+    (unconstrained) output, half-hourly. PR-70.
+    """
+    output:
+        raw="resources/ons/RESTRICAO_COFF_{kind}_{year}_{month}.csv",
+        provenance="resources/_provenance/ons/restricao_coff_{kind}_{year}_{month}.json",
+    wildcard_constraints:
+        kind="EOLICA|FOTOVOLTAICA",
+    params:
+        url=lambda wc: config["sources"]["ons"][f"restricao_coff_{wc.kind.lower()}"]["url"].format(
+            year=wc.year, month=wc.month
+        ),
+        source="ons",
+        dataset=lambda wc: f"restricao_coff_{wc.kind}_{wc.year}_{wc.month}",
+    log:
+        "logs/fetch_ons_restricao_coff/{kind}_{year}_{month}.log",
+    script:
+        "../scripts/fetch_dataset.py"
+
+
 rule fetch_ons_intercambio_internacional:
     """
     ONS hourly international interchange per destination country, one file

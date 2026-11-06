@@ -80,6 +80,15 @@ sources:
       # thermal floor (ADR-0016). See
       # docs/data-dictionary/ons/geracao_termica_despacho.yaml.
       url: https://ons-aws-prod-opendata.s3.amazonaws.com/dataset/geracao_termica_despacho_2_ho/GERACAO_TERMICA_DESPACHO-2_{year}_{month}.csv
+    restricao_coff_eolica:
+      # Half-hourly constrained-off detail per wind plant: verified output
+      # and ONS's reference (unconstrained) output. Availability before
+      # curtailment (PR-70). From 2021 or earlier; 2024 complete.
+      url: https://ons-aws-prod-opendata.s3.amazonaws.com/dataset/restricao_coff_eolica_detail_tm/RESTRICAO_COFF_EOLICA_DETAIL_{year}_{month}.csv
+    restricao_coff_fotovoltaica:
+      # The same for solar plants. Published from April 2024 only.
+      url: https://ons-aws-prod-opendata.s3.amazonaws.com/dataset/restricao_coff_fotovoltaica_detail_tm/RESTRICAO_COFF_FOTOVOLTAICA_DETAIL_{year}_{month}.csv
+      first_month: [2024, 4]
     intercambio_internacional:
       # Hourly verified international interchange per destination country,
       # one file per year; positive = export from Brazil. Exports are
