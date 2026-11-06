@@ -90,6 +90,10 @@ rule check_t1_gate:
             year=snapshot_years(config),
         ),
         links_t0="resources/links_t0.csv",
+        generation=[
+            f"resources/ons/GERACAO_USINA_2_{year}_{month:02d}.csv"
+            for year, month in snapshot_year_months(config)
+        ],
     output:
         report="results/{run}/t1_gate/report.json",
     log:

@@ -23,9 +23,12 @@ import pypsa
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from check_phase1_gate import (
+    GENERATION_TOLERANCE,
     INTERCHANGE_TOLERANCE,
+    SCORED_SOURCES,
     _correlation,
     model_generation,
+    observed_generation,
     observed_interchange,
 )
 
@@ -110,6 +113,24 @@ def t1_report(
     }
 
 
+def versus_ons(t1: pypsa.Network, raw_generation: pd.DataFrame) -> dict:
+    """PR-71, POST HOC: ADR-0020's generation check applied to T1 against
+    ONS. Written after T1's numbers were seen (PR-70), so it is reported
+    next to the pre-registered verdict and never decides it."""
+    model = national(t1)
+    observed = observed_generation(raw_generation).groupby("source")["observed_mw"].sum()
+    out = {}
+    for s in SCORED_SOURCES:
+        ratio = float(model.get(s, 0.0) / observed[s])
+        out[s] = {
+            "t1_mw": float(model.get(s, 0.0)),
+            "observed_mw": float(observed[s]),
+            "ratio": ratio,
+            "within_adr0020_tolerance": bool(abs(ratio - 1.0) <= GENERATION_TOLERANCE),
+        }
+    return {"post_hoc": True, "generation_vs_ons": out}
+
+
 def main() -> None:
     snake = globals()["snakemake"]
     nodes = pd.read_csv(snake.input.nodes)
@@ -123,6 +144,18 @@ def main() -> None:
         observed,
         pd.read_csv(snake.input.links_t0),
     )
+    columns = [
+        "din_instante",
+        "id_subsistema",
+        "nom_tipousina",
+        "cod_modalidadeoperacao",
+        "val_geracao",
+    ]
+    raw = pd.concat(
+        [pd.read_csv(p, sep=";", usecols=columns) for p in snake.input.generation],
+        ignore_index=True,
+    )
+    report["post_hoc"] = versus_ons(pypsa.Network(str(snake.input.t1)), raw)
     Path(snake.output.report).parent.mkdir(parents=True, exist_ok=True)
     Path(snake.output.report).write_text(json.dumps(report, indent=2) + "\n")
 

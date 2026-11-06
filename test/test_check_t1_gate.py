@@ -64,3 +64,20 @@ class TestT1Gate:
         assert report["generation_matches_t0"]
         assert report["interchange"][0]["error_share_of_capacity"] == pytest.approx(0.02)
         assert report["passed"]
+
+    def test_post_hoc_versus_ons_never_sets_the_verdict(self):
+        n = _t1()
+        raw = pd.DataFrame(
+            {
+                "din_instante": [str(h) for h in HOURS],
+                "id_subsistema": ["S", "S"],
+                "nom_tipousina": ["HIDROELÉTRICA", "HIDROELÉTRICA"],
+                "cod_modalidadeoperacao": ["TIPO I", "TIPO I"],
+                "val_geracao": [10.0, 10.0],
+            }
+        )
+        for source in ("EOLIELÉTRICA", "FOTOVOLTAICA", "NUCLEAR", "TÉRMICA"):
+            raw = pd.concat([raw, raw.iloc[:1].assign(nom_tipousina=source)], ignore_index=True)
+        out = gate.versus_ons(n, raw)
+        assert out["post_hoc"] is True
+        assert "passed" not in out
