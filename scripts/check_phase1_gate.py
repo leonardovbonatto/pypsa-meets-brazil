@@ -66,18 +66,29 @@ def observed_generation(raw: pd.DataFrame) -> pd.DataFrame:
     )
 
 
+SMALL_SUFFIX = "_small"
+
+
 def model_generation(n: pypsa.Network) -> pd.DataFrame:
-    """(subsystem, source) -> mean MW dispatched, weighted by snapshot hours."""
+    """(subsystem, source) -> mean MW dispatched, weighted by snapshot hours.
+    Small TIPO III plants (`<source>_small`, PR-60) count under their source,
+    as ONS counts them; `model_small_mw` shows that backcast part."""
     weights = n.snapshot_weightings.generators
     energy = n.generators_t.p.mul(weights, axis=0).sum()
     g = n.generators.loc[energy.index]
     keep = g["carrier"] != "load_shedding"
-    table = (
-        pd.DataFrame({"subsystem": g["bus"], "source": g["carrier"], "e": energy})[keep]
-        .groupby(["subsystem", "source"], as_index=False)["e"]
-        .sum()
-    )
+    carrier = g["carrier"]
+    work = pd.DataFrame(
+        {
+            "subsystem": g["bus"],
+            "source": carrier.str.removesuffix(SMALL_SUFFIX),
+            "e": energy,
+            "e_small": energy.where(carrier.str.endswith(SMALL_SUFFIX), 0.0),
+        }
+    )[keep]
+    table = work.groupby(["subsystem", "source"], as_index=False)[["e", "e_small"]].sum()
     table["model_mw"] = table.pop("e") / weights.sum()
+    table["model_small_mw"] = table.pop("e_small") / weights.sum()
     return table
 
 
@@ -138,7 +149,9 @@ def generation_table(model: pd.DataFrame, observed: pd.DataFrame) -> pd.DataFram
     """(subsystem, source) rows with both means, plus national rows
     (subsystem "SIN")."""
     table = model.merge(observed, on=["subsystem", "source"], how="outer").fillna(0.0)
-    national = table.groupby("source", as_index=False)[["model_mw", "observed_mw"]].sum()
+    national = table.groupby("source", as_index=False)[
+        ["model_mw", "model_small_mw", "observed_mw"]
+    ].sum()
     table = pd.concat([table, national.assign(subsystem="SIN")], ignore_index=True)
     table["ratio"] = table["model_mw"] / table["observed_mw"].replace(0.0, np.nan)
     return table
@@ -154,6 +167,9 @@ def gate_report(generation: pd.DataFrame, interchange: pd.DataFrame) -> dict:
         ratio = float(national.at[s, "ratio"])
         sources[s] = {
             "model_mw": float(national.at[s, "model_mw"]),
+            "model_small_backcast_mw": float(
+                national.get("model_small_mw", pd.Series(0.0, index=national.index)).get(s, 0.0)
+            ),
             "observed_mw": float(national.at[s, "observed_mw"]),
             "ratio": ratio,
             "scored": s in SCORED_SOURCES,

@@ -170,6 +170,20 @@ def attach_availability(n: pypsa.Network, availability: pd.DataFrame) -> pypsa.N
     return n
 
 
+MUST_RUN_SUFFIX = "_small"
+
+
+def attach_must_run(n: pypsa.Network) -> pypsa.Network:
+    """
+    PR-60: small TIPO III plants are not centrally dispatched, so they run
+    exactly as observed: p_min_pu = p_max_pu. Mutates `n` in place.
+    """
+    names = n.generators.index[n.generators["carrier"].str.endswith(MUST_RUN_SUFFIX)]
+    for name in names:
+        n.generators_t.p_min_pu[name] = n.generators_t.p_max_pu[name]
+    return n
+
+
 # Carriers whose availability is NOT already a backcast of observed output:
 # their p_max_pu is scaled by the share of the fleet operating each month
 # (PR-59). Hydro and MMGD availability is observed generation over p_nom,
@@ -322,6 +336,7 @@ def main() -> None:
         [
             load_generators(Path(snake.input.generators)),
             load_generators(Path(snake.input.mmgd_generators)),
+            load_generators(Path(snake.input.small_generators)),
         ],
         ignore_index=True,
     )
@@ -338,10 +353,12 @@ def main() -> None:
             load_availability(Path(snake.input.availability)),
             load_availability(Path(snake.input.hydro_availability)),
             load_availability(Path(snake.input.mmgd_availability)),
+            load_availability(Path(snake.input.small_availability)),
         ],
         ignore_index=True,
     )
     attach_availability(n, availability)
+    attach_must_run(n)
     attach_commissioning(n, pd.read_csv(Path(snake.input.commissioning)))
 
     costs = load_costs(Path(snake.input.costs))

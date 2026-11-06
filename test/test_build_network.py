@@ -382,3 +382,14 @@ class TestAttachCommissioning:
         assert list(n.generators_t.p_max_pu["A solar"]) == pytest.approx([0.25, 0.5])
         # Hydro availability is a backcast of observed output: left alone.
         assert "A hydro" not in n.generators_t.p_max_pu
+
+
+class TestAttachMustRun:
+    def test_small_plants_run_exactly_as_available(self):
+        n = pypsa.Network()
+        n.set_snapshots(pd.date_range("2024-01-01", periods=2, freq="h"))
+        n.add("Bus", "A")
+        n.add("Generator", "A hydro_small", bus="A", carrier="hydro_small", p_nom=10.0)
+        n.generators_t.p_max_pu["A hydro_small"] = [0.2, 0.7]
+        build_network.attach_must_run(n)
+        assert list(n.generators_t.p_min_pu["A hydro_small"]) == pytest.approx([0.2, 0.7])

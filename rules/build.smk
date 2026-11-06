@@ -179,6 +179,27 @@ rule build_mmgd_t0:
         "../scripts/build_mmgd.py"
 
 
+rule build_small_plants_t0:
+    """
+    T0 small plants (TIPO III: in observed generation, not in the capacity
+    registry) as must-run backcasts per (subsystem, source), PR-60. Same
+    principle as MMGD (ADR-0007).
+    """
+    input:
+        raw=[
+            f"resources/ons/GERACAO_USINA_2_{year}_{month:02d}.csv"
+            for year, month in snapshot_year_months(config)
+        ],
+        dictionary="docs/data-dictionary/ons/geracao_usina.yaml",
+    output:
+        capacity="resources/small_generators_t0.csv",
+        availability="resources/small_availability_t0.csv",
+    log:
+        "logs/build_small_plants_t0/run.log",
+    script:
+        "../scripts/build_small_plants.py"
+
+
 rule build_inflow:
     """
     Tidy historical inflow (ENA) series, all four published figures
@@ -374,10 +395,12 @@ rule build_network_t0:
         generators="resources/generators_t0.csv",
         commissioning="resources/generator_commissioning_t0.csv",
         mmgd_generators="resources/mmgd_generators_t0.csv",
+        small_generators="resources/small_generators_t0.csv",
         links="resources/links_t0.csv",
         availability="resources/availability_t0.csv",
         hydro_availability="resources/hydro_availability_t0.csv",
         mmgd_availability="resources/mmgd_availability_t0.csv",
+        small_availability="resources/small_availability_t0.csv",
         costs="resources/costs_t0.csv",
         thermal_floor="resources/thermal_floor_t0.csv",
     output:

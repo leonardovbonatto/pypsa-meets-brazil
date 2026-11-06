@@ -802,6 +802,10 @@ code without touching this file, unless it carries the `no-changelog` label.
   subsystems (SE_CO 0.90); price still fails, with prices near zero all
   year. `"gross"` and `"storable_plus_run_of_river"` remain as modes.
   `docs/handoffs/PR-56-storable-inflow.md`.
+- **Small TIPO III plants (PR-60).** About 5 GW of observed generation
+  outside the capacity registry, now must-run backcasts per subsystem and
+  source. Gate: wind 0.977, solar 0.971, thermal 1.042 pass; nuclear and
+  three boundaries fail. `docs/handoffs/PR-60-small-plants.md`.
 - **T0 capacity by commissioning date (PR-59).** Capacity and p_max_pu follow
   the units operating in each month, not the registry's current snapshot:
   2024 solar was 63.5% of it. Gate: solar 1.48 -> 0.94, wind 1.06 -> 0.94,
