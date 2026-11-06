@@ -44,6 +44,7 @@ Do **not** write one for routine implementation choices with an obvious default.
 | [0017](ADR-0017-sddp-two-year-horizon.md) | A two-year SDDP horizon so year-end water has a value | Proposed (tried, not adopted) |
 | [0018](ADR-0018-storable-inflow.md) | Only storable inflow reaches the reservoirs | Proposed |
 | [0019](ADR-0019-minimum-operating-storage.md) | Minimum operating storage (VminOp) as a soft constraint | Proposed |
+| [0020](ADR-0020-phase1-gate.md) | The Phase 1 gate: T0 energy balance and interchange | Proposed |
 
 ## Template
 
