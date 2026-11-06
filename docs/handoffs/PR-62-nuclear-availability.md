@@ -50,3 +50,24 @@ Boundaries unchanged: NE-SE_CO (3.8%) and SE_CO-S (3.9%) pass, N-NE
 
 - A per-plant thermal merit order (CVU blocks per subsystem) instead of one
   averaged cost, and thermal availability from this connector.
+
+## Scoping the per-plant thermal merit order (measured, not built)
+
+`geracao_termica_despacho` carries both `cod_usinaplanejamento` (CVU's key)
+and `ceg` (the key of `capacidade_geracao` and `disponibilidade_usina`):
+the join PR-09 lacked. 2024 coverage:
+
+| | |
+|---|---|
+| CVU plants with a 2024 value | 114 |
+| bridge pairs (cod -> ceg) | 144 cod onto 97 ceg: several codes per plant (units) |
+| availability plants (UTE) | 81, 22.25 GW installed, 17.28 GW mean available |
+| of which with a CVU via the bridge | 78, 21.96 GW (NE 0.29 GW without) |
+| registry TIPO I thermal | 31.5 GW: ~9.5 GW is not in the availability data |
+| observed dispatched thermal | 6.58 GW, of which joined plants 4.47 GW |
+
+So a per-plant (or CVU-band) merit order with real availability is feasible
+for about two-thirds of dispatched thermal output. It needs an ADR first:
+what to do with the ~2.1 GW from plants outside the join, how the ADR-0016
+floor splits across plants (the dispatch dataset has it per plant), and
+whether SDDP keeps one cost per subsystem.
