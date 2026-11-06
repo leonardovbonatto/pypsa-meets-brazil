@@ -207,6 +207,24 @@ def shared_turbines(n: pypsa.Network, pairs: dict[str, str]):
     return extra
 
 
+def minimum_storage(n: pypsa.Network, floors_mwh: dict[str, float], penalty_rs_per_mwh: float):
+    """extra_functionality (ADR-0019): storage below each reservoir's month-end
+    VminOp (MWh) costs `penalty_rs_per_mwh` per MWh short, as in SDDP."""
+
+    def extra(n, snapshots):
+        m = n.model
+        storage = m["StorageUnit-state_of_charge"]
+        for reservoir, floor in floors_mwh.items():
+            short = m.add_variables(lower=0.0, name=f"below_minimum {reservoir}")
+            m.add_constraints(
+                storage.sel(snapshot=snapshots[-1], name=reservoir, drop=True) + short >= floor,
+                name=f"minimum_storage {reservoir}",
+            )
+            m.objective = m.objective.expression + penalty_rs_per_mwh * short
+
+    return extra
+
+
 def _combine(*functions):
     functions = [f for f in functions if f is not None]
     if not functions:
@@ -277,9 +295,11 @@ def solve_year(
     solver_name: str,
     solver_options: dict,
     run_of_river: dict[str, str] | None = None,
+    vminop: pd.DataFrame | None = None,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """One solve per calendar month in the snapshots, in order. Returns
-    (monthly rows, hourly prices)."""
+    (monthly rows, hourly prices). `vminop` is ADR-0019's table (month,
+    subsystem, min_share, penalty_rs_per_mwh)."""
     rows, prices = [], []
     turbines = shared_turbines(n, run_of_river) if run_of_river else None
     for month in sorted(set(n.snapshots.month)):
@@ -289,11 +309,24 @@ def solve_year(
         if (month, regime) in nodes:
             intercepts, coefficients = nodes[(month, regime)]
             cuts = water_value(n, intercepts, coefficients, reservoirs)
+        floor = None
+        if vminop is not None:
+            this = vminop[vminop["month"] == month].set_index("subsystem")
+            units = n.storage_units.loc[reservoirs]
+            floor = minimum_storage(
+                n,
+                {
+                    r: float(this.loc[units.at[r, "bus"], "min_share"])
+                    * float(units.at[r, "p_nom"] * units.at[r, "max_hours"])
+                    for r in reservoirs
+                },
+                float(this["penalty_rs_per_mwh"].iloc[0]),
+            )
         status, condition = n.optimize(
             snapshots=snapshots,
             solver_name=solver_name,
             include_objective_constant=False,
-            extra_functionality=_combine(cuts, turbines),
+            extra_functionality=_combine(cuts, turbines, floor),
             **solver_options,
         )
         if status != "ok":
@@ -372,6 +405,7 @@ def main() -> None:
         solver_name=snake.params.solver_name,
         solver_options=dict(snake.params.solver_options),
         run_of_river=run_of_river,
+        vminop=pd.read_parquet(snake.input.minimum_storage),
     )
 
     Path(snake.output.monthly).parent.mkdir(parents=True, exist_ok=True)

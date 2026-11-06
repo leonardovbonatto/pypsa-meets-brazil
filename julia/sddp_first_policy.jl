@@ -97,6 +97,9 @@ const HOURS_PER_MONTH =
 # be multiplied by MONEY_SCALE before being added to a PyPSA objective
 # expressed in R$.
 const MONEY_SCALE = 1.0e6
+# One MWmes of storage, in MWh: the convention scripts/solve_network_sddp.py
+# (HOURS_PER_MWMES) uses for reservoirs.
+const MWH_PER_MWMES = 730.0
 
 function known_limitations(risk_kind::String)
     limitations = [
@@ -317,6 +320,19 @@ function load_storable_share(inputs_dir::String)
     )
 end
 
+"""
+(month, subsystem) -> (min_share, penalty R\$/MWh) for ADR-0019's VminOp:
+storage below `min_share * max_storage` at the stage's end is penalised.
+"""
+function load_minimum_storage(inputs_dir::String)
+    df = read_parquet_df(joinpath(inputs_dir, "minimum_storage.parquet"))
+    return Dict(
+        (Int(r.month), r.subsystem) =>
+            (share = Float64(r.min_share), penalty = Float64(r.penalty_rs_per_mwh))
+        for r in eachrow(df)
+    )
+end
+
 function load_inputs(inputs_dir::String)
     demand = read_parquet_df(joinpath(inputs_dir, "demand.parquet"))
     capacity = read_parquet_df(joinpath(inputs_dir, "capacity.parquet"))
@@ -388,6 +404,7 @@ function load_inputs(inputs_dir::String)
         renewables = load_renewables(inputs_dir),
         thermal_floor = load_thermal_floor(inputs_dir),
         storable_share = load_storable_share(inputs_dir),
+        minimum_storage = load_minimum_storage(inputs_dir),
         hydro_cap,
         thermal_cap,
         thermal_marginal_cost,
@@ -465,6 +482,16 @@ function build_model(inputs)
             net_import[s] + renewable[s] == inputs.demand_by_month[(month, s)]
         )
 
+        # ADR-0019: VminOp, soft. MWmes below the month-end minimum, priced per
+        # MWh at 730 MWh per MWmes (the storage unit's own convention).
+        vminop = Dict(s => inputs.minimum_storage[(month, s)] for s in SUBSYSTEMS)
+        @variable(subproblem, below_minimum[s in SUBSYSTEMS] >= 0)
+        @constraint(
+            subproblem,
+            [s in SUBSYSTEMS],
+            storage[s].out + below_minimum[s] >= vminop[s].share * inputs.max_storage[s]
+        )
+
         # HOURS_PER_MONTH converts the R$/h rate into real R$ for this
         # stage - see the constant's own comment for why this was missing
         # until PR-42 and what it means for every previously reported cost.
@@ -473,7 +500,8 @@ function build_model(inputs)
             (HOURS_PER_MONTH[month] / MONEY_SCALE) * sum(
                 inputs.thermal_marginal_cost[s] * thermal_generation[s] +
                 LOAD_SHED_COST * load_shed[s] for s in SUBSYSTEMS
-            )
+            ) + (MWH_PER_MWMES / MONEY_SCALE) *
+                sum(vminop[s].penalty * below_minimum[s] for s in SUBSYSTEMS)
         )
 
         # Inflow realizations are now conditioned on the regime: the same

@@ -51,6 +51,16 @@ SDDP_INFLOW_MODE = "storable"
 # lambda=0.5, alpha=0.1). CVaR was scored in PR-56 and did worse (storage 2 of
 # 4, price still zero): SDDP's cost-to-go does not depend on inflow at all.
 SDDP_COUPLING_POLICY = "sddp_first_policy"
+# ADR-0019: VminOp, the minimum operating storage NEWAVE and DECOMP enforce as
+# a soft constraint, share of maximum storage at each month's end. CPAMP
+# plenary of 31/07/2023 for the 2024 cycle: 20% SE (and Parana,
+# Paranapanema), 30% S (and Iguacu), 23.3% NE, 22.5% N with 18% in December
+# (Tucurui's operating curve). Penalty: SDDP_VMINOP_PENALTY_FACTOR times the
+# dearest subsystem thermal cost, fixed before any run (ADR-0019).
+SDDP_VMINOP = {"SE_CO": 0.20, "S": 0.30, "NE": 0.233, "N": 0.225}
+SDDP_VMINOP_MONTHS = {"N": {12: 0.18}}
+# PR-57 scored 1.1 (ADR-0019) and it did worse; 0 makes the constraint inert.
+SDDP_VMINOP_PENALTY_FACTOR = 0.0
 SDDP_N_SIMULATIONS = 1000
 
 # ADR-0009: hydrological regimes in the Markovian policy graph. K=3 is
@@ -178,8 +188,12 @@ rule prepare_sddp_inputs:
         renewables="resources/sddp_inputs/renewables.parquet",
         thermal_floor="resources/sddp_inputs/thermal_floor.parquet",
         storable_share="resources/sddp_inputs/storable_share.parquet",
+        minimum_storage="resources/sddp_inputs/minimum_storage.parquet",
     params:
         inflow_mode=SDDP_INFLOW_MODE,
+        vminop=SDDP_VMINOP,
+        vminop_months=SDDP_VMINOP_MONTHS,
+        vminop_penalty_factor=SDDP_VMINOP_PENALTY_FACTOR,
         n_scenarios=10,
         n_par1_paths=1000,
         n_simulated_years=200000,
@@ -215,6 +229,7 @@ rule sddp_first_policy:
         "resources/sddp_inputs/renewables.parquet",
         "resources/sddp_inputs/thermal_floor.parquet",
         "resources/sddp_inputs/storable_share.parquet",
+        "resources/sddp_inputs/minimum_storage.parquet",
     output:
         cuts="results/sddp_first_policy/cuts.parquet",
         summary="results/sddp_first_policy/summary.json",
@@ -257,6 +272,7 @@ rule sddp_cvar_policy:
         "resources/sddp_inputs/renewables.parquet",
         "resources/sddp_inputs/thermal_floor.parquet",
         "resources/sddp_inputs/storable_share.parquet",
+        "resources/sddp_inputs/minimum_storage.parquet",
     output:
         cuts="results/sddp_cvar_policy/cuts.parquet",
         summary="results/sddp_cvar_policy/summary.json",
@@ -393,6 +409,7 @@ rule solve_network_sddp:
         inflow="resources/inflow_ena.csv",
         par1_params="resources/inflow_par1_params.csv",
         par1_correlation="resources/inflow_par1_correlation.csv",
+        minimum_storage="resources/sddp_inputs/minimum_storage.parquet",
     output:
         monthly="results/sddp_coupled/monthly.csv",
         hourly_prices="results/sddp_coupled/hourly_prices.csv",

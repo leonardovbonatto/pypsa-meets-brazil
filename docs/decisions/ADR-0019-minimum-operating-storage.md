@@ -59,3 +59,19 @@ thermal cost, which is the mechanism ONS's prices reflect.
 **Negative.** SDDP's reported cost now includes penalties, so it is not
 comparable with earlier runs' cost. One minimum per subsystem stands in
 for VminOp per REE.
+
+## Outcome (PR-57)
+
+Built and scored; **not adopted**. `SDDP_VMINOP_PENALTY_FACTOR = 0` makes
+the constraint inert; the values and code stay.
+
+| run (storable inflow, tie-breaks) | storage ≥ 0.6 in ≥ 3 | SE_CO storage | price | regime check, dry > wet |
+|---|---|---|---|---|
+| without VminOp (adopted) | 3 of 4 | 0.90 | ~0 | 4 of 1,188 |
+| VminOp, one year | 2 of 4 (N 0.56, NE −0.01, S 0.63) | 0.97, 10% error | ~0 | 108 of 1,188 |
+| VminOp, two years | 1 of 4 (N −0.14, NE 0.49, S −0.47) | 0.93 | ~0 | 769 of 2,484 |
+
+VminOp gives SE_CO its best storage fit yet and the first regional water
+values, but they are tiny (about R$0.14/MWh with two years), and NE and S
+get worse. From 2024's storage (47-85% in SE_CO) no scenario in the
+remaining months comes near the minimums, so prices stay at zero.

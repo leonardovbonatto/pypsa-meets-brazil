@@ -802,6 +802,12 @@ code without touching this file, unless it carries the `no-changelog` label.
   subsystems (SE_CO 0.90); price still fails, with prices near zero all
   year. `"gross"` and `"storable_plus_run_of_river"` remain as modes.
   `docs/handoffs/PR-56-storable-inflow.md`.
+- **Minimum operating storage, tried and not adopted (PR-57, ADR-0019).**
+  VminOp at CPAMP's 2024 values as a soft month-end constraint in SDDP and
+  the coupled run, penalty fixed before any run. One year: storage 2 of 4
+  (SE_CO 0.97, its best fit); two years: 1 of 4; prices stay at zero.
+  `SDDP_VMINOP_PENALTY_FACTOR = 0` keeps it inert.
+  `docs/handoffs/PR-57-minimum-operating-storage.md`.
 - `SDDP_COUPLING_POLICY` selects the policy whose cuts the coupled run uses.
   The CVaR policy (PR-43's fixed settings) was re-scored and did worse
   (storage 2 of 4); the expectation policy stays (PR-56).

@@ -166,3 +166,34 @@ class TestRunOfRiver:
         assert ror.min() == pytest.approx(6.0)
         assert (ror + reservoir).max() <= 10.0 + 1e-6
         assert reservoir.sum() == pytest.approx(4.0 * 8)
+
+
+class TestMinimumStorage:
+    def test_thermal_runs_to_keep_storage_at_the_minimum(self):
+        """ADR-0019: with worthless water, the month-end minimum makes the
+        solver burn thermal (100 R$/MWh) rather than fall below it at a penalty
+        of 200 R$/MWh."""
+        n = _network()
+        reservoirs = _reservoir(n)
+        vminop = pd.DataFrame(
+            {
+                "month": [1, 2],
+                "subsystem": ["A", "A"],
+                "min_share": [0.5, 0.5],
+                "penalty_rs_per_mwh": [200.0, 200.0],
+            }
+        )
+        coupled.solve_year(
+            n,
+            {},
+            pd.Series(1, index=[1, 2]),
+            reservoirs,
+            solver_name="highs",
+            solver_options={},
+            vminop=vminop,
+        )
+        soc = n.storage_units_t.state_of_charge["A reservoir"]
+        # 1 MWmes = 730 MWh of capacity; half of it is far above the 40 MWh
+        # held, so the reservoir keeps everything and thermal serves the load.
+        assert soc.iloc[-1] == pytest.approx(40.0)
+        assert n.generators_t.p["A thermal"].sum() == pytest.approx(80.0)

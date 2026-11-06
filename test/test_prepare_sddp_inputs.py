@@ -401,3 +401,20 @@ class TestStorableShare:
     def test_rejects_unknown_mode(self):
         with pytest.raises(ValueError, match="unknown inflow mode"):
             prep.storable_share(self.ENA, mode="net")
+
+
+class TestMinimumStorage:
+    COSTS = pd.DataFrame({"subsystem": ["A", "B"], "marginal_cost": [100.0, 500.0]})
+
+    def test_one_row_per_month_and_subsystem_with_overrides(self):
+        table = prep.minimum_storage(
+            {"A": 0.2, "B": 0.3}, {"A": {12: 0.18}}, self.COSTS, penalty_factor=1.1
+        ).set_index(["month", "subsystem"])
+        assert len(table) == 24
+        assert table.loc[(11, "A"), "min_share"] == pytest.approx(0.2)
+        assert table.loc[(12, "A"), "min_share"] == pytest.approx(0.18)
+        assert table.loc[(12, "B"), "min_share"] == pytest.approx(0.3)
+
+    def test_penalty_is_above_the_dearest_thermal(self):
+        table = prep.minimum_storage({"A": 0.2}, {}, self.COSTS, penalty_factor=1.1)
+        assert np.allclose(table["penalty_rs_per_mwh"], 550.0)

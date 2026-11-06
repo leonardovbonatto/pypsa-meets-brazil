@@ -186,6 +186,31 @@ def storable_share(ena: pd.DataFrame, *, mode: str = "storable") -> pd.DataFrame
     return totals[["month", "subsystem", "storable_share", "run_of_river_share"]]
 
 
+def minimum_storage(
+    min_share: dict[str, float],
+    month_overrides: dict[str, dict[int, float]],
+    costs_t0: pd.DataFrame,
+    *,
+    penalty_factor: float,
+) -> pd.DataFrame:
+    """ADR-0019: (month, subsystem) -> VminOp as a share of maximum storage, and
+    the penalty per MWh of storage below it at the month's end, the same for
+    every subsystem: `penalty_factor` times the highest thermal cost, so all
+    thermal runs before the minimum is breached."""
+    penalty = penalty_factor * float(costs_t0["marginal_cost"].max())
+    rows = [
+        {
+            "month": month,
+            "subsystem": s,
+            "min_share": float(month_overrides.get(s, {}).get(month, share)),
+            "penalty_rs_per_mwh": penalty,
+        }
+        for s, share in sorted(min_share.items())
+        for month in range(1, 13)
+    ]
+    return pd.DataFrame(rows)
+
+
 def thermal_cost(costs_t0: pd.DataFrame) -> pd.DataFrame:
     """subsystem -> marginal_cost, R$/MWh. costs_t0.csv already carries only
     thermal (PR-10) - non-thermal carriers get marginal_cost=0 elsewhere in the
@@ -533,6 +558,18 @@ def main() -> None:
     write_parquet(
         storable_share(pd.read_csv(snake.input.inflow), mode=str(snake.params.inflow_mode)),
         Path(snake.output.storable_share),
+    )
+    write_parquet(
+        minimum_storage(
+            dict(snake.params.vminop),
+            {
+                s: {int(m): v for m, v in d.items()}
+                for s, d in dict(snake.params.vminop_months).items()
+            },
+            pd.read_csv(snake.input.costs),
+            penalty_factor=float(snake.params.vminop_penalty_factor),
+        ),
+        Path(snake.output.minimum_storage),
     )
     write_parquet(
         network_renewables(Path(snake.input.network), subsystems=sorted(storage0["subsystem"])),
