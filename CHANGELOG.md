@@ -802,6 +802,10 @@ code without touching this file, unless it carries the `no-changelog` label.
   subsystems (SE_CO 0.90); price still fails, with prices near zero all
   year. `"gross"` and `"storable_plus_run_of_river"` remain as modes.
   `docs/handoffs/PR-56-storable-inflow.md`.
+- **Thermal cost bands (PR-63, ADR-0021).** Joined plants as per-subsystem
+  CVU bands with real availability and their own floor. Gate: thermal split
+  error 0.26 -> 0.15; national thermal unchanged (1.055).
+  `docs/handoffs/PR-63-thermal-cost-bands.md`.
 - **Plant availability connector; nuclear outages (PR-62).** New ONS
   dataset `disponibilidade_usina`. Gate: nuclear 0.998 passes; thermal
   1.056 fails narrowly, and is mostly a backcast (floor and small plants).

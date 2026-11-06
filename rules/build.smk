@@ -179,6 +179,37 @@ rule build_mmgd_t0:
         "../scripts/build_mmgd.py"
 
 
+rule build_thermal_bands_t0:
+    """
+    ADR-0021: T0 thermal as per-subsystem CVU bands of plants joined across
+    CVU, dispatch and availability data, plus the residual registry thermal.
+    """
+    input:
+        cvu=expand("resources/ons/CVU_USINA_TERMICA_{year}.csv", year=snapshot_years(config)),
+        despacho=[
+            f"resources/ons/GERACAO_TERMICA_DESPACHO_2_{year}_{month:02d}.csv"
+            for year, month in snapshot_year_months(config)
+        ],
+        availability=[
+            f"resources/ons/DISPONIBILIDADE_USINA_{year}_{month:02d}.csv"
+            for year, month in snapshot_year_months(config)
+        ],
+        generators="resources/generators_t0.csv",
+        floor="resources/thermal_floor_t0.csv",
+    output:
+        bands="resources/thermal_bands_t0.csv",
+        band_availability="resources/thermal_band_availability_t0.csv",
+        band_floor="resources/thermal_band_floor_t0.csv",
+        residual_capacity="resources/thermal_residual_capacity_t0.csv",
+        residual_floor="resources/thermal_residual_floor_t0.csv",
+    params:
+        year=snapshot_years(config)[0],
+    log:
+        "logs/build_thermal_bands_t0/run.log",
+    script:
+        "../scripts/build_thermal_bands.py"
+
+
 rule build_nuclear_availability_t0:
     """
     T0 nuclear availability from ONS operational availability per plant
@@ -424,6 +455,11 @@ rule build_network_t0:
         nuclear_availability="resources/nuclear_availability_t0.csv",
         costs="resources/costs_t0.csv",
         thermal_floor="resources/thermal_floor_t0.csv",
+        thermal_bands="resources/thermal_bands_t0.csv",
+        thermal_band_availability="resources/thermal_band_availability_t0.csv",
+        thermal_band_floor="resources/thermal_band_floor_t0.csv",
+        thermal_residual_capacity="resources/thermal_residual_capacity_t0.csv",
+        thermal_residual_floor="resources/thermal_residual_floor_t0.csv",
     output:
         "resources/networks/t0.nc",
     params:

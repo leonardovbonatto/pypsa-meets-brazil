@@ -259,6 +259,49 @@ def attach_marginal_costs(n: pypsa.Network, costs: pd.DataFrame) -> pypsa.Networ
     return n
 
 
+def attach_thermal_bands(
+    n: pypsa.Network,
+    bands: pd.DataFrame,
+    availability: pd.DataFrame,
+    floor: pd.DataFrame,
+    residual_capacity: pd.DataFrame,
+) -> pypsa.Network:
+    """
+    ADR-0021: one generator per CVU band of joined plants, carrier `thermal`,
+    with hourly availability and a monthly floor capped at it; `{s} thermal`
+    shrinks to the residual registry capacity. Call after
+    attach_marginal_costs, which resets every cost. Mutates `n` in place.
+    """
+    snapshots = pd.DatetimeIndex(n.snapshots)
+    wide = availability.assign(snapshot=pd.to_datetime(availability["snapshot"])).pivot(
+        index="snapshot", columns="name", values="p_max_pu"
+    )
+    wide = wide.reindex(snapshots)
+    gaps = float(wide.isna().to_numpy().mean())
+    if gaps > 0.01:
+        raise ValueError(f"band availability missing for {gaps:.1%} of hours")
+    wide = wide.ffill().bfill()
+    months = snapshots.month
+    floor_wide = floor.pivot(index="month", columns="name", values="floor_mw")
+    for _, band in bands.iterrows():
+        name = band["name"]
+        n.add(
+            "Generator",
+            name,
+            bus=band["subsystem"],
+            carrier="thermal",
+            p_nom=float(band["p_nom_mw"]),
+            marginal_cost=float(band["marginal_cost"]),
+        )
+        n.generators_t.p_max_pu[name] = wide[name].to_numpy()
+        if name in floor_wide:
+            share = (floor_wide[name].reindex(months).fillna(0.0) / band["p_nom_mw"]).to_numpy()
+            n.generators_t.p_min_pu[name] = np.minimum(share, wide[name].to_numpy())
+    for _, row in residual_capacity.iterrows():
+        n.generators.loc[f"{row['subsystem']} thermal", "p_nom"] = float(row["p_nom_mw"])
+    return n
+
+
 def attach_thermal_floor(n: pypsa.Network, floor: pd.DataFrame) -> pypsa.Network:
     """
     ADR-0016: each subsystem's thermal must run at least its monthly floor -
@@ -272,7 +315,10 @@ def attach_thermal_floor(n: pypsa.Network, floor: pd.DataFrame) -> pypsa.Network
         raise ValueError(f"floor row(s) have no matching generator: {sorted(unknown)}")
     months = pd.DatetimeIndex(n.snapshots).month
     for name, rows in floor.assign(name=names).groupby("name"):
-        by_month = rows.set_index("month")["floor_mw"] / n.generators.loc[name, "p_nom"]
+        p_nom = float(n.generators.loc[name, "p_nom"])
+        if p_nom <= 0.0:
+            continue  # ADR-0021: a residual with no capacity carries no floor
+        by_month = rows.set_index("month")["floor_mw"] / p_nom
         if set(months) - set(by_month.index):
             raise ValueError(f"{name}: floor missing for some snapshot months")
         # Never above what is available that hour (PR-59 scales p_max_pu).
@@ -372,7 +418,16 @@ def main() -> None:
     costs = load_costs(Path(snake.input.costs))
     attach_marginal_costs(n, costs)
 
-    attach_thermal_floor(n, pd.read_csv(Path(snake.input.thermal_floor)))
+    # ADR-0021: joined plants as CVU bands; the residual keeps the rest of the
+    # registry capacity and the part of the floor the bands do not carry.
+    attach_thermal_bands(
+        n,
+        pd.read_csv(Path(snake.input.thermal_bands)),
+        pd.read_csv(Path(snake.input.thermal_band_availability)),
+        pd.read_csv(Path(snake.input.thermal_band_floor)),
+        pd.read_csv(Path(snake.input.thermal_residual_capacity)),
+    )
+    attach_thermal_floor(n, pd.read_csv(Path(snake.input.thermal_residual_floor)))
 
     attach_load_shedding(n, subsystems=list(snake.params.subsystems))
 

@@ -278,7 +278,20 @@ def month_summary(n: pypsa.Network, snapshots: pd.DatetimeIndex, reservoirs: lis
             "run_of_river_mw": float(p[f"{s} run_of_river"].mean())
             if f"{s} run_of_river" in p
             else 0.0,
-            "thermal_mw": float(p[f"{s} thermal"].mean()),
+            # ADR-0021: every thermal generator at the bus (bands and residual).
+            "thermal_mw": float(
+                p[
+                    n.generators.index[
+                        (n.generators["bus"] == s)
+                        & (
+                            (n.generators["carrier"] == "thermal")
+                            | (n.generators.index == f"{s} thermal")
+                        )
+                    ]
+                ]
+                .sum(axis=1)
+                .mean()
+            ),
             "load_shed_mwh": float(p[f"{s} load_shedding"].sum()),
             "price_mean_rs_per_mwh": float(prices[s].mean()),
             "price_median_rs_per_mwh": float(prices[s].median()),
