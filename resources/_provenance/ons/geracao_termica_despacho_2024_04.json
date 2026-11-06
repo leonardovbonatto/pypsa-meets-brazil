@@ -2,7 +2,7 @@
   "byte_size": 18781824,
   "dataset": "geracao_termica_despacho_2024_04",
   "format": "csv",
-  "retrieved": "2026-11-05T02:53:04+00:00",
+  "retrieved": "2026-11-06T02:02:36+00:00",
   "row_count": 66960,
   "sha256": "7e5250ad1ddc7a16b069055827567bd03c4e290c5b5402e07ee7b814fa416bb3",
   "source": "ons",

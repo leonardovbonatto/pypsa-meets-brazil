@@ -571,3 +571,26 @@ rule epe_interc:
         "logs/epe_interc/run.log",
     script:
         "../scripts/epe_interc.py"
+
+
+rule build_network_t1:
+    """
+    ADR-0022: the T1 (state) network, T0 split across T1 nodes - generators
+    by observed 2024 output share, load by DLR's 2020 state shares, links
+    from DLR's corridors. Subsystem totals equal T0's by construction.
+    """
+    input:
+        t0="resources/networks/t0.nc",
+        nodes="resources/t1/nodes.csv",
+        links="resources/t1/links.csv",
+        dlr_load="resources/dlr/load_2020.csv",
+        generation=[
+            f"resources/ons/GERACAO_USINA_2_{year}_{month:02d}.csv"
+            for year, month in snapshot_year_months(config)
+        ],
+    output:
+        "resources/networks/t1.nc",
+    log:
+        "logs/build_network_t1/run.log",
+    script:
+        "../scripts/build_network_t1.py"

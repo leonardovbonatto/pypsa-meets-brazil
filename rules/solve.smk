@@ -58,3 +58,19 @@ rule check_phase1_gate:
         "logs/check_phase1_gate/{run}.log",
     script:
         "../scripts/check_phase1_gate.py"
+
+
+rule solve_network_t1:
+    """ADR-0022: solve the T1 (state) network with the configured solver."""
+    input:
+        "resources/networks/t1.nc",
+    output:
+        network="results/{run}/network_t1_solved.nc",
+        summary="results/{run}/dispatch_summary_t1.json",
+    params:
+        solver_name=config["solver"]["name"],
+        solver_options=config["solver"]["options"],
+    log:
+        "logs/solve_network_t1/{run}.log",
+    script:
+        "../scripts/solve_network.py"

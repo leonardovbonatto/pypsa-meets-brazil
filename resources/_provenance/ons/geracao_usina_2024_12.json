@@ -2,7 +2,7 @@
   "byte_size": 68036021,
   "dataset": "geracao_usina_2024_12",
   "format": "csv",
-  "retrieved": "2026-08-16T13:40:17+00:00",
+  "retrieved": "2026-11-06T02:03:05+00:00",
   "row_count": 519696,
   "sha256": "688515b968f93a9ff649322a0972ffcef5d9e5f92bbfc96fdddbc44cea58f7e2",
   "source": "ons",

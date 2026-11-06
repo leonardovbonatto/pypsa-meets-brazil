@@ -802,6 +802,9 @@ code without touching this file, unless it carries the `no-changelog` label.
   subsystems (SE_CO 0.90); price still fails, with prices near zero all
   year. `"gross"` and `"storable_plus_run_of_river"` remain as modes.
   `docs/handoffs/PR-56-storable-inflow.md`.
+- **T1 network built and solved (PR-68, ADR-0022).** Every inter-subsystem
+  flow closer to ONS than T0 (NE-SE_CO 0.5%, N-NE 10.7% of capacity).
+  `docs/handoffs/PR-68-t1-network.md`.
 - **T1 nodes and links (PR-67, ADR-0022).** 30 (state, subsystem) nodes,
   45 DLR corridors, 3 dedicated links. `docs/handoffs/PR-67-t1-topology.md`.
 - **DLR open dataset connector, T1 design (PR-66, ADR-0022).** Zenodo

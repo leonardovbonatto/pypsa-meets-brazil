@@ -2,7 +2,7 @@
   "byte_size": 637750,
   "dataset": "intercambio_internacional_2024",
   "format": "csv",
-  "retrieved": "2026-11-06T01:37:54+00:00",
+  "retrieved": "2026-11-06T02:03:27+00:00",
   "row_count": 18792,
   "sha256": "43480d8b49f36214e7f7026ac3c2d8ec8fd28126185066c1647b606d6b2f7e02",
   "source": "ons",

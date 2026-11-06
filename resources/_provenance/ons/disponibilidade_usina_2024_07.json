@@ -2,7 +2,7 @@
   "byte_size": 25544459,
   "dataset": "disponibilidade_usina_2024_07",
   "format": "csv",
-  "retrieved": "2026-11-06T01:02:19+00:00",
+  "retrieved": "2026-11-06T02:05:04+00:00",
   "row_count": 177816,
   "sha256": "ba45176b96e8c9de917076cb191128c5ded9877870c468a2ad665845d570a685",
   "source": "ons",
