@@ -1,0 +1,10 @@
+{
+  "byte_size": 895737,
+  "dataset": "intercambio_internacional_2023",
+  "format": "csv",
+  "retrieved": "2026-11-06T03:10:49+00:00",
+  "row_count": 26280,
+  "sha256": "164b91023f33154eab1209c351c9f63e0f39bd6258b0e51cbc67e559a914c0dc",
+  "source": "ons",
+  "source_url": "https://ons-aws-prod-opendata.s3.amazonaws.com/dataset/intercambio_internacional_ho/INTERCAMBIO_INTERNACIONAL_2023.csv"
+}

@@ -154,3 +154,16 @@ class TestCoerce:
         schema = inspect_mod.to_pandera_schema(dictionary)
         schema.validate(pd.DataFrame({"code": [1, 2, 3]}))  # 2024: int64
         schema.validate(pd.DataFrame({"code": [1.0, None, 3.0]}))  # 2025: float with nulls
+
+    def test_optional_column_may_be_absent(self):
+        import pandas as pd
+
+        dictionary = {
+            "columns": [
+                {"name": "a", "dtype": "int64", "nullable": False},
+                {"name": "late", "dtype": "float64", "nullable": True, "required": False},
+            ]
+        }
+        schema = inspect_mod.to_pandera_schema(dictionary)
+        schema.validate(pd.DataFrame({"a": [1]}))  # 2023: no `late`
+        schema.validate(pd.DataFrame({"a": [1], "late": [0.5]}))

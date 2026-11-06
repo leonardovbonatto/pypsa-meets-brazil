@@ -85,6 +85,13 @@ def build_bands(
     `availability` is the UTE rows of disponibilidade_usina."""
     ute = map_subsystems(availability[availability["id_tipousina"] == THERMAL_TYPE])
     ute = ute[ute["ceg"].isin(cvu_by_ceg.index)]
+    # ADR-0025 data-format fix: one plant (Termopernambuco, 2023) reports up to
+    # 17 MW more availability than its installed capacity in 8,419 hours, so
+    # availability is clipped at each row's installed capacity. A no-op where
+    # the data is consistent (2024, 2025).
+    ute = ute.assign(
+        val_dispoperacional=ute["val_dispoperacional"].clip(upper=ute["val_potenciainstalada"])
+    )
     plants = ute.groupby("ceg").agg(
         subsystem=("subsystem", "first"), installed=("val_potenciainstalada", "max")
     )

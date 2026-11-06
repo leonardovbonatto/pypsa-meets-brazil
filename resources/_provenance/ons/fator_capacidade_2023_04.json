@@ -1,0 +1,10 @@
+{
+  "byte_size": 33983834,
+  "dataset": "fator_capacidade_2023_04",
+  "format": "csv",
+  "retrieved": "2026-11-06T03:09:42+00:00",
+  "row_count": 140400,
+  "sha256": "ae6a39c27582238ba7978d80c0614250a996fbd9fb9b9d68aa68d0a3af752c7f",
+  "source": "ons",
+  "source_url": "https://ons-aws-prod-opendata.s3.amazonaws.com/dataset/fator_capacidade_2_di/FATOR_CAPACIDADE-2_2023_04.csv"
+}

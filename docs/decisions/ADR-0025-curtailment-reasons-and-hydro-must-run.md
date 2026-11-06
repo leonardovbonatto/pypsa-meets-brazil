@@ -62,3 +62,21 @@ they are.
 If adopted, curtailment the model reproduces is the kind it can represent;
 hydro becomes a full backcast in T0/T1, so hydro decides nothing there
 (SDDP's coupled run is where hydro is a decision).
+
+## Outcome (PR-73): not adopted
+
+2023 runs: baseline `t0-b87309e0`, changed `t0-bd717d2d`. Both switches
+stay off.
+
+| 2023 | baseline | changed |
+|---|---|---|
+| T1, ADR-0020's eight checks | **5 of 8** | **infeasible** (0) |
+| T0, reported | 5 of 8 | 4 of 8 |
+
+The changed T1 has no feasible dispatch: with hydro forced to observed
+output, plus must-run small plants and the thermal floor, some state
+nodes produce more than their load and corridors can take. ADR-0025 gave
+the change no surplus outlet, and adding one after seeing this would be a
+second, untested change. Baseline T1 2023: wind 0.969, solar 0.954,
+nuclear 0.995 pass; thermal 1.079 fails; NE-SE_CO 0.2% and SE_CO-S 0.1%
+pass; N-NE 11.1% and N-SE_CO 8.2% fail.

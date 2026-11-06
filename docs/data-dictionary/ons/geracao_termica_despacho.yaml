@@ -366,6 +366,7 @@ columns:
   - 0.0
 - name: val_fdexp
   dtype: float64
+  required: false
   unit: null
   nullable: false
   null_rate: 0.0
@@ -447,3 +448,4 @@ notes:
 - 'ADR-0016''s thermal floor is val_verifgeracao minus val_verifordemdemeritoacimadainflex:
   everything that ran for reasons other than price.'
 - 'ADR-0024 (2025 out-of-sample run): cod_usinaplanejamento has nulls in 2025 files (not used by the floor; the band bridge drops them), so it is nullable, float64 with coerce (an integer column with nulls reads as float); 2024 had none.'
+- 'ADR-0025 (2023 held-out run): val_fdexp is absent from 2023 files, so it is required: false; nothing uses it.'

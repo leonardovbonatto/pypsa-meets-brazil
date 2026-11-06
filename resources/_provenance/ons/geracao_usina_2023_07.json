@@ -1,0 +1,10 @@
+{
+  "byte_size": 64950894,
+  "dataset": "geracao_usina_2023_07",
+  "format": "csv",
+  "retrieved": "2026-11-06T03:10:59+00:00",
+  "row_count": 496872,
+  "sha256": "44eb41012bec53c43927001a0d63816a869bea8651f65367fb3b5a8ee9855951",
+  "source": "ons",
+  "source_url": "https://ons-aws-prod-opendata.s3.amazonaws.com/dataset/geracao_usina_2_ho/GERACAO_USINA-2_2023_07.csv"
+}

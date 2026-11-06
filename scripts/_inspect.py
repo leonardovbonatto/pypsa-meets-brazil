@@ -119,7 +119,12 @@ def to_pandera_schema(dictionary: dict[str, Any]) -> pa.DataFrameSchema:
     # rather than failing on the dtype alone.
     columns = {
         col["name"]: pa.Column(
-            col["dtype"], nullable=col["nullable"], coerce=bool(col.get("coerce", False))
+            col["dtype"],
+            nullable=col["nullable"],
+            coerce=bool(col.get("coerce", False)),
+            # `required: false` (ADR-0025): a column ONS added in a later year
+            # (val_fdexp, absent from 2023 dispatch files).
+            required=bool(col.get("required", True)),
         )
         for col in dictionary["columns"]
     }

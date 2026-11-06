@@ -1,0 +1,10 @@
+{
+  "byte_size": 1539769,
+  "dataset": "curva_carga_2023",
+  "format": "csv",
+  "retrieved": "2026-11-06T03:09:58+00:00",
+  "row_count": 35040,
+  "sha256": "3a7e07005bd991ade3cccf402b21737564713230f777e1bcda06b9c6e9a78096",
+  "source": "ons",
+  "source_url": "https://ons-aws-prod-opendata.s3.amazonaws.com/dataset/curva-carga-ho/CURVA_CARGA_2023.csv"
+}

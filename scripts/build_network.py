@@ -167,6 +167,12 @@ def attach_availability(n: pypsa.Network, availability: pd.DataFrame) -> pypsa.N
 
     wide = named.pivot(index="snapshot", columns="name", values="p_max_pu").sort_index()
     wide = wide.reindex(n.snapshots)
+    # ADR-0025 data-format fix: ONS reports MMGD in geracao_usina only from
+    # late April 2023 (2,832 hours of 2023 missing); before that it is not
+    # reported, so MMGD output is 0 there. Assumed, not checked: ONS's load
+    # series excludes MMGD over the same period. 2024 and 2025 are complete.
+    mmgd = [c for c in wide.columns if c.endswith("solar_mmgd")]
+    wide[mmgd] = wide[mmgd].fillna(0.0)
     if wide.isna().any().any():
         raise ValueError("availability series has gaps after aligning to network snapshots")
 
