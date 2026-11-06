@@ -179,6 +179,25 @@ rule build_mmgd_t0:
         "../scripts/build_mmgd.py"
 
 
+rule build_exports_t0:
+    """
+    T0 international exports as load at the border subsystem (PR-64):
+    generation that ONS's load series does not count.
+    """
+    input:
+        raw=expand(
+            "resources/ons/INTERCAMBIO_INTERNACIONAL_{year}.csv",
+            year=snapshot_years(config),
+        ),
+        dictionary="docs/data-dictionary/ons/intercambio_internacional.yaml",
+    output:
+        "resources/exports_t0.csv",
+    log:
+        "logs/build_exports_t0/run.log",
+    script:
+        "../scripts/build_exports.py"
+
+
 rule build_thermal_bands_t0:
     """
     ADR-0021: T0 thermal as per-subsystem CVU bands of plants joined across
@@ -455,6 +474,7 @@ rule build_network_t0:
         nuclear_availability="resources/nuclear_availability_t0.csv",
         costs="resources/costs_t0.csv",
         thermal_floor="resources/thermal_floor_t0.csv",
+        exports="resources/exports_t0.csv",
         thermal_bands="resources/thermal_bands_t0.csv",
         thermal_band_availability="resources/thermal_band_availability_t0.csv",
         thermal_band_floor="resources/thermal_band_floor_t0.csv",

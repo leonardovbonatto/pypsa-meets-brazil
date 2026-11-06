@@ -158,6 +158,26 @@ rule fetch_ons_geracao_termica_despacho:
         "../scripts/fetch_dataset.py"
 
 
+rule fetch_ons_intercambio_internacional:
+    """
+    ONS hourly international interchange per destination country, one file
+    per year. Exports as extra load at the border subsystem (PR-64).
+    """
+    output:
+        raw="resources/ons/INTERCAMBIO_INTERNACIONAL_{year}.csv",
+        provenance="resources/_provenance/ons/intercambio_internacional_{year}.json",
+    params:
+        url=lambda wc: config["sources"]["ons"]["intercambio_internacional"]["url"].format(
+            year=wc.year
+        ),
+        source="ons",
+        dataset=lambda wc: f"intercambio_internacional_{wc.year}",
+    log:
+        "logs/fetch_ons_intercambio_internacional/{year}.log",
+    script:
+        "../scripts/fetch_dataset.py"
+
+
 rule fetch_ons_disponibilidade_usina:
     """
     ONS hourly operational availability per plant, one file per (year,

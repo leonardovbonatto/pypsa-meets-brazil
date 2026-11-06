@@ -79,6 +79,10 @@ rule fetch_all:
             f"resources/ons/DISPONIBILIDADE_USINA_{year}_{month:02d}.csv"
             for year, month in snapshot_year_months(config)
         ],
+        expand(
+            "resources/ons/INTERCAMBIO_INTERNACIONAL_{year}.csv",
+            year=snapshot_years(config),
+        ),
         "resources/ons/CAPACIDADE_GERACAO.csv",
         expand(
             "resources/ons/ENA_DIARIO_SUBSISTEMA_{year}.csv",

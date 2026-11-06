@@ -802,6 +802,9 @@ code without touching this file, unless it carries the `no-changelog` label.
   subsystems (SE_CO 0.90); price still fails, with prices near zero all
   year. `"gross"` and `"storable_plus_run_of_river"` remain as modes.
   `docs/handoffs/PR-56-storable-inflow.md`.
+- **International exports as load (PR-64).** New ONS dataset
+  `intercambio_internacional`; 162 MW net export at S. Gate: SE_CO-S hourly
+  correlation 0.989. `docs/handoffs/PR-64-international-exports.md`.
 - **Thermal cost bands (PR-63, ADR-0021).** Joined plants as per-subsystem
   CVU bands with real availability and their own floor. Gate: thermal split
   error 0.26 -> 0.15; national thermal unchanged (1.055).

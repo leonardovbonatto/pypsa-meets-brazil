@@ -1,0 +1,44 @@
+dataset: intercambio_internacional
+source: ons
+source_url: https://ons-aws-prod-opendata.s3.amazonaws.com/dataset/intercambio_internacional_ho/INTERCAMBIO_INTERNACIONAL_{year}.csv
+retrieved: '2026-11-06T01:37:54+00:00'
+format: csv
+encoding: utf-8
+delimiter: ;
+decimal: .
+row_count: 18792
+schema_hash: sha256:d9d7e6d876d3bbee16b4112ac6f814a0b51f6948ad60b9d27446f8bbbec1d231
+columns:
+- name: din_instante
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: 'Start of the hour, YYYY-MM-DD HH:MM:SS.'
+  sample:
+  - '2024-01-01 00:00:00'
+  - '2024-01-01 00:00:00'
+  - '2024-01-01 00:00:00'
+- name: nom_paisdestino
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: 'Destination country: ARGENTINA, URUGUAI or PARAGUAI (Paraguay only in 1,224 rows of 2024, all zero).'
+  sample:
+  - ARGENTINA
+  - PARAGUAI
+  - URUGUAI
+- name: val_intercambiomwmed
+  dtype: float64
+  unit: MW
+  nullable: false
+  null_rate: 0.0
+  description: 'Verified hourly interchange through the border frequency converters; positive = export from Brazil, negative = import.'
+  sample:
+  - 0.0
+  - 0.0
+  - 0.0
+notes:
+- 'ONS dictionary also lists val_intercambioprogmwmed (programmed); the 2024 file does not carry it.'
+- '2024 means: Argentina +185.7 MW, Uruguay -24.0 MW, Paraguay 0; net 161.7 MW export.'

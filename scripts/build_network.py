@@ -176,6 +176,22 @@ def attach_availability(n: pypsa.Network, availability: pd.DataFrame) -> pypsa.N
     return n
 
 
+def attach_exports(n: pypsa.Network, exports: pd.DataFrame) -> pypsa.Network:
+    """
+    PR-64: net international exports as a Load `{s} exports` per border
+    subsystem (negative in import hours). Mutates `n` in place.
+    """
+    wide = exports.assign(snapshot=pd.to_datetime(exports["snapshot"])).pivot(
+        index="snapshot", columns="subsystem", values="p_set_mw"
+    )
+    wide = wide.reindex(pd.DatetimeIndex(n.snapshots))
+    if wide.isna().any().any():
+        raise ValueError("exports series has gaps after aligning to network snapshots")
+    for s in wide.columns:
+        n.add("Load", f"{s} exports", bus=s, p_set=wide[s].to_numpy())
+    return n
+
+
 MUST_RUN_SUFFIX = "_small"
 
 
@@ -397,6 +413,7 @@ def main() -> None:
 
     links = load_links(Path(snake.input.links))
     attach_links(n, links)
+    attach_exports(n, pd.read_csv(Path(snake.input.exports)))
 
     # Wind/solar (measured capacity factors) and hydro (observed generation,
     # a backcast - see ADR-0007) come from different datasets with different
