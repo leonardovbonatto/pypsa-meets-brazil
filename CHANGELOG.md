@@ -802,6 +802,13 @@ code without touching this file, unless it carries the `no-changelog` label.
   subsystems (SE_CO 0.90); price still fails, with prices near zero all
   year. `"gross"` and `"storable_plus_run_of_river"` remain as modes.
   `docs/handoffs/PR-56-storable-inflow.md`.
+- **The Phase 1 gate (PR-58, ADR-0020).** `check_phase1_gate` scores the
+  solved T0 network against ONS 2024: national wind, utility solar, nuclear
+  and thermal within 5%, and each boundary's mean flow within 5% of its
+  capacity. First score fails: solar 1.48x, nuclear 1.11x, wind 1.06x,
+  every boundary outside tolerance (N-NE reversed). Main cause: capacity
+  comes from today's registry, including plants that entered operation
+  after 2024. `docs/handoffs/PR-58-phase1-gate.md`.
 - **Minimum operating storage, tried and not adopted (PR-57, ADR-0019).**
   VminOp at CPAMP's 2024 values as a soft month-end constraint in SDDP and
   the coupled run, penalty fixed before any run. One year: storage 2 of 4
