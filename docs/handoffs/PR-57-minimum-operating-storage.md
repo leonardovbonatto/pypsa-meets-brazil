@@ -32,6 +32,28 @@ VminOp one year; VminOp two years. Adopted: spill cost, dispatch tie-break,
 storable. Each adopted change is backed by evidence outside the backtest
 (a degenerate solve, or the 2024 energy balance).
 
+## The storage score is partly noise while water is worthless
+
+With the penalty factor at 0 the model is economically the same as PR-56's
+storable run (SDDP cost R$22.63bn in both), but training stopped
+differently (stopping rule at 27,027 cuts against the cap at 89,100), and
+the backtest moved:
+
+| storage Pearson | PR-56 storable | same model, re-trained |
+|---|---|---|
+| N | 0.44 | 0.05 |
+| NE | 0.64 | 0.38 |
+| S | 0.66 | 0.66 |
+| SE_CO | 0.90 | 0.86 |
+
+When water is worth about zero, where it is stored between subsystems is
+a tie the solver breaks arbitrarily, so N and NE storage is not set by
+economics. S and SE_CO are stable across every run today (SE_CO 0.86-0.97).
+The criterion's "3 of 4" therefore flips on noise, and some of today's
+adopt-or-not calls rested on N and NE. They should be re-read with only
+S and SE_CO as signal; storable inflow and the dispatch tie-break still
+stand on their own evidence (energy balance, degenerate dispatch).
+
 ## What the backtest is telling us
 
 The model sees no risk in the rest of 2024 from where storage was. ONS's
