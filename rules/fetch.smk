@@ -158,6 +158,25 @@ rule fetch_ons_geracao_termica_despacho:
         "../scripts/fetch_dataset.py"
 
 
+rule fetch_dlr_open_brazil_energy_data:
+    """
+    DLR's open Brazilian power-system dataset (Zenodo 7478165, CC BY 4.0),
+    one zip. The Tier-1 (27-state) base and benchmark, PR-66.
+    """
+    output:
+        raw="resources/dlr/open_brazil_energy_data.zip",
+        provenance="resources/_provenance/dlr/open_brazil_energy_data.json",
+    params:
+        url=config["sources"]["dlr"]["open_brazil_energy_data"]["url"],
+        source="dlr",
+        dataset="open_brazil_energy_data",
+        format="zip",
+    log:
+        "logs/fetch_dlr_open_brazil_energy_data/run.log",
+    script:
+        "../scripts/fetch_dataset.py"
+
+
 rule fetch_ons_intercambio_internacional:
     """
     ONS hourly international interchange per destination country, one file

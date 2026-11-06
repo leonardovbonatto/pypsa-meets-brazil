@@ -1,0 +1,55 @@
+dataset: load_2020
+source: dlr
+source_url: https://zenodo.org/records/7478165
+retrieved: '2026-11-06T01:52:01+00:00'
+format: csv
+encoding: utf-8
+delimiter: ','
+decimal: .
+row_count: 237168
+schema_hash: sha256:cdebeca6ea4c21122ed248f367f33b6c6979c577c586051fdbc50aaab71e985b
+columns:
+- name: 'Unnamed: 0'
+  dtype: int64
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: 'Row index written by pandas; not used.'
+  sample:
+  - 0
+  - 1
+  - 2
+- name: time
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: 'Start of the hour, YYYY-MM-DD HH:MM:SS, 2020.'
+  sample:
+  - '2020-01-01 00:00:00'
+  - '2020-01-01 01:00:00'
+  - '2020-01-01 02:00:00'
+- name: state
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: 'State (ISO 3166-2 suffix).'
+  sample:
+  - AC
+  - AC
+  - AC
+- name: value
+  dtype: float64
+  unit: MW
+  nullable: false
+  null_rate: 0.0
+  description: 'Hourly demand of the state.'
+  sample:
+  - 132.07
+  - 133.11
+  - 131.8
+notes:
+- 'DLR open Brazilian dataset, Zenodo 7478165, CC BY 4.0. Folder distribute_by_consumption; by its name, load disaggregated to states by consumption (method not checked against the paper).'
+- 'Used for each state''s share of its subsystem''s load (ADR-0022), not for the 2024 levels.'
+- '27 states x 8,784 hours.'

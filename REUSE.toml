@@ -45,3 +45,12 @@ path = ["resources/_provenance/**"]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2026 pypsa-meets-brazil contributors"
 SPDX-License-Identifier = "MIT"
+
+# DLR-derived data dictionaries quote field descriptions and samples from the
+# German Aerospace Center's open Brazilian dataset (Deng et al. 2023, Zenodo
+# 7478165), published under CC BY 4.0: credit DLR, as for ONS above.
+[[annotations]]
+path = ["docs/data-dictionary/dlr/**"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "German Aerospace Center (DLR), Deng et al. 2023"
+SPDX-License-Identifier = "CC-BY-4.0"

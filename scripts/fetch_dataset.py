@@ -30,7 +30,9 @@ def main() -> None:
         dataset=snake.params.dataset,
         source_url=snake.params.url,
         dest=raw,
-        format="csv",
+        # CSV unless the rule says otherwise (PR-66: the DLR dataset is a zip,
+        # whose row count would be meaningless; fetch.row_count returns None).
+        format=getattr(snake.params, "format", "csv"),
     )
     # Write via the rule's declared output path rather than fetch.py's default
     # layout, so Snakemake can see and clean up exactly what it promised.

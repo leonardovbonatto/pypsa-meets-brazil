@@ -1,0 +1,10 @@
+{
+  "byte_size": 72758688,
+  "dataset": "open_brazil_energy_data",
+  "format": "zip",
+  "retrieved": "2026-11-06T01:52:01+00:00",
+  "row_count": null,
+  "sha256": "43d06b7f56691769ce2e1fcb30be3319a50e46645c647dd2cd6cd60bf81f8872",
+  "source": "dlr",
+  "source_url": "https://zenodo.org/api/records/7478165/files/Deng_2022_after_revision_Brazilian_power_system_open_data.zip/content"
+}

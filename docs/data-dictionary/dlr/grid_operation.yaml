@@ -1,0 +1,111 @@
+dataset: grid_operation
+source: dlr
+source_url: https://zenodo.org/records/7478165
+retrieved: '2026-11-06T01:52:01+00:00'
+format: csv
+encoding: utf-8
+delimiter: ','
+decimal: .
+row_count: 51
+schema_hash: sha256:47852b4c93a4005f751028818d567aa5a007c30bb41066ea9abe042677f8aed5
+columns:
+- name: 'Unnamed: 0'
+  dtype: int64
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: 'Row index written by pandas; not used.'
+  sample:
+  - 0
+  - 1
+  - 2
+- name: node0
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: 'From node: a state (ISO 3166-2 suffix, e.g. SP) or a neighbour country (ARG, PRY, URY, VEN).'
+  sample:
+  - AC
+  - AL
+  - AL
+- name: node1
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: 'To node, same codes as node0.'
+  sample:
+  - RO
+  - BA
+  - PE
+- name: transfer_capacity
+  dtype: float64
+  unit: MW
+  nullable: false
+  null_rate: 0.0
+  description: 'Corridor transfer capacity, a heuristic from conductor bundles per voltage class (Deng et al. 2023), not a rated value.'
+  sample:
+  - 462.94983269251503
+  - 9740.762027947145
+  - 6690.456466794476
+- name: efficiency
+  dtype: float64
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: 'Corridor efficiency (1 minus losses), from length.'
+  sample:
+  - 0.997181151157545
+  - 0.9981534425945288
+  - 0.9978161169939428
+- name: name
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: 'Names of the EPE Webmap lines in the corridor, underscore-separated.'
+  sample:
+  - LT 230 kV Abunã - Rio Branco I, C2_LT 230 kV Abunã - Rio Branco I, C1
+  - LT 230 kV Paulo Afonso III - UHE Paulo Afonso II C2_LT 230 kV Paulo Afonso III
+    - UHE Paulo Afonso III C2_LT 500 kV UHE Paulo Afonso IV - SE Paulo Afonso IV,
+    C6_LT 230 kV Paulo Afonso III - UHE Paulo Afonso II C1_LT 230 kV Paulo Afonso
+    III - UHE Paulo Afonso III C4_LT 500 kV UHE Paulo Afonso IV - SE Paulo Afonso
+    IV, C3_LT 500 kV UHE Paulo Afonso IV - SE Paulo Afonso IV, C4_LT 500 kV Paulo
+    Afonso IV - Olindina C1_LT 500 kV UHE Paulo Afonso IV - SE Paulo Afonso IV, C1_LT
+    230 kV Paulo Afonso III - Cícero Dantas C1_LT 230 kV Paulo Afonso III - UHE Paulo
+    Afonso III C3_LT 500 kV UHE Paulo Afonso IV - SE Paulo Afonso IV, C2_LT 230 kV
+    Paulo Afonso III - Cícero Dantas C2_LT 230 kV Paulo Afonso III - UHE Paulo Afonso
+    III C1_LT 500 kV UHE Paulo Afonso IV - SE Paulo Afonso IV, C5_LT 230 kV Paulo
+    Afonso III - UHE Paulo Afonso I C1
+  - LT 230 kV Garanhuns II - Paulo Afonso III C3_LT 230 kV Garanhuns II - Paulo Afonso
+    III C4_LT 500 kV Paulo Afonso IV - Angelim II C1_LT 230 kV Angelim - Messias C1_LT
+    500 kV Messias - Suape II C1_LT 230 kV Angelim - Messias C3_LT 230 kV Garanhuns
+    II - Paulo Afonso III C2_LT 230 kV Paulo Afonso III - Floresta II C1_LT 230 kV
+    Paulo Afonso III - Bom Nome C3_LT 500 kV Paulo Afonso IV - Luiz Gonzaga C1_LT
+    230 kV Angelim - Messias C2_LT 230 kV Paulo Afonso III - Angelim C1_LT 500 kV
+    Paulo Afonso IV - Luiz Gonzaga, C2_LT 230 kV Paulo Afonso III - Tacaratu C1
+- name: length
+  dtype: float64
+  unit: km
+  nullable: false
+  null_rate: 0.0
+  description: 'Corridor length.'
+  sample:
+  - 304.435446435
+  - 31.6299249675
+  - 134.43227641857143
+- name: carrier
+  dtype: str
+  unit: null
+  nullable: false
+  null_rate: 0.0
+  description: 'ac or dc.'
+  sample:
+  - ac
+  - ac
+  - ac
+notes:
+- 'DLR open Brazilian dataset, Zenodo record 7478165 (v0.2), CC BY 4.0; Deng et al., Scientific Data 2023, doi:10.1038/s41597-023-01992-9.'
+- 'Operating lines only (the _operation_and_planed variant adds planned ones). EPE Webmap topology as of the dataset (2012-2020 data years).'
+- '51 corridors among 27 states plus ARG, PRY, URY, VEN.'

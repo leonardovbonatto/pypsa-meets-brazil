@@ -158,6 +158,13 @@ sources:
       years:
         start: 2020
         end: 2024
+  dlr:
+    open_brazil_energy_data:
+      # DLR's harmonized open Brazilian power-system dataset (Deng et al.,
+      # Scientific Data 2023), Zenodo record 7478165 (version 0.2, the
+      # latest), CC BY 4.0. The roadmap's Tier-1 base and benchmark
+      # (Brazilian-Grid-in-PyPSA.md §4). Data year 2012-2020.
+      url: https://zenodo.org/api/records/7478165/files/Deng_2022_after_revision_Brazilian_power_system_open_data.zip/content
 
 paths:
   resources: resources

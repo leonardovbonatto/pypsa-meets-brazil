@@ -179,6 +179,23 @@ rule build_mmgd_t0:
         "../scripts/build_mmgd.py"
 
 
+rule extract_dlr:
+    """
+    ADR-0022: the DLR tables T1 uses, copied out of the Zenodo zip to
+    stable paths (inter-state grid, 2020 state load, 2020 state plants).
+    """
+    input:
+        zip="resources/dlr/open_brazil_energy_data.zip",
+    output:
+        grid_operation="resources/dlr/grid_operation.csv",
+        load_2020="resources/dlr/load_2020.csv",
+        plants_2020="resources/dlr/plants_2020.csv",
+    log:
+        "logs/extract_dlr/run.log",
+    script:
+        "../scripts/extract_dlr.py"
+
+
 rule build_exports_t0:
     """
     T0 international exports as load at the border subsystem (PR-64):

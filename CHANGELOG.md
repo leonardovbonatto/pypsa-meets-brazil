@@ -802,6 +802,11 @@ code without touching this file, unless it carries the `no-changelog` label.
   subsystems (SE_CO 0.90); price still fails, with prices near zero all
   year. `"gross"` and `"storable_plus_run_of_river"` remain as modes.
   `docs/handoffs/PR-56-storable-inflow.md`.
+- **DLR open dataset connector, T1 design (PR-66, ADR-0022).** Zenodo
+  7478165 (CC BY 4.0) fetched and its grid, load and plant tables extracted
+  for the 27-state tier. `docs/handoffs/PR-66-dlr-connector.md`.
+- Prose docs refreshed after PR-58..65: STACK.md, README, T0
+  `KNOWN_LIMITATIONS`.
 - **Hourly thermal floor in T0 (PR-65).** Gate generation now passes
   (thermal 1.048); N-NE and N-SE_CO still fail.
   `docs/handoffs/PR-65-hourly-thermal-floor.md`.
