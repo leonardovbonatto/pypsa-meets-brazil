@@ -74,3 +74,25 @@ rule solve_network_t1:
         "logs/solve_network_t1/{run}.log",
     script:
         "../scripts/solve_network.py"
+
+
+rule check_t1_gate:
+    """
+    ADR-0022 decision 5: T1's national generation within 1% of T0's, and its
+    inter-subsystem flows scored with ADR-0020's interchange criterion.
+    """
+    input:
+        t1="results/{run}/network_t1_solved.nc",
+        t0="results/{run}/network_t0_solved.nc",
+        nodes="resources/t1/nodes.csv",
+        interchange=expand(
+            "resources/ons/INTERCAMBIO_NACIONAL_{year}.csv",
+            year=snapshot_years(config),
+        ),
+        links_t0="resources/links_t0.csv",
+    output:
+        report="results/{run}/t1_gate/report.json",
+    log:
+        "logs/check_t1_gate/{run}.log",
+    script:
+        "../scripts/check_t1_gate.py"

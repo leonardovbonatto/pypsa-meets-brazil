@@ -802,6 +802,8 @@ code without touching this file, unless it carries the `no-changelog` label.
   subsystems (SE_CO 0.90); price still fails, with prices near zero all
   year. `"gross"` and `"storable_plus_run_of_river"` remain as modes.
   `docs/handoffs/PR-56-storable-inflow.md`.
+- **T1 benchmark scored (PR-69).** Fails: solar 0.988 of T0 (RN curtailment)
+  and two N boundaries. `docs/handoffs/PR-69-t1-gate.md`.
 - **T1 network built and solved (PR-68, ADR-0022).** Every inter-subsystem
   flow closer to ONS than T0 (NE-SE_CO 0.5%, N-NE 10.7% of capacity).
   `docs/handoffs/PR-68-t1-network.md`.
