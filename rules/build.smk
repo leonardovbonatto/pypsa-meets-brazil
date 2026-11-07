@@ -663,3 +663,23 @@ rule epe_network:
         "logs/epe_network/run.log",
     script:
         "../scripts/epe_network.py"
+
+
+rule build_network_t3_structure:
+    """
+    ADR-0026: T3's nodal structure (AC buses, lines, transformers as lines,
+    HVDC links) from EPE's tidy tables; elements entering after the deck's
+    start (Existing = 1) left out. Local only, under resources/epe/.
+    """
+    input:
+        buses="resources/epe/t3_buses.csv",
+        lines="resources/epe/t3_lines.csv",
+        transformers="resources/epe/t3_transformers.csv",
+        hvdc="resources/epe/t3_hvdc.csv",
+    output:
+        network="resources/epe/t3_structure.nc",
+        report="resources/epe/t3_structure_report.json",
+    log:
+        "logs/build_network_t3_structure/run.log",
+    script:
+        "../scripts/build_network_t3.py"

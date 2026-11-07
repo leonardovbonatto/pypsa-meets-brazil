@@ -802,6 +802,10 @@ code without touching this file, unless it carries the `no-changelog` label.
   subsystems (SE_CO 0.90); price still fails, with prices near zero all
   year. `"gross"` and `"storable_plus_run_of_river"` remain as modes.
   `docs/handoffs/PR-56-storable-inflow.md`.
+- **T3 nodal structure (PR-75, ADR-0026).** 13,122 AC buses, 98% in one
+  island once EPE's small systems (Itaipu, Belo Monte, Xingu, Imperatriz,
+  Ivaipora...) are mapped; future elements left out.
+  `docs/handoffs/PR-75-t3-structure.md`.
 - **EPE nodal loader, local only (PR-74, ADR-0026).** Phase 5 starts: 13,188
   buses, 10,836 lines, 7,365 transformers, 16 HVDC lines, every 230 kV+ bus
   with a state. `docs/handoffs/PR-74-epe-nodal-loader.md`.

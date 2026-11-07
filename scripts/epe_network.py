@@ -32,7 +32,29 @@ STATES = "AC AL AM AP BA CE DF ES GO MA MG MS MT PA PB PE PI PR RJ RN RO RR RS S
 STATE_IN_NAME = re.compile(r"-(" + "|".join(STATES) + r")\d{3}\b")
 # EPE `System` -> this project's subsystem. 6 is Acre-Rondonia (SE/CO since
 # 2009), 7 Manaus-Amapa-Roraima (N). Codes not listed are reported, not guessed.
-SYSTEM_TO_SUBSYSTEM = {1: "SE_CO", 2: "S", 3: "NE", 4: "N", 6: "SE_CO", 7: "N"}
+#
+# PR-75: the small systems are not noise - they are the plants and
+# interconnection nodes NEWAVE models apart, and dropping them cut the grid
+# at the N boundaries. 5 Itaipu and Foz do Iguacu (Itaipu reports under SE),
+# 8 Belo Monte, 9 Teles Pires / Sinop / Colider (ONS puts that basin in
+# SE_CO), 11 Tapajos plants (PA), 100 Ivaipora 765 kV (in PR, ONS's S; a
+# judgement call, it sits on the S/SE_CO boundary), 200 Imperatriz (MA), 300
+# Xingu (Belo Monte's converter station). 10 is DC buses, left out.
+SYSTEM_TO_SUBSYSTEM = {
+    1: "SE_CO",
+    2: "S",
+    3: "NE",
+    4: "N",
+    5: "SE_CO",
+    6: "SE_CO",
+    7: "N",
+    8: "N",
+    9: "SE_CO",
+    11: "N",
+    100: "S",
+    200: "N",
+    300: "N",
+}
 NO_RATING = 99999.0
 BASE_MVA = 100.0
 
@@ -146,6 +168,7 @@ def hvdc_links(
             "bus1": dc_lines["BusToCode"].map(ac_of),
             "p_nom_mw": dc_lines["BusFromCode"].map(link_of).map(power),
             "link_name": dc_lines["BusFromCode"].map(link_of).map(links.set_index("Code")["Name"]),
+            "existing_flag": dc_lines["Existing"],
         }
     )
     return out

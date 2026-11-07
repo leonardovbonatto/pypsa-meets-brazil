@@ -80,7 +80,7 @@ class TestHvdc:
     def test_dc_line_joins_the_ac_buses_of_its_converters(self):
         dc_buses = pd.DataFrame({"Code": [10, 20], "DCLink": [1, 1]})
         dc_lines = pd.DataFrame(
-            {"Code": [7], "Name": ["DC_7"], "BusFromCode": [10], "BusToCode": [20]}
+            {"Code": [7], "Name": ["DC_7"], "BusFromCode": [10], "BusToCode": [20], "Existing": [0]}
         )
         converters = pd.DataFrame({"DCBusCode": [10, 20], "ACBusCode": [100, 200]})
         links = pd.DataFrame({"Code": [1], "Name": ["POLO 1"], "BasePower": [2000]})
