@@ -633,3 +633,33 @@ rule build_network_t1:
         "logs/build_network_t1/run.log",
     script:
         "../scripts/build_network_t1.py"
+
+
+EPE_LOCAL = Path(config["epe"]["local_dir"]).expanduser()
+
+
+rule epe_network:
+    """
+    ADR-0026: EPE's nodal network as tidy tables, read from the local
+    BaseDadosGT copy at the pinned commit. Local only, not part of `all`;
+    outputs under git-ignored resources/epe/.
+    """
+    input:
+        **{
+            name: str(EPE_LOCAL / f"{name}.dat")
+            for name in ("dbus", "dcirc", "dtrans", "gcbus", "ddcbus", "ddcline", "dcnvlcc", "dmtdclink")
+        },
+    output:
+        buses="resources/epe/t3_buses.csv",
+        lines="resources/epe/t3_lines.csv",
+        transformers="resources/epe/t3_transformers.csv",
+        hvdc="resources/epe/t3_hvdc.csv",
+        report="resources/epe/t3_report.json",
+        provenance="resources/_provenance/epe/basedadosgt_network.json",
+    params:
+        repository=config["epe"]["repository"],
+        commit=config["epe"]["commit"],
+    log:
+        "logs/epe_network/run.log",
+    script:
+        "../scripts/epe_network.py"

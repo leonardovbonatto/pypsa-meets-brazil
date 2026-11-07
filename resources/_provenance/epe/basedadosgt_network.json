@@ -1,0 +1,15 @@
+{
+  "commit": "5168bba0d702139dde233cf7d543ea037571a1ac",
+  "files": {
+    "dbus.dat": "ef4a5e294b20bd8560a1eb78a2c62c4df2ef5ca3bafa4c72f93f53b4b9c579a7",
+    "dcirc.dat": "91f7b15aadf09280ca4519ffad7423bf25ef3efceb5fada3a428f54b11adda82",
+    "dcnvlcc.dat": "2b6a7b8b1683313239839c2299b7561378f9b20efcf597eed7a970bbf5862000",
+    "ddcbus.dat": "f2fd24ca3fbb92e9aaf219706e13dae60fbafcab572b49986b41c2f48a348017",
+    "ddcline.dat": "1ec2c4bed65d9255f1d57ccec35537475ba0912a1eeaaa25017ca6aa7033e852",
+    "dmtdclink.dat": "1bf4d2136724183ed44c49c170bd0a2582ff82a873f8d21a9b30a45881b11ecc",
+    "dtrans.dat": "ae6de5a2fd5c1b185772172b14e7edd3b607e1496aca90415d43f08b5de86d12",
+    "gcbus.dat": "e10e8c6f42d35234a846a787e10fea2053e51cbab67262dc55dab183747ed2ae"
+  },
+  "licence": "none stated in the repository; data kept local (plan \u00a78)",
+  "source": "https://github.com/EPE-GOV-BR/BaseDadosGT"
+}

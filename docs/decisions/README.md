@@ -50,6 +50,7 @@ Do **not** write one for routine implementation choices with an obvious default.
 | [0023](ADR-0023-availability-before-curtailment.md) | Wind and solar availability before curtailment | Proposed |
 | [0024](ADR-0024-t1-out-of-sample-2025.md) | Out-of-sample test of T1 on 2025 | Proposed |
 | [0025](ADR-0025-curtailment-reasons-and-hydro-must-run.md) | Curtailment by reason and hydro must-run, tested on 2023 | Proposed |
+| [0026](ADR-0026-t3-from-epe-base.md) | T3 nodal network from EPE's G+T base; T1 by clustering it | Proposed |
 
 ## Template
 
