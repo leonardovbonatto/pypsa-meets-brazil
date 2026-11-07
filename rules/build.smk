@@ -683,3 +683,16 @@ rule build_network_t3_structure:
         "logs/build_network_t3_structure/run.log",
     script:
         "../scripts/build_network_t3.py"
+
+
+rule map_t3:
+    """ADR-0026: a local interactive map of T3 (EPE-derived; never published)."""
+    input:
+        network="resources/epe/t3_structure.nc",
+    output:
+        html="resources/epe/t3_map.html",
+        stats="resources/epe/t3_map_stats.json",
+    log:
+        "logs/map_t3/run.log",
+    script:
+        "../scripts/map_t3.py"

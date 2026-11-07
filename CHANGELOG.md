@@ -802,6 +802,7 @@ code without touching this file, unless it carries the `no-changelog` label.
   subsystems (SE_CO 0.90); price still fails, with prices near zero all
   year. `"gross"` and `"storable_plus_run_of_river"` remain as modes.
   `docs/handoffs/PR-56-storable-inflow.md`.
+- Local interactive map of T3 (`rule map_t3`, EPE-derived, never published).
 - **T3 nodal structure (PR-75, ADR-0026).** 13,122 AC buses, 98% in one
   island once EPE's small systems (Itaipu, Belo Monte, Xingu, Imperatriz,
   Ivaipora...) are mapped; future elements left out.
