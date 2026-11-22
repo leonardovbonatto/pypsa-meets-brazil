@@ -696,3 +696,65 @@ rule map_t3:
         "logs/map_t3/run.log",
     script:
         "../scripts/map_t3.py"
+
+
+rule epe_plant_weights:
+    """
+    ADR-0026 / PR-76: per-bus weights of EPE's plants (by carrier) and base
+    load, used only to place 2024 energy on T3 buses. Local only.
+    """
+    input:
+        busconnection=str(EPE_LOCAL / "busconnection.dat"),
+        dload=str(EPE_LOCAL / "dload.dat"),
+        loadp=str(EPE_LOCAL / "loadp_b004m.dat"),
+    output:
+        generation="resources/epe/t3_generation_weights.csv",
+        load="resources/epe/t3_load_weights.csv",
+        summary="resources/epe/t3_plants_summary.csv",
+    log:
+        "logs/epe_plant_weights/run.log",
+    script:
+        "../scripts/epe_plants.py"
+
+
+rule build_network_t3:
+    """
+    ADR-0026 / PR-76: T3 with T0's 2024 energy placed on its buses: ONS 2024
+    shares to (state, subsystem), EPE plant capacity and load to buses.
+    Local only.
+    """
+    input:
+        structure="resources/epe/t3_structure.nc",
+        t0="resources/networks/t0.nc",
+        nodes="resources/t1/nodes.csv",
+        gen_weights="resources/epe/t3_generation_weights.csv",
+        load_weights="resources/epe/t3_load_weights.csv",
+        generation=[
+            f"resources/ons/GERACAO_USINA_2_{year}_{month:02d}.csv"
+            for year, month in snapshot_year_months(config)
+        ],
+    output:
+        network="resources/epe/t3.nc",
+        report="resources/epe/t3_energy_report.json",
+    log:
+        "logs/build_network_t3/run.log",
+    script:
+        "../scripts/build_network_t3_energy.py"
+
+
+rule solve_t3_day:
+    """PR-76: a one-hour feasibility solve of T3 (local only)."""
+    input:
+        network="resources/epe/t3.nc",
+    output:
+        report="resources/epe/t3_day_report.json",
+    params:
+        # PR-76: one hour takes 11 GB and 6.5 min; longer T3 solves are left
+        # to the clustered tiers.
+        hours=1,
+        solver_name=config["solver"]["name"],
+        solver_options=config["solver"]["options"],
+    log:
+        "logs/solve_t3_day/run.log",
+    script:
+        "../scripts/solve_t3_day.py"
