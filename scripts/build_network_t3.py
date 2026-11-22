@@ -130,3 +130,17 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+
+def main_component(n: pypsa.Network) -> pd.Index:
+    """Buses connected to the largest group through lines AND HVDC links.
+    PR-77: Itaipu's 50 Hz side and the Madeira collector are AC islands that
+    reach the grid only over HVDC; PyPSA's AC sub-networks treat them as
+    separate, and dropping them dropped Itaipu's and Madeira's HVDC."""
+    import networkx as nx
+
+    g = nx.Graph()
+    g.add_nodes_from(n.buses.index)
+    g.add_edges_from(zip(n.lines["bus0"], n.lines["bus1"], strict=True))
+    g.add_edges_from(zip(n.links["bus0"], n.links["bus1"], strict=True))
+    return pd.Index(sorted(max(nx.connected_components(g), key=len)))

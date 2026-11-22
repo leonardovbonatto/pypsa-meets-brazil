@@ -44,16 +44,21 @@ def boundary_flows(
     n: pypsa.Network, subsystem_of: pd.Series, boundaries: pd.DataFrame
 ) -> pd.DataFrame:
     """snapshot x boundary: net flow bus0 -> bus1 of each T0 boundary, summed
-    over T1 links crossing it, measured at the sending end (p0)."""
-    s0 = n.links["bus0"].map(subsystem_of)
-    s1 = n.links["bus1"].map(subsystem_of)
+    over the links AND lines crossing it (PR-77: the clustered T1 has AC
+    lines between subsystems), measured at the sending end (p0)."""
     out = {}
     for _, b in boundaries.iterrows():
-        forward = n.links.index[(s0 == b["bus0"]) & (s1 == b["bus1"])]
-        backward = n.links.index[(s0 == b["bus1"]) & (s1 == b["bus0"])]
-        out[f"{b['bus0']}-{b['bus1']}"] = n.links_t.p0[forward].sum(axis=1) - n.links_t.p0[
-            backward
-        ].sum(axis=1)
+        total = pd.Series(0.0, index=n.snapshots)
+        for static, p0 in ((n.links, n.links_t.p0), (n.lines, n.lines_t.p0)):
+            if static.empty:
+                continue
+            s0 = static["bus0"].map(subsystem_of)
+            s1 = static["bus1"].map(subsystem_of)
+            forward = static.index[(s0 == b["bus0"]) & (s1 == b["bus1"])]
+            backward = static.index[(s0 == b["bus1"]) & (s1 == b["bus0"])]
+            total = total + p0.reindex(columns=forward, fill_value=0.0).sum(axis=1)
+            total = total - p0.reindex(columns=backward, fill_value=0.0).sum(axis=1)
+        out[f"{b['bus0']}-{b['bus1']}"] = total
     return pd.DataFrame(out)
 
 

@@ -100,3 +100,45 @@ rule check_t1_gate:
         "logs/check_t1_gate/{run}.log",
     script:
         "../scripts/check_t1_gate.py"
+
+
+rule solve_network_t1_clustered:
+    """ADR-0026: solve T1 as clustered from T3 (local only, EPE-derived)."""
+    input:
+        "resources/epe/t1_clustered.nc",
+    output:
+        network="results/{run}/epe/network_t1_clustered_solved.nc",
+        summary="results/{run}/epe/dispatch_summary_t1_clustered.json",
+    params:
+        solver_name=config["solver"]["name"],
+        solver_options=config["solver"]["options"],
+    log:
+        "logs/solve_network_t1_clustered/{run}.log",
+    script:
+        "../scripts/solve_network.py"
+
+
+rule check_t1_clustered_gate:
+    """
+    ADR-0026: the clustered T1 scored like ADR-0022's T1 (generation vs T0
+    within 1%, ADR-0020's interchange) with the post-hoc ONS comparison.
+    """
+    input:
+        t1="results/{run}/epe/network_t1_clustered_solved.nc",
+        t0="results/{run}/network_t0_solved.nc",
+        nodes="resources/epe/t1_clustered_nodes.csv",
+        interchange=expand(
+            "resources/ons/INTERCAMBIO_NACIONAL_{year}.csv",
+            year=snapshot_years(config),
+        ),
+        links_t0="resources/links_t0.csv",
+        generation=[
+            f"resources/ons/GERACAO_USINA_2_{year}_{month:02d}.csv"
+            for year, month in snapshot_year_months(config)
+        ],
+    output:
+        report="results/{run}/epe/t1_clustered_gate.json",
+    log:
+        "logs/check_t1_clustered_gate/{run}.log",
+    script:
+        "../scripts/check_t1_gate.py"

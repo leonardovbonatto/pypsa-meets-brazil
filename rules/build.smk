@@ -758,3 +758,20 @@ rule solve_t3_day:
         "logs/solve_t3_day/run.log",
     script:
         "../scripts/solve_t3_day.py"
+
+
+rule cluster_t3_to_t1:
+    """
+    ADR-0026 decision 4: T1 as T3 clustered to (state, subsystem) nodes,
+    thermal cost bands kept apart. Local only (EPE-derived).
+    """
+    input:
+        network="resources/epe/t3.nc",
+    output:
+        network="resources/epe/t1_clustered.nc",
+        nodes="resources/epe/t1_clustered_nodes.csv",
+        report="resources/epe/t1_clustered_report.json",
+    log:
+        "logs/cluster_t3_to_t1/run.log",
+    script:
+        "../scripts/cluster_t3.py"

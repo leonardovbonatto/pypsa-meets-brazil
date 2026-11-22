@@ -31,6 +31,7 @@ import pypsa
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from build_network_t1 import observed_shares
+from build_network_t3 import main_component
 
 # T0 carrier -> EPE plant kind whose capacity places it.
 EPE_KIND = {
@@ -238,12 +239,12 @@ def main() -> None:
     snake = globals()["snakemake"]
     t3 = pypsa.Network(str(snake.input.structure))
     t0 = pypsa.Network(str(snake.input.t0))
-    main_sub = t3.buses["sub_network"].value_counts().idxmax()
+    main = main_component(t3)  # lines and HVDC (PR-77)
     buses = t3.buses.reset_index().rename(
         columns={t3.buses.index.name or "index": "bus", "v_nom": "v_nom_kv"}
     )
     buses["bus"] = buses["bus"].astype(int)
-    buses["main_island"] = buses["sub_network"] == main_sub
+    buses["main_island"] = buses["bus"].astype(str).isin(main)
     nodes = pd.read_csv(snake.input.nodes)
     columns = [
         "id_estado",
