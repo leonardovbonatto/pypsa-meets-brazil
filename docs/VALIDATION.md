@@ -21,6 +21,7 @@ Read a post-hoc pass as a description, not as evidence.
 | Out of sample | T1 | 2025 | ADR-0020's eight checks (ADR-0024) | yes (`2a39aa5`, before fetching 2025) | **fail, 4 of 8**: wind 1.088, solar 1.052, N-NE 7.3%, N-SE_CO 9.0% |
 | Reason-aware curtailment + hydro must-run | T1 | 2023 | changed passes more of the eight than baseline (ADR-0025) | yes (`0c44851`, before fetching 2023) | **not adopted**: changed T1 infeasible; baseline 5 of 8 |
 | Clustered EPE T1 (PR-77, PR-78) | T1 from T3 | 2024 | ADR-0020's eight checks | **no** (variants chosen on 2024) | 5 of 8: wind 1.058, solar 1.057, N-SE_CO 14.9% fail |
+| Clustered T1 held out (ADR-0027) | T1 from T3 | 2025 (decides), 2023 | 2025 more than DLR's 4 of 8; 2023 at least DLR's 5 | yes (`934beb4`) | **fail**: 2025 4 of 8, 2023 5 of 8. N-NE passes both years; NE-SE_CO and N-SE_CO fail both |
 
 ## T1 against ADR-0020's eight checks, by year
 

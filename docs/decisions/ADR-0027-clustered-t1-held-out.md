@@ -50,3 +50,28 @@ EPE's base is one network close to today's grid (its first dated changes
 are in 2030) and gives no build dates for existing lines. Lines built in
 2023-2025 are therefore in the 2023 run, which can make 2023's transfer
 limits too generous. 2025 is the closer match, one more reason it decides.
+
+## Outcome (PR-79): fails, 2025 4 of 8 (needed 5); 2023 5 of 8 (held)
+
+Runs `t0-7a613a39` (2025) and `t0-b87309e0` (2023), model frozen at
+`934beb4`, no data-format fixes needed. DLR-based T1 in brackets.
+
+| check | 2025 | 2023 |
+|---|---|---|
+| wind | 1.160 fail (1.088 fail) | 0.990 pass (0.969 pass) |
+| utility solar | 1.204 fail (1.052 fail) | 0.965 pass (0.954 pass) |
+| nuclear | 0.990 pass (0.993 pass) | 0.995 pass (0.995 pass) |
+| thermal | 1.013 pass (1.002 pass) | 1.127 fail (1.079 fail) |
+| N-NE | 1.6% pass (7.3% fail) | 0.6% pass (11.1% fail) |
+| N-SE_CO | 8.5% fail (9.0% fail) | 12.0% fail (8.2% fail) |
+| NE-SE_CO | 8.6% fail (4.2% pass) | 13.8% fail (0.2% pass) |
+| SE_CO-S | 0.5% pass (0.6% pass) | 0.7% pass (0.1% pass) |
+| **passed** | **4 (4)** | **5 (5)** |
+
+What changed against DLR: N-NE, which DLR failed in both held-out years,
+now passes in both. NE-SE_CO, which DLR passed, now fails in both. N
+sends too much to SE_CO in all three years (2024: 14.9%), the pattern
+PR-78 traced to Belo Monte's HVDC running a pole backwards. In 2025 wind
+and solar are further above ONS than DLR's: the clustered grid has more
+transfer capacity, and ONS's curtailment for energy surplus is not
+modelled.

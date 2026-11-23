@@ -802,6 +802,9 @@ code without touching this file, unless it carries the `no-changelog` label.
   subsystems (SE_CO 0.90); price still fails, with prices near zero all
   year. `"gross"` and `"storable_plus_run_of_river"` remain as modes.
   `docs/handoffs/PR-56-storable-inflow.md`.
+- **Clustered T1 held out (PR-79, ADR-0027): fails.** 2025 4 of 8 (needed 5),
+  2023 5 of 8. N-NE now passes both years; NE-SE_CO and N-SE_CO fail both.
+  `docs/handoffs/PR-79-clustered-t1-held-out.md`.
 - **ADR-0027:** pre-registered held-out test of the clustered T1 (2025 decides:
   more than DLR's 4 of 8; 2023: at least DLR's 5 of 8).
 - **Corridors of the clustered T1 (PR-78).** Jumpers and series capacitors
