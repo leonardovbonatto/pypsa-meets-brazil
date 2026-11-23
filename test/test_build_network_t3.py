@@ -77,6 +77,8 @@ class TestStructure:
         assert "L11" not in n.lines.index  # Existing = 1
         assert "L12" not in n.lines.index  # touches the dropped bus
         assert list(n.links.index) == ["HVDC30"]
+        assert n.links.loc["HVDC30", "p_min_pu"] == (0.0 if t3.HVDC_ONE_WAY else -1.0)
+        assert (n.links.loc["HVDC30", "marginal_cost"] > 0.0) == t3.HVDC_ONE_WAY
         assert report["dropped_future_lines"] == 1
 
     def test_impedance_in_ohm_and_transformer_as_line(self):

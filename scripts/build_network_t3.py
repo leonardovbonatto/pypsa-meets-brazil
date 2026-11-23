@@ -25,13 +25,24 @@ EPE data stays local: input and output under git-ignored resources/epe/.
 # NOTE: no `from __future__ import annotations` - see write_manifest.py.
 
 import json
+import sys
 from pathlib import Path
 
 import pandas as pd
 import pypsa
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from build_network import LINK_TIE_BREAK_COST
+
 BASE_MVA = 100.0
 UNLIMITED_MVA = 1.0e6
+# PR-78, tried and NOT adopted: HVDC one-way (plant to load centre) with
+# T0's tie-break cost. Two-way and free, the clustered 2024 solve runs one
+# Belo Monte pole backwards (RJ -> Xingu -> MG) around AC limits. One-way
+# moved N-SE_CO from 14.9% to 7.5% of capacity but NE-SE_CO from 4.1% to
+# 5.5% (fail) and thermal from 1.03 to 1.08 of ONS: mixed, so off.
+HVDC_ONE_WAY = False
 
 
 def ohm(pct: pd.Series, kv: pd.Series) -> pd.Series:
@@ -92,7 +103,8 @@ def build_t3(
         bus0=live_dc["bus0"].astype(str).to_numpy(),
         bus1=live_dc["bus1"].astype(str).to_numpy(),
         p_nom=live_dc["p_nom_mw"].to_numpy(),
-        p_min_pu=-1.0,
+        p_min_pu=0.0 if HVDC_ONE_WAY else -1.0,
+        marginal_cost=LINK_TIE_BREAK_COST if HVDC_ONE_WAY else 0.0,
         carrier="DC",
     )
     n.links["link_name"] = live_dc["link_name"].to_numpy()

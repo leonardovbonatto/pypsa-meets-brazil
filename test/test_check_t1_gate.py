@@ -53,6 +53,21 @@ class TestT1Gate:
         # 10 MW goes S -> SE_CO, so SE_CO -> S is -10; RS-PR stays inside S.
         assert list(flows["SE_CO-S"]) == pytest.approx([-10.0, -10.0])
 
+    def test_boundary_flow_sums_lines_too(self):
+        # PR-77: the clustered T1 joins subsystems with AC lines as well.
+        n = pypsa.Network()
+        n.set_snapshots(HOURS)
+        for b in ["PR", "SP"]:
+            n.add("Bus", b, v_nom=500.0)
+        n.add("Load", "SP", bus="SP", p_set=10.0)
+        n.add("Generator", "PR hydro", bus="PR", carrier="hydro", p_nom=20.0, marginal_cost=1.0)
+        n.add("Line", "PR-SP", bus0="PR", bus1="SP", x=10.0, s_nom=20.0)
+        n.optimize(solver_name="highs", include_objective_constant=False)
+        subsystem = pd.Series({"PR": "S", "SP": "SE_CO"})
+        boundaries = pd.DataFrame({"bus0": ["SE_CO"], "bus1": ["S"], "p_nom_mw": [100.0]})
+        flows = gate.boundary_flows(n, subsystem, boundaries)
+        assert list(flows["SE_CO-S"]) == pytest.approx([-10.0, -10.0])
+
     def test_report_compares_generation_with_t0(self):
         n = _t1()
         subsystem = pd.Series({"PR": "S", "RS": "S", "SP": "SE_CO"})

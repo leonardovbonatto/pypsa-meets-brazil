@@ -802,6 +802,13 @@ code without touching this file, unless it carries the `no-changelog` label.
   subsystems (SE_CO 0.90); price still fails, with prices near zero all
   year. `"gross"` and `"storable_plus_run_of_river"` remain as modes.
   `docs/handoffs/PR-56-storable-inflow.md`.
+- **Corridors of the clustered T1 (PR-78).** Jumpers and series capacitors
+  stay inside their substation's node; low-voltage ties beside a >= 230 kV
+  corridor are dropped; corridor reactances are fitted to T3's own DC power
+  flow. 2024 (post hoc): N-NE, NE-SE_CO, SE_CO-S pass, N-SE_CO fails; thermal
+  1.03 of ONS. One-way HVDC tried, not adopted. Voltage ties in the
+  substation rule are now deterministic.
+  `docs/handoffs/PR-78-clustered-t1-corridors.md`.
 - **T1 by clustering T3 (PR-77, ADR-0026).** 35 nodes, 12 HVDC links kept
   (Itaipu and Madeira reach the grid only over HVDC). 2024: N boundaries pass,
   NE-SE_CO fails (low-voltage ties block NE exports).
