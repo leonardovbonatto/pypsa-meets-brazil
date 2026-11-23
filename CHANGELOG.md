@@ -802,6 +802,8 @@ code without touching this file, unless it carries the `no-changelog` label.
   subsystems (SE_CO 0.90); price still fails, with prices near zero all
   year. `"gross"` and `"storable_plus_run_of_river"` remain as modes.
   `docs/handoffs/PR-56-storable-inflow.md`.
+- **ADR-0027:** pre-registered held-out test of the clustered T1 (2025 decides:
+  more than DLR's 4 of 8; 2023: at least DLR's 5 of 8).
 - **Corridors of the clustered T1 (PR-78).** Jumpers and series capacitors
   stay inside their substation's node; low-voltage ties beside a >= 230 kV
   corridor are dropped; corridor reactances are fitted to T3's own DC power
